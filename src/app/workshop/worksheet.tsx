@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { WorkshopScaffold } from '@/components/workshop-scaffold';
 import { Button } from '@/components/ui/button';
+import { ConfirmSheet } from '@/components/ui/confirm-sheet';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 
@@ -21,6 +22,7 @@ const STEPS: StepRow[] = [
 
 export default function WorkshopWorksheet() {
   const [uploaded, setUploaded] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   return (
     <WorkshopScaffold
@@ -58,7 +60,7 @@ export default function WorkshopWorksheet() {
                     iconRight={s.action.icon}
                     variant="primary"
                     size="md"
-                    onPress={() => s.n === 3 && setUploaded(true)}
+                    onPress={() => s.n === 3 && setConfirming(true)}
                   />
                 </View>
               )}
@@ -72,6 +74,16 @@ export default function WorkshopWorksheet() {
           Upload your completed worksheet to continue.
         </Txt>
       )}
+
+      <ConfirmSheet
+        visible={confirming}
+        title="Have you filled the worksheet?"
+        onCancel={() => setConfirming(false)}
+        onConfirm={() => {
+          setConfirming(false);
+          setUploaded(true);
+        }}
+      />
     </WorkshopScaffold>
   );
 }

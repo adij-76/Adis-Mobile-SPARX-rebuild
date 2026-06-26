@@ -128,7 +128,7 @@ export default function HomeScreen() {
         </View>
 
         {/* Programs */}
-        <SectionHeader title="Programs" />
+        <SectionHeader title="Programs" onSeeAll={() => router.push('/workshop/list')} />
         <LinearGradient
           colors={['#10243A', '#1C3B55', '#3A2A5A']}
           start={{ x: 0, y: 0 }}
@@ -183,7 +183,7 @@ export default function HomeScreen() {
         </View>
 
         {/* Recommended videos */}
-        <SectionHeader title="Recommended Videos" />
+        <SectionHeader title="Recommended Videos" onSeeAll={() => router.push('/workshop/list')} />
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -220,7 +220,15 @@ function HeaderIcon({ name }: { name: keyof typeof Ionicons.glyphMap }) {
   );
 }
 
-function SectionHeader({ title, count }: { title: string; count?: number }) {
+function SectionHeader({
+  title,
+  count,
+  onSeeAll,
+}: {
+  title: string;
+  count?: number;
+  onSeeAll?: () => void;
+}) {
   return (
     <View style={styles.sectionHeader}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
@@ -233,7 +241,7 @@ function SectionHeader({ title, count }: { title: string; count?: number }) {
           </View>
         )}
       </View>
-      <Pressable>
+      <Pressable onPress={onSeeAll}>
         <Txt variant="bodySmMedium" color={Colors.primary}>
           See all
         </Txt>

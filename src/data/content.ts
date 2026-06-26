@@ -88,6 +88,55 @@ export const recommendedVideos: VideoItem[] = [
   },
 ];
 
+export type WorkshopSummary = {
+  id: string;
+  title: string;
+  author: string;
+  description: string;
+  rating: number;
+  image: string;
+};
+
+/** Browse list shown on the "See all" / My Lessons screen. */
+export const workshops: WorkshopSummary[] = [
+  {
+    id: 'heart-therapy',
+    title: 'Heart Therapy',
+    author: 'Lynell Yasno',
+    description:
+      'Lynell Yasno leads you through an at-home art therapy workshop where she helps you honestly explore and express what you feel.',
+    rating: 5,
+    image: 'https://images.unsplash.com/photo-1490578474895-699cd4e2cf59?w=600&q=70',
+  },
+  {
+    id: 'bliss-blueprint',
+    title: 'Ultimate bliss blueprint: A human motivation science + system solution',
+    author: 'Dr. Jaffe',
+    description:
+      'Dr. Jaffe dives into human needs, motivation and the aspects of life that fulfill our most basic requirements for a meaningful life.',
+    rating: 5,
+    image: 'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=600&q=70',
+  },
+  {
+    id: 'inner-map',
+    title: 'The inner map of relationships',
+    author: 'Adi Jaffe',
+    description:
+      'Understand the patterns that shape how you connect, and learn to redraw the map toward healthier, more honest relationships.',
+    rating: 4,
+    image: 'https://images.unsplash.com/photo-1516585427167-9f4af9627e6c?w=600&q=70',
+  },
+  {
+    id: 'face-experience',
+    title: 'Learning to face your experience',
+    author: 'Sarah Lin',
+    description:
+      'A guided practice for sitting with difficult emotions without avoidance, building the courage to continue.',
+    rating: 5,
+    image: 'https://images.unsplash.com/photo-1499209974431-9dddcece7f88?w=600&q=70',
+  },
+];
+
 export const workshop = {
   title: 'Master your belief with Dr. Bruce Lipton',
   rating: 5,
