@@ -3,8 +3,8 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppHeader } from '@/components/app-header';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ListRow } from '@/components/ui/list-row';
@@ -24,25 +24,23 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.root}>
-      <SafeAreaView edges={['top']} style={styles.headerSafe}>
-        <View style={styles.header}>
+      <AppHeader />
+
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.profileCard}>
           <Image source={{ uri: user.avatar }} style={styles.avatar} />
-          <Txt variant="title" color={Colors.white}>
-            {user.name} Joseph
-          </Txt>
-          <Txt variant="bodySm" color={Colors.textMutedOnDark}>
-            okei@example.com
+          <Txt variant="title">{user.name} Joseph</Txt>
+          <Txt variant="bodySm" color={Colors.textSub}>
+            okeijoseph@igntd.com
           </Txt>
           <Pressable style={styles.editBtn} onPress={() => router.push('/settings/change-password')}>
-            <Ionicons name="create-outline" size={16} color={Colors.white} />
+            <Ionicons name="image-outline" size={16} color={Colors.white} />
             <Txt variant="bodySmMedium" color={Colors.white}>
-              Edit profile
+              Change Image
             </Txt>
           </Pressable>
         </View>
-      </SafeAreaView>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Card style={styles.stats}>
           {STATS.map((s, i) => (
             <Pressable
@@ -136,10 +134,9 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.screen },
-  headerSafe: { backgroundColor: Colors.primaryDark },
-  header: { alignItems: 'center', paddingHorizontal: Spacing.lg, paddingTop: Spacing.md, paddingBottom: Spacing.xl, gap: Spacing.xs },
-  avatar: { width: 84, height: 84, borderRadius: 42, marginBottom: Spacing.sm, backgroundColor: Colors.blue600, borderWidth: 3, borderColor: 'rgba(255,255,255,0.2)' },
-  editBtn: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginTop: Spacing.sm, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: Radius.pill, backgroundColor: 'rgba(255,255,255,0.12)' },
+  profileCard: { alignItems: 'center', paddingTop: Spacing.sm, paddingBottom: Spacing.sm, gap: Spacing.xs },
+  avatar: { width: 84, height: 84, borderRadius: 42, marginBottom: Spacing.sm, backgroundColor: Colors.soft, borderWidth: 3, borderColor: Colors.stroke },
+  editBtn: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginTop: Spacing.sm, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: Radius.pill, backgroundColor: Colors.primary },
   content: { padding: Spacing.lg, gap: Spacing.md, paddingBottom: Spacing.xxl },
   stats: { flexDirection: 'row', paddingVertical: Spacing.lg },
   stat: { flex: 1, alignItems: 'center', gap: 2 },

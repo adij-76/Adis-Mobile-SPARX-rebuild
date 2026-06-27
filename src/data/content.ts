@@ -286,24 +286,79 @@ export const workshop = {
 /* My Data — Wheel of Life, Daily Assessment, Leaderboard             */
 /* ------------------------------------------------------------------ */
 
-export type LifeArea = {
+/** Wheel of Life categories (from the IGNTD design). Each has two
+ *  sub-dimensions scored 0–100; the category score is their average. */
+export type WheelSubQuestion = { id: string; label: string; prompt: string; score: number };
+
+export type WheelCategory = {
   id: string;
-  label: string;
+  label: string; // e.g. "Purpose and Contribution"
+  short: string; // short radar-axis label
   icon: string; // Ionicons name
-  score: number; // 0–10
   color: string;
+  questions: [WheelSubQuestion, WheelSubQuestion];
 };
 
-export const lifeAreas: LifeArea[] = [
-  { id: 'health', label: 'Health', icon: 'fitness', score: 7, color: '#38C793' },
-  { id: 'career', label: 'Career', icon: 'briefcase', score: 6, color: '#166890' },
-  { id: 'relationships', label: 'Relationships', icon: 'heart', score: 8, color: '#FF9D4B' },
-  { id: 'finances', label: 'Finances', icon: 'wallet', score: 5, color: '#699AC1' },
-  { id: 'growth', label: 'Personal Growth', icon: 'leaf', score: 9, color: '#C7D66D' },
-  { id: 'fun', label: 'Fun & Recreation', icon: 'happy', score: 6, color: '#DF1C41' },
-  { id: 'environment', label: 'Environment', icon: 'home', score: 7, color: '#1C3B55' },
-  { id: 'spirituality', label: 'Spirituality', icon: 'sparkles', score: 8, color: '#4A2B6B' },
+export const wheelCategories: WheelCategory[] = [
+  {
+    id: 'purpose',
+    label: 'Purpose and Contribution',
+    short: 'Purpose',
+    icon: 'compass',
+    color: '#2F6BFF',
+    questions: [
+      { id: 'purpose', label: 'Purpose', prompt: 'How aligned do you feel with what matters to you?', score: 60 },
+      { id: 'contribution', label: 'Contribution', prompt: 'How satisfied are you with your service to the world?', score: 60 },
+    ],
+  },
+  {
+    id: 'business',
+    label: 'Business and Finance',
+    short: 'Business',
+    icon: 'briefcase',
+    color: '#2BB3E0',
+    questions: [
+      { id: 'business', label: 'Business', prompt: 'How fulfilled are you in your work and career?', score: 80 },
+      { id: 'finance', label: 'Finance', prompt: 'How comfortable are you with your finances?', score: 80 },
+    ],
+  },
+  {
+    id: 'health',
+    label: 'Health and Family',
+    short: 'Health',
+    icon: 'heart',
+    color: '#7A5AF8',
+    questions: [
+      { id: 'health', label: 'Health', prompt: 'How satisfied are you with your current health status?', score: 100 },
+      { id: 'family', label: 'Family', prompt: 'How satisfied are you with your family & friends relationships?', score: 100 },
+    ],
+  },
+  {
+    id: 'romance',
+    label: 'Romance and Fun',
+    short: 'Romance',
+    icon: 'happy',
+    color: '#FF9D4B',
+    questions: [
+      { id: 'romance', label: 'Romance', prompt: 'How fulfilled do you feel in your romantic life?', score: 40 },
+      { id: 'fun', label: 'Fun & Recreation', prompt: 'How much fun and recreation do you make time for?', score: 40 },
+    ],
+  },
+  {
+    id: 'growth',
+    label: 'Personal Growth and Environment',
+    short: 'Growth',
+    icon: 'leaf',
+    color: '#F5732B',
+    questions: [
+      { id: 'growth', label: 'Personal Growth', prompt: 'How satisfied are you with your growth and learning?', score: 70 },
+      { id: 'environment', label: 'Physical Environment', prompt: 'How satisfied are you with your living environment?', score: 70 },
+    ],
+  },
 ];
+
+export const wheelScore = (c: WheelCategory) =>
+  Math.round((c.questions[0].score + c.questions[1].score) / 2);
 
 export type AssessmentQuestion = {
   id: string;
