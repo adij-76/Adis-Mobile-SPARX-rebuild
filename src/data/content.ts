@@ -15,7 +15,22 @@ export const WORKSHOP_STEPS: Step[] = [
 export const user = {
   name: 'Okei',
   avatar: 'https://i.pravatar.cc/120?img=12',
+  /** The user's specific struggle — the check-in customizes to this. */
+  struggle: { verb: 'drink', noun: 'drinking' },
 };
+
+export const positiveEmotions = [
+  'Calm', 'Hopeful', 'Grateful', 'Proud', 'Content', 'Confident', 'Loved',
+  'Motivated', 'Peaceful', 'Joyful', 'Energized', 'Connected', 'Focused',
+  'Relieved', 'Optimistic', 'Strong', 'Inspired', 'Safe',
+];
+
+export const negativeEmotions = [
+  'Fear', 'Boredom', 'Hopelessness', 'Sickness', 'Frustration', 'Anxiety',
+  'Irritability', 'Shame', 'Weakness', 'Vulnerability', 'Down', 'Overwhelmed',
+  'Confusion', 'Guilt', 'Triggered', 'Depressed', 'Insecurity', 'Anger',
+  'Disappointment', 'Uncertainty', 'Burn-out', 'Exhaustion',
+];
 
 export const dailyQuote = {
   text: 'Success is not final, failure is not fatal: It is the courage to continue that counts.',

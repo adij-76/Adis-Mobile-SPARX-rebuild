@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppHeader } from '@/components/app-header';
@@ -19,6 +19,7 @@ import {
   socials,
   upcomingMeetings,
 } from '@/data/content';
+import { isDoneToday } from '@/lib/checkin';
 
 const TABS = ['Programs', 'Workshop', 'Challenges'] as const;
 
@@ -26,6 +27,16 @@ export default function HomeScreen() {
   const router = useRouter();
   const [tab, setTab] = useState<(typeof TABS)[number]>('Programs');
   const [checklistOpen, setChecklistOpen] = useState(true);
+
+  // Auto-present the daily check-in once per day when the app opens.
+  const prompted = useRef(false);
+  useEffect(() => {
+    if (prompted.current) return;
+    prompted.current = true;
+    isDoneToday().then((done) => {
+      if (!done) setTimeout(() => router.push('/checkin'), 400);
+    });
+  }, [router]);
 
   return (
     <View style={styles.root}>
@@ -76,8 +87,9 @@ export default function HomeScreen() {
           </Pressable>
           {checklistOpen &&
             dailyChecklist.map((item, i) => (
-              <View
+              <Pressable
                 key={item.id}
+                onPress={() => item.id === 'checkin' && router.push('/checkin')}
                 style={[
                   styles.checkRow,
                   i === 0 && item.done && styles.checkRowDone,
@@ -93,7 +105,7 @@ export default function HomeScreen() {
                 {!item.done && (
                   <Ionicons name="chevron-forward" size={18} color={Colors.textSub} />
                 )}
-              </View>
+              </Pressable>
             ))}
         </Card>
 

@@ -40,6 +40,10 @@ export default function RootLayout() {
           <Stack.Screen name="meetings" options={{ presentation: 'card' }} />
           <Stack.Screen name="videos" options={{ presentation: 'card' }} />
           <Stack.Screen name="quotes" options={{ presentation: 'fullScreenModal', animation: 'fade' }} />
+          <Stack.Screen
+            name="checkin"
+            options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }}
+          />
           <Stack.Screen name="mydata" options={{ presentation: 'card' }} />
           <Stack.Screen name="feed" options={{ presentation: 'card' }} />
           <Stack.Screen name="settings" options={{ presentation: 'card' }} />
