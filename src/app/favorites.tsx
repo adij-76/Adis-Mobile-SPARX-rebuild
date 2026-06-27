@@ -52,7 +52,7 @@ export default function Favorites() {
                     {w.author}
                   </Txt>
                 </View>
-                <Ionicons name="bookmark" size={20} color={Colors.orange} />
+                <Ionicons name="bookmark" size={20} color={Colors.primary} />
               </Pressable>
             ))
           : recommendedVideos.map((v) => (
@@ -74,7 +74,7 @@ export default function Favorites() {
                     {v.presenter} · {v.duration}
                   </Txt>
                 </View>
-                <Ionicons name="bookmark" size={20} color={Colors.orange} />
+                <Ionicons name="bookmark" size={20} color={Colors.primary} />
               </Pressable>
             ))}
       </ScrollView>

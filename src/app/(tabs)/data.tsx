@@ -1,31 +1,29 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppHeader } from '@/components/app-header';
 import { Card } from '@/components/ui/card';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
-import { lifeAreas, reports } from '@/data/content';
+import { reports, wheelCategories, wheelScore } from '@/data/content';
 
 export default function DataScreen() {
   const router = useRouter();
-  const balance = Math.round((lifeAreas.reduce((s, a) => s + a.score, 0) / lifeAreas.length) * 10);
+  const scored = wheelCategories.map((c) => ({ ...c, score: wheelScore(c) }));
+  const balance = Math.round(scored.reduce((s, a) => s + a.score, 0) / scored.length);
 
   return (
     <View style={styles.root}>
-      <SafeAreaView edges={['top']} style={styles.headerSafe}>
-        <View style={styles.header}>
-          <Txt variant="title" color={Colors.white}>
-            My Data
-          </Txt>
-          <Txt variant="bodySm" color={Colors.textMutedOnDark}>
+      <AppHeader />
+
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={{ gap: 2 }}>
+          <Txt variant="titleLg">My Data</Txt>
+          <Txt variant="bodySm" color={Colors.textSub}>
             Track your progress and check-ins over time
           </Txt>
         </View>
-      </SafeAreaView>
-
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Wheel of Life summary */}
         <Pressable onPress={() => router.push('/mydata/wheel')}>
           <Card style={{ gap: Spacing.lg }}>
@@ -37,15 +35,15 @@ export default function DataScreen() {
                 </Txt>
               </View>
             </View>
-            {lifeAreas.slice(0, 4).map((a) => (
+            {scored.slice(0, 4).map((a) => (
               <View key={a.id} style={styles.areaRow}>
                 <Ionicons name={a.icon as never} size={18} color={a.color} />
-                <Txt variant="bodySm" style={{ width: 110 }}>
-                  {a.label}
+                <Txt variant="bodySm" style={{ width: 130 }} numberOfLines={1}>
+                  {a.short}
                 </Txt>
                 <View style={styles.track}>
                   <View
-                    style={[styles.fill, { width: `${a.score * 10}%`, backgroundColor: a.color }]}
+                    style={[styles.fill, { width: `${a.score}%`, backgroundColor: a.color }]}
                   />
                 </View>
                 <Txt variant="bodySmBold" color={Colors.textSub}>
@@ -114,8 +112,6 @@ export default function DataScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.screen },
-  headerSafe: { backgroundColor: Colors.primaryDark },
-  header: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.lg, gap: Spacing.xs },
   content: { padding: Spacing.lg, gap: Spacing.lg, paddingBottom: Spacing.xxl },
   cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   balancePill: {

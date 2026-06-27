@@ -4,8 +4,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppHeader } from '@/components/app-header';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ProgressBar } from '@/components/ui/progress-bar';
@@ -18,7 +18,6 @@ import {
   recommendedVideos,
   socials,
   upcomingMeetings,
-  user,
 } from '@/data/content';
 
 const TABS = ['Programs', 'Workshop', 'Challenges'] as const;
@@ -30,20 +29,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.root}>
-      <SafeAreaView edges={['top']} style={styles.headerSafe}>
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Image source={{ uri: user.avatar }} style={styles.avatar} />
-            <Txt variant="titleSm" color={Colors.white}>
-              Hello {user.name} 👋
-            </Txt>
-          </View>
-          <View style={styles.headerIcons}>
-            <HeaderIcon name="notifications-outline" onPress={() => router.push('/notifications')} />
-            <HeaderIcon name="bookmark-outline" onPress={() => router.push('/favorites')} />
-          </View>
-        </View>
-      </SafeAreaView>
+      <AppHeader />
 
       <ScrollView
         style={styles.scroll}
@@ -247,20 +233,6 @@ export default function HomeScreen() {
   );
 }
 
-function HeaderIcon({
-  name,
-  onPress,
-}: {
-  name: keyof typeof Ionicons.glyphMap;
-  onPress?: () => void;
-}) {
-  return (
-    <Pressable style={styles.headerIconBtn} hitSlop={8} onPress={onPress}>
-      <Ionicons name={name} size={20} color={Colors.white} />
-    </Pressable>
-  );
-}
-
 function SectionHeader({
   title,
   count,
@@ -293,25 +265,6 @@ function SectionHeader({
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.screen },
-  headerSafe: { backgroundColor: Colors.primaryDark },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-  },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.blue600 },
-  headerIcons: { flexDirection: 'row', gap: Spacing.sm },
-  headerIconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.12)',
-  },
   scroll: { flex: 1 },
   scrollContent: { padding: Spacing.lg, gap: Spacing.lg, paddingBottom: Spacing.xxl },
   socialsRow: { flexDirection: 'row', gap: Spacing.md },

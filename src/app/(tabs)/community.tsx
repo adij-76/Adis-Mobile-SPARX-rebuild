@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppHeader } from '@/components/app-header';
 import { PostCard } from '@/components/ui/post-card';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Shadow, Spacing } from '@/constants/theme';
@@ -13,24 +13,7 @@ export default function CommunityScreen() {
 
   return (
     <View style={styles.root}>
-      <SafeAreaView edges={['top']} style={styles.headerSafe}>
-        <View style={styles.header}>
-          <View>
-            <Txt variant="title" color={Colors.white}>
-              Community
-            </Txt>
-            <Txt variant="bodySm" color={Colors.textMutedOnDark}>
-              You&apos;re never alone here
-            </Txt>
-          </View>
-          <Pressable
-            style={styles.msgBtn}
-            onPress={() => router.push('/feed/messages')}
-            hitSlop={8}>
-            <Ionicons name="chatbubbles-outline" size={20} color={Colors.white} />
-          </Pressable>
-        </View>
-      </SafeAreaView>
+      <AppHeader />
 
       <FlatList
         data={posts}
@@ -39,6 +22,20 @@ export default function CommunityScreen() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View style={{ gap: Spacing.md, marginBottom: Spacing.md }}>
+            <View style={styles.sectionHead}>
+              <View>
+                <Txt variant="titleLg">Community</Txt>
+                <Txt variant="bodySm" color={Colors.textSub}>
+                  You&apos;re never alone here
+                </Txt>
+              </View>
+              <Pressable
+                style={styles.msgBtn}
+                onPress={() => router.push('/feed/messages')}
+                hitSlop={8}>
+                <Ionicons name="chatbubbles-outline" size={20} color={Colors.primary} />
+              </Pressable>
+            </View>
             <View style={styles.sectionHead}>
               <Txt variant="titleSm">Your communities</Txt>
               <Pressable onPress={() => router.push('/feed/explore')}>
@@ -84,21 +81,15 @@ export default function CommunityScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.screen },
-  headerSafe: { backgroundColor: Colors.primaryDark },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.lg,
-  },
   msgBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.stroke,
   },
   list: { padding: Spacing.lg, paddingBottom: 96 },
   sectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

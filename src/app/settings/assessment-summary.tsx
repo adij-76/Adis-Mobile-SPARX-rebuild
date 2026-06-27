@@ -6,10 +6,12 @@ import { Card } from '@/components/ui/card';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
-import { lifeAreas } from '@/data/content';
+import { wheelCategories, wheelScore } from '@/data/content';
 
 export default function AssessmentSummary() {
-  const sorted = [...lifeAreas].sort((a, b) => b.score - a.score);
+  const sorted = wheelCategories
+    .map((c) => ({ ...c, score: wheelScore(c) }))
+    .sort((a, b) => b.score - a.score);
   const top = sorted.slice(0, 2);
   const focus = sorted.slice(-2);
 
@@ -26,7 +28,7 @@ export default function AssessmentSummary() {
                 {a.label}
               </Txt>
               <Txt variant="bodySmBold" color={a.color}>
-                {a.score}/10
+                {a.score}/100
               </Txt>
             </View>
           ))}
@@ -41,7 +43,7 @@ export default function AssessmentSummary() {
                 {a.label}
               </Txt>
               <Txt variant="bodySmBold" color={a.color}>
-                {a.score}/10
+                {a.score}/100
               </Txt>
             </View>
           ))}

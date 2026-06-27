@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     padding: Spacing.md,
   },
-  youRow: { borderColor: Colors.primary, backgroundColor: 'rgba(22,104,144,0.06)' },
+  youRow: { borderColor: Colors.highlightBorder, backgroundColor: Colors.highlight },
   rank: { width: 24, textAlign: 'center' },
   avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.soft },
 });

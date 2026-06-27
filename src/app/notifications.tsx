@@ -68,6 +68,6 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     alignItems: 'flex-start',
   },
-  unread: { borderColor: Colors.primary, backgroundColor: 'rgba(22,104,144,0.05)' },
+  unread: { borderColor: Colors.highlightBorder, backgroundColor: Colors.highlight },
   icon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
 });

@@ -32,6 +32,10 @@ export const Colors = {
   stroke: '#E2E4E9', // stroke/soft-200
   strokeStrong: '#CDD0D5',
 
+  // Highlight (design uses a warm peach tint for selected / "you" / banners)
+  highlight: '#FFF1E7', // soft peach surface
+  highlightBorder: '#FFD9B8',
+
   // Misc
   star: '#C7D66D', // completion star (olive/lime)
   overlay: 'rgba(10,13,20,0.4)',
