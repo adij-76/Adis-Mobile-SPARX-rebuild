@@ -81,7 +81,49 @@ How-to-install, Languages, Change password, Add/debit card (numpad), Payment met
 7. **Premium / Leaderboard / Favorites / Notifications settings / FAQs** detail alignment.
 8. **Dark mode** (G5) — larger, do last.
 
-## How to drive it
-Reply with the order you want (or "top to bottom"), and which of my choices to
-keep (logout modal, free-trial CTA, finer notification toggles). I'll do each
-screen against the exported PNGs and redeploy as I go.
+---
+
+# ✅ Decision sheet — mark this up
+
+For each item: put an **X** in one column (or write a note). Default if blank =
+**Match design**. Then send it back and I'll build the next pass exactly to spec.
+
+### Global
+| Item | Match design | Keep mine | Note |
+|---|:---:|:---:|---|
+| G1 Shared app header on all tabs | [ ] | [ ] | |
+| G2 Trophy icon + notification dot in header | [ ] | [ ] | |
+| G3 Peach/orange highlight tint (vs teal) | [ ] | [ ] | |
+| G4 Nav label "My Lesson" (singular) | [ ] | [ ] | |
+| G5 Real dark mode | [ ] | [ ] | later? |
+
+### Screens
+| Item | Match design | Keep mine | Note |
+|---|:---:|:---:|---|
+| Profile — groups / Change Image / Badge / Log Out button | [ ] | [ ] | |
+| Profile — orange Premium banner (mine) | [ ] | [ ] | keep/drop |
+| Profile — Delete-account row (mine) | [ ] | [ ] | keep/drop |
+| Premium — prices $10.49 / $90.89 + comparison table | [ ] | [ ] | |
+| Premium — free-trial CTA (mine) | [ ] | [ ] | keep/drop |
+| Leaderboard — rank right + medals + points banner | [ ] | [ ] | |
+| Notification settings — 3 items only | [ ] | [ ] | keep 5 toggles? |
+| Favorites — 3 tabs + rating + empty state | [ ] | [ ] | |
+| Logout — confirm modal (mine) vs outlined button | [ ] | [ ] | keep/drop |
+
+### Bigger rebuilds (design is richer)
+| Item | Build to design | Skip for now | Note |
+|---|:---:|:---:|---|
+| Wheel of Life as assessment + radial chart (needs react-native-svg) | [ ] | [ ] | |
+| Daily Assessment multi-input flow + completion variants | [ ] | [ ] | |
+| Community as chat-rooms + coach chat thread + edit-post | [ ] | [ ] | |
+| My Lessons as module curriculum | [ ] | [ ] | |
+| Meeting booking as info form ("attend every week", $25) | [ ] | [ ] | |
+| FAQs split Non-Member / Member | [ ] | [ ] | |
+
+### Build order
+Pick one: **[ ] top-to-bottom (priority list above)**  ·  **[ ] custom: ______**
+
+### Anything not captured / new edits you want
+(Use this space — you mentioned you'll want some edits anyway.)
+-
+-
