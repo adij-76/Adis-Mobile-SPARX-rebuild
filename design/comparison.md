@@ -1,110 +1,87 @@
-# Original design vs. build — differences & decisions
+# Original design vs. build — differences & decisions (v2)
 
-Comparison of the exported Figma designs against the screens I built on-brand
-(while Figma access was rate-limited). For each screen: **Original** (Figma),
-**Built** (current app), the **differences**, and a **suggestion**.
+Updated after the full export (device-framed mockups) which adds the Community
+screens, the assessment flows, dark mode, and several richer flows missing from
+the first export. Between both exports I now have visual reference for
+essentially every screen.
 
-Legend: ✅ matches well · 🔁 should align to design · 💡 my choice may be worth keeping · ❓ your call
+Legend: ✅ matches · 🔁 should align to design · 💡 my choice may be worth keeping · 🆕 design has this, I built it differently/not at all
 
-> Note: the export contains 65 of the 127 screens. Community feed screens
-> (helping hands feed, make-a-post, explore communities) weren't in the export,
-> so those aren't compared here yet.
+> This is a structural diff from the design overview. Exact pixel/spacing
+> alignment happens per-screen during the fidelity pass.
 
 ---
 
-## Global patterns (apply across screens)
+## Global patterns
 
-| # | Original design | What I built | Suggest |
+| # | Original | Built | Suggest |
 |---|---|---|---|
-| G1 | **Same dark-teal app header** (avatar + "Hello Okei 👋" + bell/**trophy**/bookmark) persists on Home, Profile, and other top-level tabs | I gave each tab its own header (e.g. Profile has a centered avatar header) | 🔁 Standardise on the shared app header |
-| G2 | Header has **3 icons**: bell (with red dot), **trophy** (→ leaderboard), bookmark | I used 2 (bell, bookmark) | 🔁 Add trophy + notification dot |
-| G3 | Highlights/among accents use **peach/orange tint** (selected rows, "you" row, banners) | I leaned on teal tints | ❓ Peach is more on-brand; easy to switch |
-| G4 | Bottom nav label is **"My Lesson"** (singular); My Data icon is a gear/asterisk | "My Lessons" + book icon | 🔁 Match labels/icons |
-| G5 | Recommended-video cards use **left/right arrow** circles | I used a centre **play** button | ❓ Either works |
+| G1 | One shared dark-teal app header (avatar + greeting + bell/**trophy**/bookmark) on Home & Profile | Per-tab custom headers | 🔁 |
+| G2 | Header = 3 icons incl. **trophy → leaderboard** + notification dot | 2 icons | 🔁 |
+| G3 | **Peach/orange** tint for selected/"you"/highlight states | Teal tints | ❓ peach is more on-brand |
+| G4 | Nav label "**My Lesson**" (singular) | "My Lessons" | 🔁 |
+| G5 | **Dark mode exists** (Profile, Theme picker show a real dark theme) | Light-only; theme picker is cosmetic | 🆕 big: implement real theming |
 
 ---
 
-## Home  ✅ (close)
+## Already compared (export 1) — carry forward
 
-- **Differences:** header missing trophy icon + notification dot (G1–G2); program card shows both "100% 🔥" and a "24%" pill on the bar (I show one); video controls use arrows not play (G5).
-- **Suggest:** 🔁 small header tweak; otherwise a faithful match.
-
-## Profile  🔁 (notable)
-
-| Original | Built |
-|---|---|
-| Keeps shared app header on top | Custom centered avatar header |
-| **Change Image** button (teal) | "Edit profile" pill |
-| Stats: **Days Streak / IGNTD Points / Badge** | Workshops / Day streak / Points |
-| Groups: **IGNTD** (Leaderboard, Favourite, Notifications) · **Account** (Get Premium, Change Password, Full Assessment Summary) · **More** (Rate our app, Themes, Contact us, FAQs, Privacy Policy, Terms of Service) | ACCOUNT / SUPPORT & LEGAL groups; added an orange Premium banner; added Delete account row |
-| **LOG OUT** = outlined button at bottom | Red danger row + confirm modal |
-| No delete-account on this screen | Added delete row |
-
-- **Suggest:** 🔁 restructure to match groups/labels. 💡 my logout-confirm modal and Premium banner are arguably nicer — your call whether to keep.
-
-## Wheel of Life  🔁 (significant)
-
-| Original | Built |
-|---|---|
-| Actual **radial wheel chart** (polar segments) | Horizontal progress bars |
-| 5 paired categories /100: Purpose & Contribution 60, Business & Finance 80, **Health & Family 100**, Romance & Fun 40, Personal Growth & Environment 70 | 8 areas /10 (Health, Career, Relationships, …) |
-| **Best Performing / Most support needed / Most Improved** cards | — |
-| "Wheel of life" trend (Daily ▾, 0% ring) + **Contact my coach** button | A single balance ring |
-
-- **Suggest:** 🔁 align categories, scoring (/100), the Best/Support/Improved cards and coach CTA. The polar chart needs `react-native-svg` — worth adding for fidelity.
-
-## Get Premium  🔁 (notable)
-
-| Original | Built |
-|---|---|
-| Title "Upgrade to Premium"; plans **stacked**: Monthly **$10.49**, Yearly **$90.89** | Orange gradient hero; plans **side-by-side**; $19/mo, $149/yr, "Save 35%" |
-| **Free vs Premium comparison table** (Personalized Program, Private Hero Community, Guidance + Workshop, Onboarding Call, Live Weekly Groups, Access to All Recorded Group → Limited / Full access) | Checkmark benefit list |
-| Button: **Get Premium** | "Start 7-day free trial" |
-
-- **Suggest:** 🔁 use real prices + the comparison table. 💡 the free-trial CTA may convert better — optional.
-
-## Leaderboard  🔁
-
-| Original | Built |
-|---|---|
-| **Centered** title; **Total points: 412 / How to get more points ↗** banner | Large left title, no banner |
-| Rank on the **right**; **medal icons** for top 3; "#4…" after | Rank on the **left**; colored numbers |
-| **Your** row highlighted **peach**; avatars have green online dots | "You" row highlighted teal |
-
-- **Suggest:** 🔁 move rank right + medals, add the points banner, peach highlight.
-
-## Notification settings  🔁
-
-- **Original:** 3 items — **Daily Quotes** (toggle), **Daily Streaks** (toggle), **Community Settings** (nav row "On ›").
-- **Built:** 5 toggles (check-in, meetings, community, lessons, streak).
-- **Suggest:** 🔁 trim to the 3 designed items. 💡 extra toggles are reasonable if you want finer control.
-
-## Favorites  🔁
-
-- **Original:** **3 tabs** — Lesson / Workshop / Video; rows show "14 min video", title, **4.9 ⭐ Adi Jaffe**, teal bookmark.
-- **Built:** 2 tabs (Lessons / Videos); orange bookmark; no rating.
-- **Suggest:** 🔁 add the Workshop tab + rating; bookmark teal.
+- **Home** ✅ — add trophy icon + notif dot; minor.
+- **Profile** 🔁 — groups **Essentials/IGNTD** (Leaderboard, Favourite, Notifications) · **Account** (Get Premium, Change Password, Full Assessment Summary) · **More** (Rate our app, Themes, Contact us, FAQs, Privacy, Terms); **Change Image** button; **Badge** stat; **LOG OUT** outlined button. Mine restructured + added orange Premium banner & delete row (💡 keep?).
+- **Get Premium** 🔁 — stacked plans **$10.49 / $90.89** + **Free-vs-Premium table**. Mine: orange hero, side-by-side, free-trial (💡).
+- **Leaderboard** 🔁 — centered title, **Total points / How to get more points** banner, rank on **right** w/ medal icons, peach "you" row.
+- **Notification settings** 🔁 — only 3 items (Daily Quotes, Daily Streaks toggles; Community Settings nav row). Mine has 5 toggles.
+- **Favorites** 🔁 — **3 tabs** (Lesson/Workshop/Video), 4.9★ rating, teal bookmark, and an **empty state** ("No favorites yet"). Mine: 2 tabs.
 
 ---
 
-## Screens built but not yet visually diffed (likely minor)
+## NEW from full export
 
-These I built from names only and look reasonable; verify against the PNGs and
-align spacing/labels: **Theme/Themes**, **Languages**, **Change password**,
-**Payment method / Add card**, **FAQs**, **Privacy Policy**, **Terms**,
-**Full Assessment Summary**, **Notifications inbox**, **Messages**, **Daily
-Assessment**, **Quotes**, **Recommended video see-all/detail**, plus the
-calendar / "how it works" / points screens in the export.
+### Community  🔁🆕 (the big gap)
+- **IGNTD Communities** (explore): a **grid of chat rooms** — General, Announcement, Hero Income Chat, Meditation Chat, Goals, Posts — each an icon tile, plus "Create a post". → I built a simple **join-list**; design is **chat-room oriented**.
+- **Community guidelines** ✅ — rules list + "I agree" (matches my flow).
+- **Create a post** ✅-ish — avatar + text field + image attach. Close to mine.
+- **Post detail + comments** ✅ — comment list + composer (matches mine).
+- **Update post** 🆕 — edit-post screen; I didn't build one.
+- **Coach chat thread** 🆕 — 1:1 message thread (e.g. with Chavel Chambers). I built a messages **list** but no **thread** view.
 
-## Not in the export (can't diff yet)
+### Daily Assessment  🔁🆕 (notable)
+Design is a **varied multi-input flow**: 0–10 **mood slider**, **Yes/No** (e.g. "Did you drink in the past day?"), **"how much"** (A little / Same as usual / More than usual), **specific quantity** entry, and a **positive affirmation** free-text. Completion variants: **"Great Job!"** (+ recommended videos), **"You've earned a Badge"**, **"Day 11 streak +3 points"**. → I built **5 multiple-choice** questions + one completion. Should rebuild as the richer flow.
 
-Community **feed / helping hands**, **make-a-post**, **explore communities**,
-**view comment**, **update post**.
+### Wheel of Life  🔁🆕 (significant — it's an assessment, not a static view)
+The wheel is produced by an **assessment**: per-category question screens (**Purpose & Contribution, Health & Family, Romance & Fun, Personal Growth & Environment**) with **0–100 sliders** and sub-questions, then the **radial wheel chart** + Best/Support/Improved cards + "Contact my coach". My Data also shows a **donut** and a **"Restore streak — 2000 points"** modal. → I built a static bars view only. Needs the assessment flow + `react-native-svg` wheel.
+
+### My Lessons  🔁🆕
+Design is a **course/module curriculum** — Module 1–4 with Lessons, progress, "Continue from where you left off", and a **Lesson intro** screen ("Module 1 · Lesson 1", save-progress). → I built a **workshop browse list**. Different model.
+
+### Meetings  🔁🆕
+- **Book** is an **info form**: First/Last name, Email, **"I want to attend every week"** checkbox, **"Book Meeting for $25"**. → I built a date/time-slot picker.
+- **Book a group** = list of available group meetings.
+- **Meeting cancelled** screen ("Your meeting has been cancelled" + Book another). ✅ Meeting booked-success matches mine.
+
+### FAQs  🔁
+Two categories: **Non-Member FAQs / Member FAQs**. Mine is a flat accordion.
+
+### Theme  🔁🆕
+Picker = **System / Light Mode / Dark Mode** with a true dark theme behind it. Mine lists options but doesn't switch the app.
+
+### Other screens present (mostly ✅ / minor)
+How-to-install, Languages, Change password, Add/debit card (numpad), Payment method, Privacy, Terms, Quotes (fullscreen gradient cards), Recommended videos see-all/detail, Workshop intro/video/worksheet/see-all, Worksheet "Personal Power Statement" + "Quickstart Tips" text, Notifications inbox, Logout/Delete confirms — all close to what I built.
 
 ---
 
-## How to use this
+## Suggested priority order for the fidelity pass
 
-Reply with the IDs you want changed (e.g. "G1, G2, Profile, Wheel of Life,
-Premium-prices") and which of my choices to keep (e.g. "keep logout modal,
-keep free-trial CTA"). I'll do a fidelity pass screen-by-screen and redeploy.
+1. **Global header + nav (G1, G2, G4)** — one change, every screen benefits.
+2. **Profile** restructure (groups, Change Image, Badge, Log Out button).
+3. **Wheel of Life** as the real assessment + radial chart (add `react-native-svg`).
+4. **Daily Assessment** rich multi-input flow + completion variants.
+5. **Community** as chat-rooms + coach chat thread + update-post.
+6. **My Lessons** as module curriculum.
+7. **Premium / Leaderboard / Favorites / Notifications settings / FAQs** detail alignment.
+8. **Dark mode** (G5) — larger, do last.
+
+## How to drive it
+Reply with the order you want (or "top to bottom"), and which of my choices to
+keep (logout modal, free-trial CTA, finer notification toggles). I'll do each
+screen against the exported PNGs and redeploy as I go.
