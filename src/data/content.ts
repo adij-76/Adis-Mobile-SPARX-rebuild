@@ -48,22 +48,106 @@ export const heroProgram: Program = {
   progress: 0.24,
 };
 
+export type Coach = {
+  name: string;
+  role: string;
+  bio: string;
+  avatar: string;
+};
+
+export const coachAdi: Coach = {
+  name: 'Adi Jaffe',
+  role: 'Hypnosis & Recovery Coaching',
+  bio: 'Dr. Adi Jaffe is dedicated to changing the way we think about and approach mental health issues. He is passionate about ending the shame and stigma surrounding addiction.',
+  avatar: 'https://i.pravatar.cc/120?img=68',
+};
+
+export type MeetingStatus = 'upcoming' | 'past' | 'canceled';
+
 export type Meeting = {
   id: string;
   time: string;
-  startsIn: string;
+  date?: string;
+  startsIn?: string;
   title: string;
   host: string;
+  status: MeetingStatus;
+  description: string;
+  via: string;
+  coach: Coach;
 };
 
-export const upcomingMeetings: Meeting[] = [
+const meetingBlurb =
+  'This is an accountability coach call. Any member can book this call to help navigate the program, check in on your progress, and to discuss your goals.';
+
+export const meetings: Meeting[] = [
   {
     id: 'm1',
     time: '10:00 - 11:00 AM (UTC)',
-    startsIn: 'Starting in 30 min',
+    date: 'Wednesday 24th July, 2024',
+    startsIn: 'Starting in 2 hours',
+    title: 'New hero onboarding follow-up meeting and counselling',
+    host: 'Chavel Chambers',
+    status: 'upcoming',
+    description: meetingBlurb,
+    via: 'Video Meeting via Zoom call',
+    coach: coachAdi,
+  },
+  {
+    id: 'm2',
+    time: '10:00 - 11:00 AM (UTC)',
+    date: 'Thursday 25th July, 2024',
+    startsIn: 'Starting in 12 hours',
+    title: 'Importance of therapy and counselling, with tips on finding the right therapist',
+    host: 'Okei Joseph',
+    status: 'upcoming',
+    description: meetingBlurb,
+    via: 'Video Meeting via Zoom call',
+    coach: coachAdi,
+  },
+  {
+    id: 'm3',
+    time: '10:00 - 11:00 AM (UTC)',
+    date: 'Friday 26th July, 2024',
+    startsIn: 'Starting in 24 hours',
+    title: 'Importance of therapy and counselling, with tips on finding the right therapist',
+    host: 'Okei Joseph',
+    status: 'upcoming',
+    description: meetingBlurb,
+    via: 'Video Meeting via Zoom call',
+    coach: coachAdi,
+  },
+  {
+    id: 'm4',
+    time: '24th July, 2024 · 10:00 - 11:00 AM (UTC)',
+    date: 'Wednesday 24th July, 2024',
+    title: 'Inspirational recovery stories with individuals who have successfully recovered',
+    host: 'Chavel Chambers',
+    status: 'past',
+    description: meetingBlurb,
+    via: 'Video Meeting via Zoom call',
+    coach: coachAdi,
+  },
+  {
+    id: 'm5',
+    time: '22nd July, 2024 · 10:00 - 11:00 AM (UTC)',
+    date: 'Monday 22nd July, 2024',
     title: 'New hero onboarding follow-up meeting and counselling',
     host: 'Okei Joseph',
+    status: 'canceled',
+    description: meetingBlurb,
+    via: 'Video Meeting via Zoom call',
+    coach: coachAdi,
   },
+];
+
+/** Convenience: the meetings shown on the Home dashboard. */
+export const upcomingMeetings = meetings.filter((m) => m.status === 'upcoming');
+
+export const socials = [
+  { id: 'instagram', icon: 'logo-instagram' as const, url: 'https://instagram.com' },
+  { id: 'facebook', icon: 'logo-facebook' as const, url: 'https://facebook.com' },
+  { id: 'x', icon: 'logo-twitter' as const, url: 'https://x.com' },
 ];
 
 export type VideoItem = {

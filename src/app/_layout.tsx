@@ -37,6 +37,7 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="workshop" options={{ presentation: 'card' }} />
+          <Stack.Screen name="meetings" options={{ presentation: 'card' }} />
         </Stack>
       </SafeAreaProvider>
     </GestureHandlerRootView>

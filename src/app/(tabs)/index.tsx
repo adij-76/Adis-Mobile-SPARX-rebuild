@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ import {
   dailyQuote,
   heroProgram,
   recommendedVideos,
+  socials,
   upcomingMeetings,
   user,
 } from '@/data/content';
@@ -154,31 +155,43 @@ export default function HomeScreen() {
         </LinearGradient>
 
         {/* Upcoming meetings */}
-        <SectionHeader title="Upcoming Meetings" count={upcomingMeetings.length} />
+        <SectionHeader
+          title="Upcoming Meetings"
+          count={upcomingMeetings.length}
+          onSeeAll={() => router.push('/meetings')}
+        />
         {upcomingMeetings.map((m) => (
-          <Card key={m.id} style={styles.meeting}>
-            <View style={styles.meetingTop}>
-              <Txt variant="bodySmBold" color={Colors.primary}>
-                {m.time}
+          <Pressable key={m.id} onPress={() => router.push(`/meetings/${m.id}`)}>
+            <Card style={styles.meeting}>
+              <View style={styles.meetingTop}>
+                <Txt variant="bodySmBold" color={Colors.primary}>
+                  {m.time}
+                </Txt>
+                {m.startsIn && (
+                  <Txt variant="caption" color={Colors.orange}>
+                    ● {m.startsIn}
+                  </Txt>
+                )}
+              </View>
+              <Txt variant="bodyMedium" style={{ marginTop: Spacing.sm }}>
+                {m.title}
               </Txt>
-              <Txt variant="caption" color={Colors.orange}>
-                ● {m.startsIn}
+              <Txt variant="caption" color={Colors.textSub} style={{ marginTop: Spacing.xs }}>
+                Meeting with {m.host}
               </Txt>
-            </View>
-            <Txt variant="bodyMedium" style={{ marginTop: Spacing.sm }}>
-              {m.title}
-            </Txt>
-            <Txt variant="caption" color={Colors.textSub} style={{ marginTop: Spacing.xs }}>
-              Meeting with {m.host}
-            </Txt>
-          </Card>
+            </Card>
+          </Pressable>
         ))}
         <View style={styles.meetingActions}>
           <View style={{ flex: 1 }}>
-            <Button title="Book a group" variant="primary" />
+            <Button title="Book a group" variant="primary" onPress={() => router.push('/meetings')} />
           </View>
           <View style={{ flex: 1 }}>
-            <Button title="Book a session" variant="primary" />
+            <Button
+              title="Book a session"
+              variant="primary"
+              onPress={() => router.push('/meetings')}
+            />
           </View>
         </View>
 
@@ -207,6 +220,19 @@ export default function HomeScreen() {
             </View>
           ))}
         </ScrollView>
+
+        {/* Socials */}
+        <Txt variant="titleSm">Socials</Txt>
+        <View style={styles.socialsRow}>
+          {socials.map((s) => (
+            <Pressable
+              key={s.id}
+              style={styles.socialBtn}
+              onPress={() => Linking.openURL(s.url)}>
+              <Ionicons name={s.icon} size={22} color={Colors.primary} />
+            </Pressable>
+          ))}
+        </View>
       </ScrollView>
     </View>
   );
@@ -273,6 +299,17 @@ const styles = StyleSheet.create({
   },
   scroll: { flex: 1 },
   scrollContent: { padding: Spacing.lg, gap: Spacing.lg, paddingBottom: Spacing.xxl },
+  socialsRow: { flexDirection: 'row', gap: Spacing.md },
+  socialBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.stroke,
+  },
   banner: {
     flexDirection: 'row',
     alignItems: 'center',
