@@ -318,6 +318,46 @@ export const workshops: WorkshopSummary[] = [
   },
 ];
 
+export type Challenge = {
+  id: string;
+  title: string;
+  description: string;
+  days: number;
+  progress: number; // 0–1
+  icon: string; // Ionicons name
+  color: string;
+};
+
+export const challenges: Challenge[] = [
+  {
+    id: '7-day-reset',
+    title: '7-Day Reset',
+    description: 'A week of small daily actions to rebuild momentum and routine.',
+    days: 7,
+    progress: 0.43,
+    icon: 'flame',
+    color: '#FF9D4B',
+  },
+  {
+    id: 'mindful-mornings',
+    title: 'Mindful Mornings',
+    description: 'Start each day with a 5-minute grounding practice.',
+    days: 14,
+    progress: 0.2,
+    icon: 'sunny',
+    color: '#F7C948',
+  },
+  {
+    id: 'connection',
+    title: 'Connection Challenge',
+    description: 'Reach out to one supportive person every day this week.',
+    days: 10,
+    progress: 0,
+    icon: 'people',
+    color: '#166890',
+  },
+];
+
 export const workshop = {
   title: 'Master your belief with Dr. Bruce Lipton',
   rating: 5,
