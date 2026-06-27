@@ -12,13 +12,20 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
 
 import { Button } from '@/components/ui/button';
 import { Confetti } from '@/components/confetti';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
-import { negativeEmotions, positiveEmotions, user } from '@/data/content';
+import {
+  negativeEmotions,
+  positiveEmotions,
+  recommendedVideos,
+  user,
+  type VideoItem,
+} from '@/data/content';
 import { recordCheckin, type CheckinResult } from '@/lib/checkin';
 
 const TOTAL = 5;
@@ -27,6 +34,7 @@ export default function CheckinScreen() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [result, setResult] = useState<CheckinResult | null>(null);
+  const [showSummary, setShowSummary] = useState(false);
 
   // answers
   const [mood, setMood] = useState(50);
@@ -52,8 +60,20 @@ export default function CheckinScreen() {
     step === 3 ? behaviorAnswered :
     affirmation.trim().length > 0;
 
+  if (result && showSummary) {
+    return (
+      <CheckinSummary
+        mood={mood}
+        positive={positive}
+        negative={negative}
+        behavior={behavior}
+        onDone={() => router.dismissTo('/')}
+      />
+    );
+  }
+
   if (result) {
-    return <Acknowledgement result={result} onDone={() => router.dismissTo('/')} />;
+    return <Acknowledgement result={result} onDone={() => setShowSummary(true)} />;
   }
 
   return (
@@ -353,6 +373,142 @@ function Acknowledgement({ result, onDone }: { result: CheckinResult; onDone: ()
   );
 }
 
+function joinNatural(items: string[]): string {
+  if (items.length <= 1) return items[0] ?? '';
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`;
+}
+
+/** Build an encouraging + directive summary from the check-in answers. */
+function buildSummary(a: {
+  mood: number;
+  positive: string[];
+  negative: string[];
+  behavior: 'yes' | 'no' | null;
+}) {
+  const real = (list: string[]) => list.filter((e) => !e.toLowerCase().startsWith("i don't"));
+  const pos = real(a.positive);
+  const neg = real(a.negative);
+  const moodGood = a.mood >= 60;
+  const moodLow = a.mood <= 35;
+  const focus = neg[0] ?? (moodLow ? 'Low Energy' : 'Stress');
+
+  const posPhrase = pos.length
+    ? `you're experiencing ${joinNatural(pos.map((p) => p.toLowerCase()))}`
+    : "you're showing up for yourself";
+  const negPhrase = neg.length
+    ? `, even amidst some ${joinNatural(neg.map((n) => n.toLowerCase()))}`
+    : '';
+  const moodPhrase = moodGood
+    ? 'your elevated check-in score indicating a generally good day compared to your usual pattern'
+    : moodLow
+      ? 'today reading a little heavier than your usual — worth being gentle with yourself about'
+      : "your score holding steady around your usual baseline";
+  const behaviorPhrase =
+    a.behavior === 'no'
+      ? ' Staying on track today is a real win — notice what helped.'
+      : a.behavior === 'yes'
+        ? " It happened today, and that's information, not failure — let's look at what was going on around it."
+        : '';
+
+  const headline = `It's uplifting to see that ${posPhrase}${negPhrase}. Your recent activity levels and reflections suggest you're managing well overall, with ${moodPhrase}.${behaviorPhrase}`;
+  const question = `How might you use the Breathing Techniques or the Mindful Moments tools in Hero to help transform your ${
+    pos[0]?.toLowerCase() ?? 'energy'
+  } into a sense of calm and reduce ${focus.toLowerCase()} throughout your day?`;
+
+  return { headline, focus, question };
+}
+
+function SummaryVideo({ video }: { video: VideoItem }) {
+  return (
+    <View style={styles.vCard}>
+      <View style={styles.vThumbWrap}>
+        <Image source={{ uri: video.image }} style={styles.vThumb} contentFit="cover" />
+        <View style={styles.vPlay}>
+          <Ionicons name="play" size={16} color={Colors.white} />
+        </View>
+        <View style={styles.vDuration}>
+          <Txt variant="caption" color={Colors.white}>
+            {video.duration}
+          </Txt>
+        </View>
+      </View>
+      <View style={styles.vMetaRow}>
+        <View style={styles.stars}>
+          {[0, 1, 2, 3, 4].map((i) => (
+            <Ionicons key={i} name={i < 3 ? 'star' : 'star-outline'} size={13} color={Colors.orange} />
+          ))}
+        </View>
+        <Ionicons name="bookmark-outline" size={16} color={Colors.primary} />
+      </View>
+      <Txt variant="caption" color={Colors.textMain} numberOfLines={2}>
+        {video.title}
+      </Txt>
+    </View>
+  );
+}
+
+function CheckinSummary({
+  mood,
+  positive,
+  negative,
+  behavior,
+  onDone,
+}: {
+  mood: number;
+  positive: string[];
+  negative: string[];
+  behavior: 'yes' | 'no' | null;
+  onDone: () => void;
+}) {
+  const { headline, focus, question } = buildSummary({ mood, positive, negative, behavior });
+  return (
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+      <View style={styles.header}>
+        <Pressable onPress={onDone} hitSlop={12}>
+          <Ionicons name="close" size={26} color={Colors.textMain} />
+        </Pressable>
+        <View style={styles.stepPill}>
+          <Txt variant="caption" color={Colors.orange}>
+            Summary
+          </Txt>
+        </View>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.summaryBody} showsVerticalScrollIndicator={false}>
+        <Txt variant="titleLg">Nice work, {user.name} 🌱</Txt>
+        <View style={styles.summaryCard}>
+          <Txt variant="body" color={Colors.textMain}>
+            {headline}
+          </Txt>
+        </View>
+
+        <Txt variant="bodyMedium">
+          Based on your inputs, we&apos;d recommend these videos to help you with your {focus}:
+        </Txt>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: Spacing.md, paddingVertical: Spacing.xs }}>
+          {recommendedVideos.map((v) => (
+            <SummaryVideo key={v.id} video={v} />
+          ))}
+        </ScrollView>
+
+        <View style={styles.questionBlock}>
+          <Txt variant="bodyMedium" color={Colors.textMain}>
+            {question}
+          </Txt>
+        </View>
+      </ScrollView>
+
+      <View style={styles.summaryFooter}>
+        <Button title="Done" variant="primary" onPress={onDone} />
+      </View>
+    </SafeAreaView>
+  );
+}
+
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.white },
   header: {
@@ -482,4 +638,52 @@ const styles = StyleSheet.create({
   },
   reward: { alignItems: 'center' },
   rewardDivider: { width: 1, height: 40, backgroundColor: 'rgba(255,255,255,0.2)' },
+  // check-in summary
+  summaryBody: { padding: Spacing.lg, gap: Spacing.lg },
+  summaryCard: {
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: Colors.highlightBorder,
+    borderStyle: 'dashed',
+    paddingVertical: Spacing.lg,
+  },
+  questionBlock: {
+    borderTopWidth: 1,
+    borderColor: Colors.stroke,
+    borderStyle: 'dashed',
+    paddingTop: Spacing.lg,
+    marginTop: Spacing.sm,
+  },
+  summaryFooter: { padding: Spacing.lg },
+  vCard: { width: 180, gap: Spacing.sm },
+  vThumbWrap: {
+    width: 180,
+    height: 110,
+    borderRadius: Radius.md,
+    overflow: 'hidden',
+    backgroundColor: Colors.soft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  vThumb: { width: '100%', height: '100%' },
+  vPlay: {
+    position: 'absolute',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  vDuration: {
+    position: 'absolute',
+    bottom: 6,
+    left: 6,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: Radius.sm,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  vMetaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  stars: { flexDirection: 'row', gap: 1 },
 });

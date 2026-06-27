@@ -325,77 +325,44 @@ export const workshop = {
 
 /** Wheel of Life categories (from the IGNTD design). Each has two
  *  sub-dimensions scored 0–100; the category score is their average. */
-export type WheelSubQuestion = { id: string; label: string; prompt: string; score: number };
-
-export type WheelCategory = {
+export type WheelArea = {
   id: string;
-  label: string; // e.g. "Purpose and Contribution"
-  short: string; // short radar-axis label
+  label: string; // full label, e.g. "Family & Friends"
+  short: string; // short axis label for the chart
   icon: string; // Ionicons name
-  color: string;
-  questions: [WheelSubQuestion, WheelSubQuestion];
+  color: string; // base hue (each wedge a distinct color)
+  prompt: string; // assessment question
+  last: number; // last month's score (0-100)
+  current: number; // current month's score (0-100)
 };
 
-export const wheelCategories: WheelCategory[] = [
-  {
-    id: 'purpose',
-    label: 'Purpose and Contribution',
-    short: 'Purpose',
-    icon: 'compass',
-    color: '#2F6BFF',
-    questions: [
-      { id: 'purpose', label: 'Purpose', prompt: 'How aligned do you feel with what matters to you?', score: 60 },
-      { id: 'contribution', label: 'Contribution', prompt: 'How satisfied are you with your service to the world?', score: 60 },
-    ],
-  },
-  {
-    id: 'business',
-    label: 'Business and Finance',
-    short: 'Business',
-    icon: 'briefcase',
-    color: '#2BB3E0',
-    questions: [
-      { id: 'business', label: 'Business', prompt: 'How fulfilled are you in your work and career?', score: 80 },
-      { id: 'finance', label: 'Finance', prompt: 'How comfortable are you with your finances?', score: 80 },
-    ],
-  },
-  {
-    id: 'health',
-    label: 'Health and Family',
-    short: 'Health',
-    icon: 'heart',
-    color: '#7A5AF8',
-    questions: [
-      { id: 'health', label: 'Health', prompt: 'How satisfied are you with your current health status?', score: 100 },
-      { id: 'family', label: 'Family', prompt: 'How satisfied are you with your family & friends relationships?', score: 100 },
-    ],
-  },
-  {
-    id: 'romance',
-    label: 'Romance and Fun',
-    short: 'Romance',
-    icon: 'happy',
-    color: '#FF9D4B',
-    questions: [
-      { id: 'romance', label: 'Romance', prompt: 'How fulfilled do you feel in your romantic life?', score: 40 },
-      { id: 'fun', label: 'Fun & Recreation', prompt: 'How much fun and recreation do you make time for?', score: 40 },
-    ],
-  },
-  {
-    id: 'growth',
-    label: 'Personal Growth and Environment',
-    short: 'Growth',
-    icon: 'leaf',
-    color: '#F5732B',
-    questions: [
-      { id: 'growth', label: 'Personal Growth', prompt: 'How satisfied are you with your growth and learning?', score: 70 },
-      { id: 'environment', label: 'Physical Environment', prompt: 'How satisfied are you with your living environment?', score: 70 },
-    ],
-  },
+/** The 10 IGNTD Wheel of Life areas (matches the v_wol data in the n8n flow). */
+export const wheelAreas: WheelArea[] = [
+  { id: 'purpose', label: 'Purpose', short: 'Purpose', icon: 'compass', color: '#7A5AF8',
+    prompt: 'How aligned do you feel with what matters to you?', last: 55, current: 68 },
+  { id: 'contribution', label: 'Contribution', short: 'Contrib.', icon: 'hand-left', color: '#5B8DEF',
+    prompt: 'How satisfied are you with your service to the world?', last: 60, current: 72 },
+  { id: 'business', label: 'Business / Career', short: 'Career', icon: 'briefcase', color: '#F2A65A',
+    prompt: 'How fulfilled are you in your work and career?', last: 78, current: 80 },
+  { id: 'finance', label: 'Finances', short: 'Finances', icon: 'cash', color: '#F7C948',
+    prompt: 'How comfortable are you with your finances?', last: 65, current: 62 },
+  { id: 'health', label: 'Health', short: 'Health', icon: 'fitness', color: '#EE6A8C',
+    prompt: 'How satisfied are you with your current health?', last: 70, current: 84 },
+  { id: 'family', label: 'Family & Friends', short: 'Family', icon: 'people', color: '#E5739B',
+    prompt: 'How satisfied are you with your family & friend relationships?', last: 82, current: 88 },
+  { id: 'romance', label: 'Romance', short: 'Romance', icon: 'heart', color: '#C77DFF',
+    prompt: 'How fulfilled do you feel in your romantic life?', last: 45, current: 50 },
+  { id: 'growth', label: 'Personal Growth', short: 'Growth', icon: 'leaf', color: '#9B6DD6',
+    prompt: 'How satisfied are you with your growth and learning?', last: 68, current: 76 },
+  { id: 'fun', label: 'Fun & Recreation', short: 'Fun', icon: 'happy', color: '#B79CED',
+    prompt: 'How much fun and recreation do you make time for?', last: 40, current: 58 },
+  { id: 'environment', label: 'Physical Environment', short: 'Environ.', icon: 'home', color: '#C9A66B',
+    prompt: 'How satisfied are you with your living environment?', last: 72, current: 70 },
 ];
 
-export const wheelScore = (c: WheelCategory) =>
-  Math.round((c.questions[0].score + c.questions[1].score) / 2);
+/** Back-compat alias for screens still importing the old name. */
+export const wheelCategories = wheelAreas;
+export const wheelScore = (a: WheelArea) => a.current;
 
 export type AssessmentQuestion = {
   id: string;

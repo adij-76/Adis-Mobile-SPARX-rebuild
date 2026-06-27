@@ -10,7 +10,7 @@ import { ProgressBar } from '@/components/ui/progress-bar';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
-import { wheelCategories } from '@/data/content';
+import { wheelAreas } from '@/data/content';
 
 export default function WheelAssessment() {
   const router = useRouter();
@@ -18,12 +18,12 @@ export default function WheelAssessment() {
   const [done, setDone] = useState(false);
   const [values, setValues] = useState<Record<string, number>>(() => {
     const init: Record<string, number> = {};
-    wheelCategories.forEach((c) => c.questions.forEach((q) => (init[q.id] = q.score)));
+    wheelAreas.forEach((a) => (init[a.id] = a.current));
     return init;
   });
 
-  const cat = wheelCategories[step];
-  const isLast = step === wheelCategories.length - 1;
+  const cat = wheelAreas[step];
+  const isLast = step === wheelAreas.length - 1;
 
   if (done) {
     return (
@@ -51,12 +51,12 @@ export default function WheelAssessment() {
       <ScreenHeader title="Back" />
       <View style={styles.progressWrap}>
         <ProgressBar
-          progress={(step + 1) / wheelCategories.length}
+          progress={(step + 1) / wheelAreas.length}
           track={Colors.soft}
           fill={cat.color}
         />
         <Txt variant="caption" color={Colors.textSub} style={{ marginTop: Spacing.sm }}>
-          {step + 1} of {wheelCategories.length}
+          {step + 1} of {wheelAreas.length}
         </Txt>
       </View>
 
@@ -68,36 +68,33 @@ export default function WheelAssessment() {
           <Txt variant="title">{cat.label}</Txt>
         </View>
 
-        {cat.questions.map((q) => (
-          <View key={q.id} style={styles.qBlock}>
-            <Txt variant="bodyMedium">{q.label}</Txt>
-            <Txt variant="bodySm" color={Colors.textSub}>
-              {q.prompt}
+        <View style={styles.qBlock}>
+          <Txt variant="bodySm" color={Colors.textSub}>
+            {cat.prompt}
+          </Txt>
+          <Slider
+            style={{ width: '100%', height: 40 }}
+            minimumValue={0}
+            maximumValue={100}
+            step={5}
+            value={values[cat.id]}
+            onValueChange={(v) => setValues((s) => ({ ...s, [cat.id]: v }))}
+            minimumTrackTintColor={cat.color}
+            maximumTrackTintColor={Colors.soft}
+            thumbTintColor={cat.color}
+          />
+          <View style={styles.scaleRow}>
+            <Txt variant="caption" color={Colors.textSub}>
+              0
             </Txt>
-            <Slider
-              style={{ width: '100%', height: 40 }}
-              minimumValue={0}
-              maximumValue={100}
-              step={5}
-              value={values[q.id]}
-              onValueChange={(v) => setValues((s) => ({ ...s, [q.id]: v }))}
-              minimumTrackTintColor={cat.color}
-              maximumTrackTintColor={Colors.soft}
-              thumbTintColor={cat.color}
-            />
-            <View style={styles.scaleRow}>
-              <Txt variant="caption" color={Colors.textSub}>
-                0
-              </Txt>
-              <Txt variant="bodySmBold" color={cat.color}>
-                {Math.round(values[q.id])}
-              </Txt>
-              <Txt variant="caption" color={Colors.textSub}>
-                100
-              </Txt>
-            </View>
+            <Txt variant="bodySmBold" color={cat.color}>
+              {Math.round(values[cat.id])}
+            </Txt>
+            <Txt variant="caption" color={Colors.textSub}>
+              100
+            </Txt>
           </View>
-        ))}
+        </View>
       </ScrollView>
 
       <View style={styles.footer}>
