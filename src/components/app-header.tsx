@@ -22,12 +22,16 @@ export function AppHeader({ hasNotifications = true }: AppHeaderProps) {
   return (
     <SafeAreaView edges={['top']} style={styles.safe}>
       <View style={styles.row}>
-        <View style={styles.left}>
+        <Pressable
+          style={styles.left}
+          onPress={() => router.push('/profile')}
+          accessibilityRole="button"
+          accessibilityLabel="Open profile">
           <Image source={{ uri: user.avatar }} style={styles.avatar} />
           <Txt variant="titleSm" color={Colors.white}>
             Hello {user.name} 👋
           </Txt>
-        </View>
+        </Pressable>
         <View style={styles.icons}>
           <IconBtn name="notifications-outline" dot={hasNotifications} onPress={() => router.push('/notifications')} />
           <IconBtn name="trophy-outline" onPress={() => router.push('/mydata/leaderboard')} />
