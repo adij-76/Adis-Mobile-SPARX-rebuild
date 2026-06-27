@@ -11,7 +11,15 @@ import { captureRef } from 'react-native-view-shot';
 
 import { Txt } from '@/components/ui/text';
 import { Colors, FontFamily, Spacing } from '@/constants/theme';
-import { quoteBackgrounds, quotes } from '@/data/content';
+import { quotes } from '@/data/content';
+
+// Bundled backgrounds (from the design) — guaranteed to load, no network.
+const LOCAL_BACKGROUNDS = [
+  require('../../assets/images/quote-bg/bg-1.png'),
+  require('../../assets/images/quote-bg/bg-2.png'),
+  require('../../assets/images/quote-bg/bg-3.png'),
+  require('../../assets/images/quote-bg/bg-4.png'),
+];
 
 export default function QuoteCardScreen() {
   const router = useRouter();
@@ -19,7 +27,7 @@ export default function QuoteCardScreen() {
 
   // Today's quote (the one featured on the dashboard).
   const quote = quotes[0];
-  const bg = quoteBackgrounds[0];
+  const bg = LOCAL_BACKGROUNDS[0];
 
   const capture = async (): Promise<string | null> => {
     try {
@@ -75,9 +83,11 @@ export default function QuoteCardScreen() {
     <View style={styles.root}>
       {/* Captured card: background + quote only (no chrome) */}
       <View ref={shotRef} collapsable={false} style={StyleSheet.absoluteFill}>
-        <Image source={{ uri: bg }} style={StyleSheet.absoluteFill} contentFit="cover" />
+        {/* On-brand gradient base — shows through if the photo is slow/unavailable */}
+        <LinearGradient colors={['#4A2B6B', '#2D2350', '#0A3653']} style={StyleSheet.absoluteFill} />
+        <Image source={bg} style={StyleSheet.absoluteFill} contentFit="cover" transition={300} />
         <LinearGradient
-          colors={['rgba(10,13,20,0.15)', 'rgba(10,13,20,0.3)', 'rgba(10,13,20,0.55)']}
+          colors={['rgba(10,13,20,0.15)', 'rgba(10,13,20,0.3)', 'rgba(10,13,20,0.6)']}
           style={StyleSheet.absoluteFill}
         />
         <View style={styles.quoteWrap}>
