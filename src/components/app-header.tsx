@@ -15,7 +15,7 @@ export type AppHeaderProps = {
 
 /**
  * Global app header used across all tabs for consistency:
- * avatar + greeting on the left, bell / trophy / bookmark on the right.
+ * avatar + greeting on the left, bell / chat / bookmark on the right.
  */
 export function AppHeader({ hasNotifications = true }: AppHeaderProps) {
   const router = useRouter();
@@ -34,7 +34,7 @@ export function AppHeader({ hasNotifications = true }: AppHeaderProps) {
         </Pressable>
         <View style={styles.icons}>
           <IconBtn name="notifications-outline" dot={hasNotifications} onPress={() => router.push('/notifications')} />
-          <IconBtn name="trophy-outline" onPress={() => router.push('/mydata/leaderboard')} />
+          <IconBtn name="chatbubbles-outline" onPress={() => router.push('/feed/messages')} />
           <IconBtn name="bookmark-outline" onPress={() => router.push('/favorites')} />
         </View>
       </View>
