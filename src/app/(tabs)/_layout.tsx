@@ -1,14 +1,30 @@
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Tabs } from 'expo-router';
-import type { ColorValue } from 'react-native';
+import { StyleSheet, View, type ColorValue } from 'react-native';
 
-import { Colors, FontFamily } from '@/constants/theme';
+import { Colors, FontFamily, Shadow } from '@/constants/theme';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
 function tabIcon(name: IconName) {
-  return ({ color, size }: { color: ColorValue; size: number }) => (
-    <Ionicons name={name} size={size} color={color} />
+  return ({ color }: { color: ColorValue; size: number }) => (
+    <Ionicons name={name} size={24} color={color} />
+  );
+}
+
+/** Center "Sparky" AI button — larger, gradient, slightly raised. */
+function sparkyIcon({ focused }: { focused: boolean }) {
+  return (
+    <View style={styles.sparkWrap}>
+      <LinearGradient
+        colors={focused ? ['#FFB879', '#FF9D4B'] : ['#FF9D4B', '#166890']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.sparkCircle}>
+        <Ionicons name="sparkles" size={26} color={Colors.white} />
+      </LinearGradient>
+    </View>
   );
 }
 
@@ -30,26 +46,38 @@ export default function TabsLayout() {
           fontSize: 11,
         },
       }}>
+      <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: tabIcon('home') }} />
+      <Tabs.Screen name="data" options={{ title: 'My Data', tabBarIcon: tabIcon('stats-chart') }} />
       <Tabs.Screen
-        name="index"
-        options={{ title: 'Home', tabBarIcon: tabIcon('home') }}
-      />
-      <Tabs.Screen
-        name="data"
-        options={{ title: 'My Data', tabBarIcon: tabIcon('stats-chart') }}
-      />
-      <Tabs.Screen
-        name="lessons"
-        options={{ title: 'My Lessons', tabBarIcon: tabIcon('book') }}
+        name="sparky"
+        options={{
+          title: 'Sparky',
+          tabBarIcon: sparkyIcon,
+          tabBarLabelStyle: { fontFamily: FontFamily.semibold, fontSize: 11 },
+        }}
       />
       <Tabs.Screen
         name="community"
         options={{ title: 'Community', tabBarIcon: tabIcon('people') }}
       />
-      <Tabs.Screen
-        name="profile"
-        options={{ title: 'Profile', tabBarIcon: tabIcon('person') }}
-      />
+      <Tabs.Screen name="lessons" options={{ title: 'My Lessons', tabBarIcon: tabIcon('book') }} />
+      {/* Profile is reached from the top-right avatar, not the tab bar. */}
+      <Tabs.Screen name="profile" options={{ href: null }} />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  sparkWrap: { alignItems: 'center', justifyContent: 'center' },
+  sparkCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -6,
+    borderWidth: 3,
+    borderColor: Colors.primaryDark,
+    ...Shadow.card,
+  },
+});
