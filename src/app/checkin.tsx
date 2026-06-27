@@ -33,6 +33,8 @@ export default function CheckinScreen() {
   const [positive, setPositive] = useState<string[]>([]);
   const [negative, setNegative] = useState<string[]>([]);
   const [behavior, setBehavior] = useState<'yes' | 'no' | null>(null);
+  const [amount, setAmount] = useState<'less' | 'same' | 'more' | null>(null);
+  const [count, setCount] = useState('');
   const [affirmation, setAffirmation] = useState('');
 
   const finish = async () => {
@@ -40,11 +42,14 @@ export default function CheckinScreen() {
     setResult(r);
   };
 
+  const behaviorAnswered =
+    behavior === 'no' || (behavior === 'yes' && amount !== null && count.trim().length > 0);
+
   const canAdvance =
     step === 0 ? true :
     step === 1 ? positive.length > 0 :
     step === 2 ? negative.length > 0 :
-    step === 3 ? behavior !== null :
+    step === 3 ? behaviorAnswered :
     affirmation.trim().length > 0;
 
   if (result) {
@@ -133,7 +138,13 @@ export default function CheckinScreen() {
                   return (
                     <Pressable
                       key={v}
-                      onPress={() => setBehavior(v)}
+                      onPress={() => {
+                        setBehavior(v);
+                        if (v === 'no') {
+                          setAmount(null);
+                          setCount('');
+                        }
+                      }}
                       style={[styles.yesno, active && styles.yesnoActive]}>
                       <Ionicons
                         name={v === 'no' ? 'checkmark-circle' : 'alert-circle'}
@@ -147,6 +158,48 @@ export default function CheckinScreen() {
                   );
                 })}
               </View>
+
+              {/* Fold-out follow-ups when it happened */}
+              {behavior === 'yes' && (
+                <View style={styles.followUp}>
+                  <View style={{ gap: Spacing.md }}>
+                    <Txt variant="bodyMedium">Compared to usual, was it…</Txt>
+                    <View style={{ gap: Spacing.sm }}>
+                      {(['less', 'same', 'more'] as const).map((a) => {
+                        const on = amount === a;
+                        return (
+                          <Pressable
+                            key={a}
+                            onPress={() => setAmount(a)}
+                            style={[styles.amountRow, on && styles.yesnoActive]}>
+                            <Ionicons
+                              name={on ? 'radio-button-on' : 'radio-button-off'}
+                              size={20}
+                              color={on ? Colors.primary : Colors.strokeStrong}
+                            />
+                            <Txt variant="bodyMedium" color={on ? Colors.primary : Colors.textMain}>
+                              {a === 'less' ? 'Less than usual' : a === 'same' ? 'Same as usual' : 'More than usual'}
+                            </Txt>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </View>
+
+                  <View style={{ gap: Spacing.sm }}>
+                    <Txt variant="bodyMedium">How many times?</Txt>
+                    <TextInput
+                      value={count}
+                      onChangeText={(t) => setCount(t.replace(/[^0-9]/g, ''))}
+                      placeholder="e.g. 2"
+                      placeholderTextColor={Colors.textSub}
+                      keyboardType="number-pad"
+                      style={styles.countInput}
+                    />
+                  </View>
+                </View>
+              )}
+
               <Txt variant="caption" color={Colors.textSub} center>
                 No judgement here — honesty is what helps you grow.
               </Txt>
@@ -366,6 +419,33 @@ const styles = StyleSheet.create({
     borderColor: Colors.stroke,
   },
   yesnoActive: { borderColor: Colors.primary, backgroundColor: 'rgba(22,104,144,0.06)' },
+  followUp: {
+    gap: Spacing.lg,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.highlightBorder,
+    paddingLeft: Spacing.lg,
+    marginLeft: Spacing.xs,
+  },
+  amountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    padding: Spacing.md,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.stroke,
+  },
+  countInput: {
+    backgroundColor: Colors.screen,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    color: Colors.textMain,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: Colors.stroke,
+    width: 120,
+  },
   input: {
     minHeight: 120,
     backgroundColor: Colors.screen,
