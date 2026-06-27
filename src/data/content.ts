@@ -200,26 +200,48 @@ export type Quote = {
 };
 
 export const quotes: Quote[] = [
-  {
-    id: 'q1',
-    text: 'Success is not final, failure is not fatal: It is the courage to continue that counts.',
-    author: 'Winston Churchill',
-  },
-  {
-    id: 'q2',
-    text: 'The wound is the place where the Light enters you.',
-    author: 'Rumi',
-  },
-  {
-    id: 'q3',
-    text: 'You don’t have to control your thoughts. You just have to stop letting them control you.',
-    author: 'Dan Millman',
-  },
-  {
-    id: 'q4',
-    text: 'Recovery is not a race. You don’t have to feel guilty for taking your time.',
-    author: 'Unknown',
-  },
+  { id: 'q1', text: 'Success is not final, failure is not fatal: It is the courage to continue that counts.', author: 'Winston Churchill' },
+  { id: 'q2', text: 'The wound is the place where the Light enters you.', author: 'Rumi' },
+  { id: 'q3', text: 'You don’t have to control your thoughts. You just have to stop letting them control you.', author: 'Dan Millman' },
+  { id: 'q4', text: 'Recovery is not a race. You don’t have to feel guilty for taking your time.', author: 'Unknown' },
+  { id: 'q5', text: 'Almost everything will work again if you unplug it for a few minutes — including you.', author: 'Anne Lamott' },
+  { id: 'q6', text: 'You are not your mistakes. You are not your struggles. You are here now with the power to shape your day.', author: 'Steve Maraboli' },
+  { id: 'q7', text: 'Healing is not linear.', author: 'Unknown' },
+  { id: 'q8', text: 'The only way out is through.', author: 'Robert Frost' },
+  { id: 'q9', text: 'What you stay focused on will grow.', author: 'Roy T. Bennett' },
+  { id: 'q10', text: 'Be patient with yourself. Nothing in nature blooms all year.', author: 'Unknown' },
+  { id: 'q11', text: 'Rock bottom became the solid foundation on which I rebuilt my life.', author: 'J.K. Rowling' },
+  { id: 'q12', text: 'Courage doesn’t always roar. Sometimes it’s the quiet voice at the end of the day saying, “I will try again tomorrow.”', author: 'Mary Anne Radmacher' },
+  { id: 'q13', text: 'You don’t have to see the whole staircase, just take the first step.', author: 'Martin Luther King Jr.' },
+  { id: 'q14', text: 'Self-care is how you take your power back.', author: 'Lalah Delia' },
+  { id: 'q15', text: 'Every moment is a fresh beginning.', author: 'T.S. Eliot' },
+];
+
+/**
+ * Full-bleed backgrounds for the shareable quote cards. The first four echo
+ * the design's dusk/nature palette; the rest are additional on-theme variants.
+ * Cards cycle through these.
+ */
+export const quoteBackgrounds: string[] = [
+  'https://images.unsplash.com/photo-1495616811223-4d98c6e9c869?w=900&q=70', // dusk palms
+  'https://images.unsplash.com/photo-1470770841072-f978cf4d019e?w=900&q=70', // misty lake
+  'https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?w=900&q=70', // purple sky
+  'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=900&q=70', // beach calm
+  'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=900&q=70', // forest
+  'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=900&q=70', // mountains sun
+  'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=900&q=70', // foggy peak
+  'https://images.unsplash.com/photo-1426604966848-d7adac402bff?w=900&q=70', // green valley
+  'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=900&q=70', // sunlit field
+  'https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?w=900&q=70', // forest path
+  'https://images.unsplash.com/photo-1500534623283-312aade485b7?w=900&q=70', // lake mountains
+  'https://images.unsplash.com/photo-1444465693019-aa0b6392460d?w=900&q=70', // ocean rocks
+  'https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=900&q=70', // flowers field
+  'https://images.unsplash.com/photo-1454372182658-c712e4c5a1db?w=900&q=70', // starry mountain
+  'https://images.unsplash.com/photo-1475924156734-496f6c5e1fc1?w=900&q=70', // beach dusk
+  'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=900&q=70', // lake sunset
+  'https://images.unsplash.com/photo-1418065460487-3e41a6c84dc5?w=900&q=70', // golden hills
+  'https://images.unsplash.com/photo-1505765050516-f72dcac9c60e?w=900&q=70', // forest light
+  'https://images.unsplash.com/photo-1439066615861-d1af74d74000?w=900&q=70', // moody sea
 ];
 
 export type WorkshopSummary = {

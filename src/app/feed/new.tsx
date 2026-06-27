@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,9 +19,11 @@ const RULES = [
 
 export default function NewPost() {
   const router = useRouter();
-  const [agreed, setAgreed] = useState(false);
+  const { text: prefill } = useLocalSearchParams<{ text?: string }>();
+  // Coming from a shared quote → skip the rules gate and prefill the text.
+  const [agreed, setAgreed] = useState(!!prefill);
   const [community, setCommunity] = useState(communities[0].id);
-  const [text, setText] = useState('');
+  const [text, setText] = useState(prefill ?? '');
 
   if (!agreed) {
     return (
