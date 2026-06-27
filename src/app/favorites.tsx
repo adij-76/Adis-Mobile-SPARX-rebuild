@@ -9,12 +9,17 @@ import { Segmented } from '@/components/ui/segmented';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { recommendedVideos, workshops } from '@/data/content';
+import { useStore } from '@/lib/store';
 
 type Tab = 'lessons' | 'videos';
 
 export default function Favorites() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('lessons');
+  const { favoriteIds, toggleFav } = useStore();
+
+  const savedLessons = workshops.filter((w) => favoriteIds('lesson').includes(w.id));
+  const savedVideos = recommendedVideos.filter((v) => favoriteIds('video').includes(v.id));
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -37,8 +42,14 @@ export default function Favorites() {
       </View>
 
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-        {tab === 'lessons'
-          ? workshops.slice(0, 3).map((w) => (
+        {tab === 'lessons' ? (
+          savedLessons.length === 0 ? (
+            <EmptyState
+              icon="bookmark-outline"
+              text="No saved lessons yet. Tap the bookmark on any lesson to save it here."
+            />
+          ) : (
+            savedLessons.map((w) => (
               <Pressable
                 key={w.id}
                 style={styles.lessonRow}
@@ -52,33 +63,56 @@ export default function Favorites() {
                     {w.author}
                   </Txt>
                 </View>
-                <Ionicons name="bookmark" size={20} color={Colors.primary} />
+                <Pressable onPress={() => toggleFav('lesson', w.id)} hitSlop={10}>
+                  <Ionicons name="bookmark" size={20} color={Colors.primary} />
+                </Pressable>
               </Pressable>
             ))
-          : recommendedVideos.map((v) => (
-              <Pressable
-                key={v.id}
-                style={styles.lessonRow}
-                onPress={() => router.push(`/videos/${v.id}`)}>
-                <View>
-                  <Image source={{ uri: v.image }} style={styles.lessonThumb} />
-                  <View style={styles.play}>
-                    <Ionicons name="play" size={14} color={Colors.primaryDark} />
-                  </View>
+          )
+        ) : savedVideos.length === 0 ? (
+          <EmptyState
+            icon="bookmark-outline"
+            text="No saved videos yet. Tap the bookmark on any video to save it here."
+          />
+        ) : (
+          savedVideos.map((v) => (
+            <Pressable
+              key={v.id}
+              style={styles.lessonRow}
+              onPress={() => router.push(`/videos/${v.id}`)}>
+              <View>
+                <Image source={{ uri: v.image }} style={styles.lessonThumb} />
+                <View style={styles.play}>
+                  <Ionicons name="play" size={14} color={Colors.primaryDark} />
                 </View>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Txt variant="bodySmBold" numberOfLines={2}>
-                    {v.title}
-                  </Txt>
-                  <Txt variant="caption" color={Colors.textSub}>
-                    {v.presenter} · {v.duration}
-                  </Txt>
-                </View>
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Txt variant="bodySmBold" numberOfLines={2}>
+                  {v.title}
+                </Txt>
+                <Txt variant="caption" color={Colors.textSub}>
+                  {v.presenter} · {v.duration}
+                </Txt>
+              </View>
+              <Pressable onPress={() => toggleFav('video', v.id)} hitSlop={10}>
                 <Ionicons name="bookmark" size={20} color={Colors.primary} />
               </Pressable>
-            ))}
+            </Pressable>
+          ))
+        )}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function EmptyState({ icon, text }: { icon: 'bookmark-outline'; text: string }) {
+  return (
+    <View style={styles.empty}>
+      <Ionicons name={icon} size={40} color={Colors.strokeStrong} />
+      <Txt variant="bodySm" color={Colors.textSub} center>
+        {text}
+      </Txt>
+    </View>
   );
 }
 
@@ -102,4 +136,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  empty: { alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.xxl, paddingHorizontal: Spacing.lg },
 });

@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useState } from 'react';
-import { Pressable, StyleSheet, View, type GestureResponderEvent } from 'react-native';
+import { Platform, Pressable, Share, StyleSheet, View, type GestureResponderEvent } from 'react-native';
 
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Shadow, Spacing } from '@/constants/theme';
 import type { Post } from '@/data/content';
+import { useStore } from '@/lib/store';
 
 const REACTIONS = [
   { key: 'like', emoji: '👍', label: 'Like', color: '#2F6BFF' },
@@ -27,7 +28,8 @@ export type PostCardProps = {
 };
 
 export function PostCard({ post, onPress, full }: PostCardProps) {
-  const [reaction, setReaction] = useState<ReactionKey | null>(null);
+  const { reactionFor, setReaction } = useStore();
+  const reaction = reactionFor(post.id) as ReactionKey | null;
   const [picker, setPicker] = useState(false);
 
   const active = reaction ? REACTIONS.find((r) => r.key === reaction) ?? null : null;
@@ -42,8 +44,27 @@ export function PostCard({ post, onPress, full }: PostCardProps) {
   };
   const choose = (e: GestureResponderEvent, k: ReactionKey) => {
     stop(e);
-    setReaction((r) => (r === k ? null : k)); // tapping the active reaction clears it
+    setReaction(post.id, reaction === k ? null : k); // tapping the active reaction clears it
     setPicker(false);
+  };
+  const share = async (e?: GestureResponderEvent) => {
+    stop(e);
+    const message = `${post.author} in ${post.community}: ${post.text}`;
+    if (Platform.OS === 'web') {
+      const nav = (globalThis as { navigator?: any }).navigator;
+      try {
+        if (nav?.share) await nav.share({ text: message });
+        else await nav?.clipboard?.writeText(message);
+      } catch {
+        /* cancelled */
+      }
+    } else {
+      try {
+        await Share.share({ message });
+      } catch {
+        /* cancelled */
+      }
+    }
   };
 
   return (
@@ -110,7 +131,7 @@ export function PostCard({ post, onPress, full }: PostCardProps) {
             {post.comments.length}
           </Txt>
         </View>
-        <Pressable style={styles.action} onPress={stop} hitSlop={6}>
+        <Pressable style={styles.action} onPress={share} hitSlop={6}>
           <Ionicons name="share-social-outline" size={18} color={Colors.textSub} />
         </Pressable>
       </View>

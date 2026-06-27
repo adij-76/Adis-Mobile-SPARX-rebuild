@@ -6,17 +6,19 @@ import { AppHeader } from '@/components/app-header';
 import { PostCard } from '@/components/ui/post-card';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Shadow, Spacing } from '@/constants/theme';
-import { communities, posts } from '@/data/content';
+import { communities } from '@/data/content';
+import { useStore } from '@/lib/store';
 
 export default function CommunityScreen() {
   const router = useRouter();
+  const { allPosts } = useStore();
 
   return (
     <View style={styles.root}>
       <AppHeader />
 
       <FlatList
-        data={posts}
+        data={allPosts}
         keyExtractor={(p) => p.id}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}

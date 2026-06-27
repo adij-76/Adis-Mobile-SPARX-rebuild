@@ -16,20 +16,25 @@ import { PostCard } from '@/components/ui/post-card';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
-import { type Comment, posts } from '@/data/content';
+import { user } from '@/data/content';
+import { useStore } from '@/lib/store';
 
 export default function PostDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const post = posts.find((p) => p.id === id) ?? posts[0];
-  const [comments, setComments] = useState<Comment[]>(post.comments);
+  const { allPosts, addComment } = useStore();
+  const post = allPosts.find((p) => p.id === id) ?? allPosts[0];
+  const comments = post.comments;
   const [text, setText] = useState('');
 
   const send = () => {
     if (!text.trim()) return;
-    setComments((c) => [
-      ...c,
-      { id: `new-${c.length}`, author: 'Okei', avatar: 'https://i.pravatar.cc/80?img=68', time: 'now', text: text.trim() },
-    ]);
+    addComment(post.id, {
+      id: `c${Date.now()}`,
+      author: user.name,
+      avatar: user.avatar,
+      time: 'now',
+      text: text.trim(),
+    });
     setText('');
   };
 

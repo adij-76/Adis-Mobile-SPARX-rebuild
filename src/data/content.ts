@@ -173,7 +173,12 @@ export type VideoItem = {
   presenter: string;
   views: string;
   description: string;
+  /** Vimeo URL the player opens. Placeholder IDs — swap for real IGNTD videos. */
+  vimeoUrl?: string;
 };
+
+/** Demo Vimeo video used by mock players until real IGNTD video IDs are wired in. */
+export const DEMO_VIDEO_URL = 'https://vimeo.com/76979871';
 
 export const recommendedVideos: VideoItem[] = [
   {
@@ -185,6 +190,7 @@ export const recommendedVideos: VideoItem[] = [
     views: '2.4k views',
     description:
       'Connection is the foundation of every healthy relationship. In this session we explore how to show up authentically, communicate needs without fear, and rebuild trust after it has been broken.',
+    vimeoUrl: 'https://vimeo.com/879923572',
   },
   {
     id: 'v2',
@@ -195,6 +201,7 @@ export const recommendedVideos: VideoItem[] = [
     views: '1.1k views',
     description:
       'Intimacy grows when we feel safe to be honest. Learn a simple framework for difficult conversations that deepens connection instead of creating distance.',
+    vimeoUrl: 'https://vimeo.com/22439234',
   },
   {
     id: 'v3',
@@ -205,6 +212,7 @@ export const recommendedVideos: VideoItem[] = [
     views: '3.8k views',
     description:
       'Triggers are signals, not failures. This video breaks down how to recognise your patterns and replace automatic reactions with intentional, healthier responses.',
+    vimeoUrl: 'https://vimeo.com/76979871',
   },
 ];
 
