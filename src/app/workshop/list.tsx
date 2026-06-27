@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -9,6 +9,7 @@ import { Colors, Spacing } from '@/constants/theme';
 
 export default function WorkshopListScreen() {
   const router = useRouter();
+  const { cat } = useLocalSearchParams<{ cat?: string }>();
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -22,7 +23,12 @@ export default function WorkshopListScreen() {
           <Ionicons name="arrow-back" size={22} color={Colors.textMain} />
           <Txt variant="bodyMedium">Back</Txt>
         </Pressable>
-        <Txt variant="titleLg">Workshop</Txt>
+        <Txt variant="titleLg">{cat ?? 'Workshop'}</Txt>
+        {cat ? (
+          <Txt variant="bodySm" color={Colors.textSub}>
+            Browse {cat.toLowerCase()} for you
+          </Txt>
+        ) : null}
       </View>
       <WorkshopList />
     </SafeAreaView>

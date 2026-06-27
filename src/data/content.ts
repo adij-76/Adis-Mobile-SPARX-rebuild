@@ -41,12 +41,14 @@ export type ChecklistItem = {
   id: string;
   label: string;
   done: boolean;
+  /** Where tapping the item takes the user. The backend will personalize these. */
+  route: string;
 };
 
 export const dailyChecklist: ChecklistItem[] = [
-  { id: 'checkin', label: 'Your daily check-in', done: true },
-  { id: 'video', label: 'Video: Learning to face your experience', done: false },
-  { id: 'workshop', label: 'Workshop: The inner map of Relationships', done: false },
+  { id: 'checkin', label: 'Your daily check-in', done: true, route: '/checkin' },
+  { id: 'video', label: 'Video: Learning to face your experience', done: false, route: '/videos/v1' },
+  { id: 'workshop', label: 'Workshop: The inner map of Relationships', done: false, route: '/workshop/intro' },
 ];
 
 export type Program = {
