@@ -1,173 +1,170 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
-import {
-  Dimensions,
-  FlatList,
-  Pressable,
-  Share,
-  StyleSheet,
-  View,
-} from 'react-native';
+import * as MediaLibrary from 'expo-media-library';
+import { useRouter } from 'expo-router';
+import * as Sharing from 'expo-sharing';
+import { useRef } from 'react';
+import { Alert, Platform, Pressable, Share, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { captureRef } from 'react-native-view-shot';
 
 import { Txt } from '@/components/ui/text';
 import { Colors, FontFamily, Spacing } from '@/constants/theme';
-import { quoteBackgrounds, quotes, type Quote } from '@/data/content';
+import { quoteBackgrounds, quotes } from '@/data/content';
 
-const { width, height } = Dimensions.get('window');
-
-export default function QuotesScreen() {
+export default function QuoteCardScreen() {
   const router = useRouter();
-  const { start } = useLocalSearchParams<{ start?: string }>();
-  const startIndex = Math.min(Math.max(0, Number(start) || 0), quotes.length - 1);
-  const [saved, setSaved] = useState<Record<string, boolean>>({});
+  const shotRef = useRef<View>(null);
 
-  const shareSocial = async (q: Quote) => {
+  // Today's quote (the one featured on the dashboard).
+  const quote = quotes[0];
+  const bg = quoteBackgrounds[0];
+
+  const capture = async (): Promise<string | null> => {
     try {
-      await Share.share({ message: `“${q.text}”\n\n— ${q.author}\n\nvia IGNTD` });
+      return await captureRef(shotRef, {
+        format: 'png',
+        quality: 1,
+        result: Platform.OS === 'web' ? 'data-uri' : 'tmpfile',
+      });
     } catch {
-      /* user dismissed */
+      return null;
     }
   };
 
-  const shareCommunity = (q: Quote) => {
-    router.push(`/feed/new?text=${encodeURIComponent(`“${q.text}” — ${q.author}`)}`);
+  const onShare = async () => {
+    const uri = await capture();
+    if (Platform.OS === 'web') {
+      if (uri) downloadOnWeb(uri);
+      else await Share.share({ message: `“${quote.text}” — ${quote.author}` });
+      return;
+    }
+    if (uri && (await Sharing.isAvailableAsync())) {
+      await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Share quote' });
+    } else {
+      await Share.share({ message: `“${quote.text}” — ${quote.author}\n\nvia IGNTD` });
+    }
+  };
+
+  const onDownload = async () => {
+    const uri = await capture();
+    if (!uri) return;
+    if (Platform.OS === 'web') {
+      downloadOnWeb(uri);
+      return;
+    }
+    try {
+      const perm = await MediaLibrary.requestPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Permission needed', 'Allow photo access to save the card.');
+        return;
+      }
+      await MediaLibrary.saveToLibraryAsync(uri);
+      Alert.alert('Saved', 'The quote card was saved to your photos.');
+    } catch {
+      Alert.alert('Could not save', 'Something went wrong saving the image.');
+    }
+  };
+
+  const onCommunity = () => {
+    router.push(`/feed/new?text=${encodeURIComponent(`“${quote.text}” — ${quote.author}`)}`);
   };
 
   return (
     <View style={styles.root}>
-      <FlatList
-        data={quotes}
-        keyExtractor={(q) => q.id}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        initialScrollIndex={startIndex}
-        getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
-        renderItem={({ item, index }) => {
-          const bg = quoteBackgrounds[index % quoteBackgrounds.length];
-          const isSaved = saved[item.id];
-          return (
-            <View style={styles.page}>
-              <Image source={{ uri: bg }} style={StyleSheet.absoluteFill} contentFit="cover" />
-              <LinearGradient
-                colors={['rgba(10,13,20,0.25)', 'rgba(10,13,20,0.45)', 'rgba(10,13,20,0.85)']}
-                style={StyleSheet.absoluteFill}
-              />
+      {/* Captured card: background + quote only (no chrome) */}
+      <View ref={shotRef} collapsable={false} style={StyleSheet.absoluteFill}>
+        <Image source={{ uri: bg }} style={StyleSheet.absoluteFill} contentFit="cover" />
+        <LinearGradient
+          colors={['rgba(10,13,20,0.15)', 'rgba(10,13,20,0.3)', 'rgba(10,13,20,0.55)']}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={styles.quoteWrap}>
+          <Txt style={styles.quoteText}>&ldquo;{quote.text}&rdquo;</Txt>
+          <Txt style={styles.author}>- {quote.author}</Txt>
+        </View>
+        <Txt style={styles.watermark}>IGNTD</Txt>
+      </View>
 
-              <SafeAreaView style={styles.overlay} edges={['top', 'bottom']}>
-                {/* top bar */}
-                <View style={styles.topBar}>
-                  <Pressable onPress={() => router.back()} hitSlop={12} style={styles.iconCircle}>
-                    <Ionicons name="close" size={22} color={Colors.white} />
-                  </Pressable>
-                  <Txt variant="caption" color="rgba(255,255,255,0.8)">
-                    {index + 1} / {quotes.length}
-                  </Txt>
-                </View>
+      {/* Chrome overlay (not captured) */}
+      <SafeAreaView style={styles.overlay} edges={['top', 'bottom']} pointerEvents="box-none">
+        <Pressable onPress={() => router.back()} hitSlop={12} style={styles.back}>
+          <Ionicons name="arrow-back" size={24} color={Colors.white} />
+          <Txt variant="bodyMedium" color={Colors.white}>
+            Back
+          </Txt>
+        </Pressable>
 
-                {/* quote */}
-                <View style={styles.quoteWrap}>
-                  <Ionicons name="chatbox" size={28} color="rgba(255,255,255,0.5)" />
-                  <Txt style={styles.quoteText}>{item.text}</Txt>
-                  <Txt style={styles.author}>— {item.author}</Txt>
-                </View>
-
-                {/* actions */}
-                <View style={styles.actions}>
-                  <Action
-                    icon={isSaved ? 'heart' : 'heart-outline'}
-                    label="Save"
-                    onPress={() => setSaved((s) => ({ ...s, [item.id]: !s[item.id] }))}
-                  />
-                  <Action icon="share-social-outline" label="Share" onPress={() => shareSocial(item)} />
-                  <Action icon="people-outline" label="Community" onPress={() => shareCommunity(item)} />
-                </View>
-
-                <Txt variant="caption" color="rgba(255,255,255,0.7)" center style={{ marginTop: Spacing.md }}>
-                  Swipe for more · IGNTD
-                </Txt>
-              </SafeAreaView>
-            </View>
-          );
-        }}
-      />
+        <View style={styles.actions}>
+          <Action icon="people-outline" onPress={onCommunity} />
+          <Action icon="download-outline" onPress={onDownload} />
+          <Action icon="share-social-outline" onPress={onShare} />
+        </View>
+      </SafeAreaView>
     </View>
   );
 }
 
-function Action({
-  icon,
-  label,
-  onPress,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  onPress: () => void;
-}) {
+function downloadOnWeb(uri: string) {
+  // uri is a data-uri on web
+  if (typeof document === 'undefined') return;
+  const a = document.createElement('a');
+  a.href = uri;
+  a.download = 'igntd-quote.png';
+  a.click();
+}
+
+function Action({ icon, onPress }: { icon: keyof typeof Ionicons.glyphMap; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={styles.action}>
-      <View style={styles.actionCircle}>
-        <Ionicons name={icon} size={22} color={Colors.white} />
-      </View>
-      <Txt variant="caption" color={Colors.white}>
-        {label}
-      </Txt>
+    <Pressable onPress={onPress} hitSlop={16} style={styles.actionBtn}>
+      <Ionicons name={icon} size={26} color={Colors.white} />
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.primaryDarker },
-  page: { width, height },
-  overlay: {
-    flex: 1,
-    paddingHorizontal: Spacing.xl,
-    justifyContent: 'space-between',
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: Spacing.sm,
-  },
-  iconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    alignItems: 'center',
+  overlay: { flex: 1, justifyContent: 'space-between', paddingHorizontal: Spacing.xl },
+  back: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingTop: Spacing.sm },
+  quoteWrap: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: Spacing.xl,
+    right: Spacing.xl,
     justifyContent: 'center',
+    gap: Spacing.lg,
   },
-  quoteWrap: { flex: 1, justifyContent: 'center', gap: Spacing.lg },
   quoteText: {
-    fontFamily: FontFamily.bold,
-    fontSize: 30,
-    lineHeight: 42,
+    fontFamily: FontFamily.semibold,
+    fontSize: 27,
+    lineHeight: 40,
     color: Colors.white,
+    textAlign: 'center',
   },
   author: {
     fontFamily: FontFamily.medium,
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.9)',
+    fontSize: 18,
+    color: Colors.white,
+    textAlign: 'center',
+  },
+  watermark: {
+    position: 'absolute',
+    bottom: 110,
+    alignSelf: 'center',
+    width: '100%',
+    textAlign: 'center',
+    fontFamily: FontFamily.bold,
+    fontSize: 13,
+    letterSpacing: 3,
+    color: 'rgba(255,255,255,0.6)',
   },
   actions: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: Spacing.md,
-  },
-  action: { alignItems: 'center', gap: Spacing.xs },
-  actionCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
+    justifyContent: 'space-evenly',
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingVertical: Spacing.lg,
   },
+  actionBtn: { padding: Spacing.sm },
 });

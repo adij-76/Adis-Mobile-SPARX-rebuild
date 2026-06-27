@@ -29,6 +29,13 @@
     "plugins": [
       "expo-router",
       [
+        "expo-media-library",
+        {
+          "savePhotosPermission": "Allow IGNTD to save quote cards to your photos.",
+          "isAccessMediaLocationEnabled": false
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#0A3653",
