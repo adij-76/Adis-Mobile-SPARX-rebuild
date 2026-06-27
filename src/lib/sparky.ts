@@ -25,7 +25,16 @@ export async function askSparky(
   const res = await fetch(WEBHOOK, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, sessionId, history }),
+    // n8n's Chat Trigger node expects `chatInput` + `sessionId` (and an
+    // `action`). We also send `message`/`history` so a plain Webhook node
+    // still works — harmless extra fields either way.
+    body: JSON.stringify({
+      action: 'sendMessage',
+      chatInput: message,
+      sessionId,
+      message,
+      history,
+    }),
   });
   if (!res.ok) throw new Error(`Sparky webhook ${res.status}`);
 
