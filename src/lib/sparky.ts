@@ -9,7 +9,9 @@
  * webhook URL. For the web build, the webhook must return CORS headers allowing
  * the site origin; native apps are unaffected by CORS.
  */
-const WEBHOOK = (process.env.EXPO_PUBLIC_SPARKY_WEBHOOK ?? '').trim();
+// Production n8n webhook (overridable at build time via the repo variable).
+const DEFAULT_WEBHOOK = 'https://igntd.app.n8n.cloud/webhook/380bcfd0-caf8-4333-b9e7-783f363daf01';
+const WEBHOOK = (process.env.EXPO_PUBLIC_SPARKY_WEBHOOK || DEFAULT_WEBHOOK).trim();
 
 export const sparkyConfigured = WEBHOOK.length > 0;
 
