@@ -13,6 +13,11 @@
 const DEFAULT_WEBHOOK = 'https://igntd.app.n8n.cloud/webhook/380bcfd0-caf8-4333-b9e7-783f363daf01';
 const WEBHOOK = (process.env.EXPO_PUBLIC_SPARKY_WEBHOOK || DEFAULT_WEBHOOK).trim();
 
+// The n8n flow personalizes on userId (coach, check-ins, Wheel of Life). Until
+// real auth is wired up, default to the team's test user (11). Override per
+// build with EXPO_PUBLIC_SPARKY_USER_ID.
+const USER_ID = (process.env.EXPO_PUBLIC_SPARKY_USER_ID || '11').trim();
+
 export const sparkyConfigured = WEBHOOK.length > 0;
 
 export type SparkyTurn = { role: 'user' | 'assistant'; text: string };
@@ -27,11 +32,14 @@ export async function askSparky(
     headers: { 'Content-Type': 'application/json' },
     // n8n's Chat Trigger node expects `chatInput` + `sessionId` (and an
     // `action`). We also send `message`/`history` so a plain Webhook node
-    // still works — harmless extra fields either way.
+    // still works — harmless extra fields either way. `userId`/`timestamp`
+    // drive the flow's personalization + crisis-alert nodes.
     body: JSON.stringify({
       action: 'sendMessage',
       chatInput: message,
       sessionId,
+      userId: USER_ID,
+      timestamp: new Date().toISOString(),
       message,
       history,
     }),
