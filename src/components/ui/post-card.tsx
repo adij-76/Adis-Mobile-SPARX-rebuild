@@ -1,12 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { Platform, Pressable, Share, StyleSheet, View, type GestureResponderEvent } from 'react-native';
 
+import { ActionSheet, type SheetAction } from '@/components/ui/action-sheet';
 import { ReactionBar, type ReactionKey } from '@/components/ui/reaction-bar';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
-import type { Post } from '@/data/content';
-import { useStore } from '@/lib/store';
+import { user, type Post } from '@/data/content';
+import { chatId, useStore } from '@/lib/store';
 
 export type PostCardProps = {
   post: Post;
@@ -16,12 +19,51 @@ export type PostCardProps = {
 };
 
 export function PostCard({ post, onPress, full }: PostCardProps) {
-  const { reactionFor, setReaction } = useStore();
+  const router = useRouter();
+  const { reactionFor, setReaction, hidePost, deletePost } = useStore();
   const reaction = reactionFor(post.id) as ReactionKey | null;
   const count = post.likes + (reaction ? 1 : 0);
+  const [menu, setMenu] = useState(false);
+  const isOwn = post.author === user.name;
 
   const stop = (e?: GestureResponderEvent) =>
     (e as unknown as { stopPropagation?: () => void } | undefined)?.stopPropagation?.();
+
+  const copyLink = async () => {
+    const url = `https://adij-76.github.io/Adis-Mobile-SPARX-rebuild/feed/${post.id}`;
+    if (Platform.OS === 'web') {
+      const nav = (globalThis as { navigator?: any }).navigator;
+      try {
+        await nav?.clipboard?.writeText(url);
+      } catch {
+        /* ignore */
+      }
+    } else {
+      try {
+        await Share.share({ message: url });
+      } catch {
+        /* cancelled */
+      }
+    }
+  };
+
+  const startChat = () =>
+    router.push(
+      `/feed/chat?id=${chatId(post.author)}&name=${encodeURIComponent(post.author)}&avatar=${encodeURIComponent(post.avatar)}`,
+    );
+
+  const menuActions: SheetAction[] = isOwn
+    ? [
+        { label: 'Copy link', icon: 'link-outline', onPress: copyLink },
+        { label: 'Delete post', icon: 'trash-outline', destructive: true, onPress: () => deletePost(post.id) },
+      ]
+    : [
+        { label: `Start chat with ${post.author}`, icon: 'chatbubble-ellipses-outline', onPress: startChat },
+        { label: 'Copy link', icon: 'link-outline', onPress: copyLink },
+        { label: 'Hide post', icon: 'eye-off-outline', onPress: () => hidePost(post.id) },
+        { label: 'Report post', icon: 'flag-outline', destructive: true, onPress: () => hidePost(post.id) },
+      ];
+
   const share = async (e?: GestureResponderEvent) => {
     stop(e);
     const message = `${post.author} in ${post.community}: ${post.text}`;
@@ -54,7 +96,16 @@ export function PostCard({ post, onPress, full }: PostCardProps) {
             {post.community} · {post.time}
           </Txt>
         </View>
-        <Ionicons name="ellipsis-horizontal" size={20} color={Colors.textSub} />
+        <Pressable
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Post options"
+          onPress={(e) => {
+            stop(e);
+            setMenu(true);
+          }}>
+          <Ionicons name="ellipsis-horizontal" size={20} color={Colors.textSub} />
+        </Pressable>
       </View>
 
       <Txt variant="bodySm" numberOfLines={full ? undefined : 4}>
@@ -81,6 +132,13 @@ export function PostCard({ post, onPress, full }: PostCardProps) {
           <Ionicons name="share-social-outline" size={18} color={Colors.textSub} />
         </Pressable>
       </View>
+
+      <ActionSheet
+        visible={menu}
+        onClose={() => setMenu(false)}
+        title={`${post.author} · ${post.community}`}
+        actions={menuActions}
+      />
     </Pressable>
   );
 }

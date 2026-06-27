@@ -7,6 +7,7 @@ export default function FeedLayout() {
       <Stack.Screen name="new" />
       <Stack.Screen name="explore" />
       <Stack.Screen name="messages" />
+      <Stack.Screen name="chat" />
     </Stack>
   );
 }

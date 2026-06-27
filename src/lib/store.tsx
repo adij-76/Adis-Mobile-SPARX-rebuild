@@ -23,6 +23,13 @@ const KEY = 'igntd.store.v1';
 export type FavKind = 'video' | 'lesson';
 const favKey = (k: FavKind, id: string) => `${k}:${id}`;
 
+export type DmMessage = { id: string; from: 'me' | 'them'; text: string; time: string };
+export type DmThread = { id: string; name: string; avatar: string; messages: DmMessage[] };
+
+/** Slug used as a DM thread id, derived from a person's name. */
+export const chatId = (name: string) =>
+  name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
 type Persisted = {
   favorites: string[]; // "video:v1" / "lesson:w2"
   joined: string[]; // community ids
@@ -31,6 +38,8 @@ type Persisted = {
   comments: Record<string, Comment[]>; // postId -> added comments
   commentReactions: Record<string, string>; // commentId -> reaction key
   replies: Record<string, Comment[]>; // parent commentId -> replies
+  hidden: string[]; // hidden/reported post ids
+  dms: Record<string, { name: string; avatar: string; messages: DmMessage[] }>; // chatId -> thread
 };
 
 const EMPTY: Persisted = {
@@ -41,6 +50,8 @@ const EMPTY: Persisted = {
   comments: {},
   commentReactions: {},
   replies: {},
+  hidden: [],
+  dms: {},
 };
 
 type StoreValue = {
@@ -66,6 +77,13 @@ type StoreValue = {
   setCommentReaction: (commentId: string, key: string | null) => void;
   repliesFor: (commentId: string) => Comment[];
   addReply: (parentCommentId: string, c: Comment) => void;
+  // moderation
+  hidePost: (postId: string) => void;
+  deletePost: (postId: string) => void;
+  // direct messages
+  chatFor: (id: string) => DmThread | null;
+  chatThreads: () => DmThread[];
+  sendDm: (id: string, name: string, avatar: string, text: string) => void;
   // account
   clearAll: () => void;
 };
@@ -97,10 +115,12 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const update = useCallback((fn: (s: Persisted) => Persisted) => setState(fn), []);
 
   const value = useMemo<StoreValue>(() => {
-    const allPosts: Post[] = [...state.userPosts, ...basePosts].map((p) => ({
-      ...p,
-      comments: [...p.comments, ...(state.comments[p.id] ?? [])],
-    }));
+    const allPosts: Post[] = [...state.userPosts, ...basePosts]
+      .filter((p) => !state.hidden.includes(p.id))
+      .map((p) => ({
+        ...p,
+        comments: [...p.comments, ...(state.comments[p.id] ?? [])],
+      }));
 
     return {
       ready,
@@ -173,6 +193,26 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
           ...s,
           replies: { ...s.replies, [parentCommentId]: [...(s.replies[parentCommentId] ?? []), c] },
         })),
+
+      hidePost: (postId) =>
+        update((s) => (s.hidden.includes(postId) ? s : { ...s, hidden: [...s.hidden, postId] })),
+      deletePost: (postId) =>
+        update((s) => ({ ...s, userPosts: s.userPosts.filter((p) => p.id !== postId) })),
+
+      chatFor: (id) => {
+        const t = state.dms[id];
+        return t ? { id, ...t } : null;
+      },
+      chatThreads: () => Object.entries(state.dms).map(([id, t]) => ({ id, ...t })),
+      sendDm: (id, name, avatar, text) =>
+        update((s) => {
+          const prev = s.dms[id] ?? { name, avatar, messages: [] };
+          const msg: DmMessage = { id: `m${Date.now()}`, from: 'me', text, time: 'now' };
+          return {
+            ...s,
+            dms: { ...s.dms, [id]: { name, avatar, messages: [...prev.messages, msg] } },
+          };
+        }),
 
       clearAll: () => setState(EMPTY),
     };

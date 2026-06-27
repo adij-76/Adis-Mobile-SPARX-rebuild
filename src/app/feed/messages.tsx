@@ -1,10 +1,12 @@
 import { Image } from 'expo-image';
-import { FlatList, StyleSheet, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { Colors, Spacing } from '@/constants/theme';
+import { chatId, useStore } from '@/lib/store';
 
 type Thread = {
   id: string;
@@ -15,25 +17,45 @@ type Thread = {
   unread?: number;
 };
 
-const THREADS: Thread[] = [
-  { id: 't1', name: 'Adi Jaffe (Coach)', avatar: 'https://i.pravatar.cc/80?img=68', last: 'Proud of your progress this week — keep going!', time: '2m', unread: 2 },
-  { id: 't2', name: 'Helping Hands', avatar: 'https://i.pravatar.cc/80?img=5', last: 'Maya: The mornings really do get easier 💙', time: '1h' },
-  { id: 't3', name: 'James K.', avatar: 'https://i.pravatar.cc/80?img=12', last: 'Thanks for the support yesterday 🙏', time: '3h' },
-  { id: 't4', name: 'Daily Mindfulness', avatar: 'https://i.pravatar.cc/80?img=45', last: 'New breathing exercise posted', time: '1d' },
+const SEED_THREADS: Thread[] = [
+  { id: chatId('Adi Jaffe (Coach)'), name: 'Adi Jaffe (Coach)', avatar: 'https://i.pravatar.cc/80?img=68', last: 'Proud of your progress this week — keep going!', time: '2m', unread: 2 },
+  { id: chatId('Helping Hands'), name: 'Helping Hands', avatar: 'https://i.pravatar.cc/80?img=5', last: 'Maya: The mornings really do get easier 💙', time: '1h' },
+  { id: chatId('James K.'), name: 'James K.', avatar: 'https://i.pravatar.cc/80?img=12', last: 'Thanks for the support yesterday 🙏', time: '3h' },
+  { id: chatId('Daily Mindfulness'), name: 'Daily Mindfulness', avatar: 'https://i.pravatar.cc/80?img=45', last: 'New breathing exercise posted', time: '1d' },
 ];
 
 export default function Messages() {
+  const router = useRouter();
+  const { chatThreads } = useStore();
+
+  // Threads the user has actually started (newest first), then the seed list,
+  // de-duped by id so a started conversation replaces its seed row.
+  const started: Thread[] = chatThreads().map((t) => ({
+    id: t.id,
+    name: t.name,
+    avatar: t.avatar,
+    last: t.messages.length ? t.messages[t.messages.length - 1].text : 'Say hi 👋',
+    time: 'now',
+  }));
+  const startedIds = new Set(started.map((t) => t.id));
+  const threads = [...started, ...SEED_THREADS.filter((t) => !startedIds.has(t.id))];
+
+  const open = (t: Thread) =>
+    router.push(
+      `/feed/chat?id=${t.id}&name=${encodeURIComponent(t.name)}&avatar=${encodeURIComponent(t.avatar)}`,
+    );
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScreenHeader title="Back" largeTitle="Messages" />
       <FlatList
-        data={THREADS}
+        data={threads}
         keyExtractor={(t) => t.id}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={() => <View style={styles.divider} />}
         renderItem={({ item }) => (
-          <View style={styles.row}>
+          <Pressable style={styles.row} onPress={() => open(item)}>
             <Image source={{ uri: item.avatar }} style={styles.avatar} />
             <View style={{ flex: 1 }}>
               <View style={styles.top}>
@@ -53,7 +75,7 @@ export default function Messages() {
                 </Txt>
               </View>
             ) : null}
-          </View>
+          </Pressable>
         )}
       />
     </SafeAreaView>
