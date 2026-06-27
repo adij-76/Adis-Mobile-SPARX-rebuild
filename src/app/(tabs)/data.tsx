@@ -57,16 +57,16 @@ export default function DataScreen() {
           </Card>
         </Pressable>
 
-        {/* Daily assessment CTA */}
-        <Pressable onPress={() => router.push('/mydata/daily')}>
+        {/* Daily check-in CTA */}
+        <Pressable onPress={() => router.push('/checkin')}>
           <Card style={styles.cta}>
             <View style={styles.ctaIcon}>
               <Ionicons name="clipboard" size={22} color={Colors.white} />
             </View>
             <View style={{ flex: 1 }}>
-              <Txt variant="titleSm">Daily Assessment</Txt>
+              <Txt variant="titleSm">Daily check-in</Txt>
               <Txt variant="bodySm" color={Colors.textSub}>
-                2 minutes · keeps your streak alive
+                1 minute · keeps your streak alive
               </Txt>
             </View>
             <Ionicons name="chevron-forward" size={20} color={Colors.textSub} />
