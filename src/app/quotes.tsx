@@ -1,13 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as MediaLibrary from 'expo-media-library';
 import { useRouter } from 'expo-router';
-import * as Sharing from 'expo-sharing';
 import { useRef } from 'react';
 import { Alert, Platform, Pressable, Share, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { captureRef } from 'react-native-view-shot';
 
 import { Txt } from '@/components/ui/text';
 import { Colors, FontFamily, Spacing } from '@/constants/theme';
@@ -29,40 +26,59 @@ export default function QuoteCardScreen() {
   const quote = quotes[0];
   const bg = LOCAL_BACKGROUNDS[0];
 
-  const capture = async (): Promise<string | null> => {
+  const quoteText = `“${quote.text}” — ${quote.author}`;
+
+  // Native capture is loaded lazily so web never evaluates native-only modules.
+  const captureNative = async (): Promise<string | null> => {
     try {
-      return await captureRef(shotRef, {
-        format: 'png',
-        quality: 1,
-        result: Platform.OS === 'web' ? 'data-uri' : 'tmpfile',
-      });
+      const { captureRef } = require('react-native-view-shot');
+      return await captureRef(shotRef, { format: 'png', quality: 1 });
     } catch {
       return null;
     }
   };
 
   const onShare = async () => {
-    const uri = await capture();
     if (Platform.OS === 'web') {
-      if (uri) downloadOnWeb(uri);
-      else await Share.share({ message: `“${quote.text}” — ${quote.author}` });
+      try {
+        const g = globalThis as { navigator?: any; alert?: (m: string) => void };
+        if (g.navigator?.share) await g.navigator.share({ text: `${quoteText}\n\nvia IGNTD` });
+        else if (g.navigator?.clipboard) {
+          await g.navigator.clipboard.writeText(quoteText);
+          g.alert?.('Quote copied to clipboard');
+        }
+      } catch {
+        /* dismissed */
+      }
       return;
     }
-    if (uri && (await Sharing.isAvailableAsync())) {
-      await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Share quote' });
-    } else {
-      await Share.share({ message: `“${quote.text}” — ${quote.author}\n\nvia IGNTD` });
+    const uri = await captureNative();
+    try {
+      const Sharing = require('expo-sharing');
+      if (uri && (await Sharing.isAvailableAsync())) {
+        await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Share quote' });
+        return;
+      }
+    } catch {
+      /* fall through to text share */
     }
+    await Share.share({ message: `${quoteText}\n\nvia IGNTD` });
   };
 
   const onDownload = async () => {
-    const uri = await capture();
-    if (!uri) return;
     if (Platform.OS === 'web') {
-      downloadOnWeb(uri);
+      (globalThis as { alert?: (m: string) => void }).alert?.(
+        'Saving the card to your photos is available in the IGNTD app.'
+      );
+      return;
+    }
+    const uri = await captureNative();
+    if (!uri) {
+      Alert.alert('Could not save', 'Something went wrong creating the image.');
       return;
     }
     try {
+      const MediaLibrary = require('expo-media-library');
       const perm = await MediaLibrary.requestPermissionsAsync();
       if (!perm.granted) {
         Alert.alert('Permission needed', 'Allow photo access to save the card.');
@@ -76,7 +92,7 @@ export default function QuoteCardScreen() {
   };
 
   const onCommunity = () => {
-    router.push(`/feed/new?text=${encodeURIComponent(`“${quote.text}” — ${quote.author}`)}`);
+    router.push(`/feed/new?text=${encodeURIComponent(quoteText)}`);
   };
 
   return (
@@ -114,15 +130,6 @@ export default function QuoteCardScreen() {
       </SafeAreaView>
     </View>
   );
-}
-
-function downloadOnWeb(uri: string) {
-  // uri is a data-uri on web
-  if (typeof document === 'undefined') return;
-  const a = document.createElement('a');
-  a.href = uri;
-  a.download = 'igntd-quote.png';
-  a.click();
 }
 
 function Action({ icon, onPress }: { icon: keyof typeof Ionicons.glyphMap; onPress: () => void }) {
