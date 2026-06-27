@@ -12,12 +12,16 @@ import { ProgressBar } from '@/components/ui/progress-bar';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Shadow, Spacing } from '@/constants/theme';
 import {
+  challenges,
   dailyChecklist,
   dailyQuote,
   heroProgram,
   recommendedVideos,
   socials,
   upcomingMeetings,
+  workshops,
+  type Challenge,
+  type WorkshopSummary,
 } from '@/data/content';
 import { isDoneToday } from '@/lib/checkin';
 
@@ -116,10 +120,7 @@ export default function HomeScreen() {
             return (
               <Pressable
                 key={t}
-                onPress={() => {
-                  setTab(t);
-                  router.push(`/workshop/list?cat=${t}`);
-                }}
+                onPress={() => setTab(t)}
                 style={[styles.segmentItem, active && styles.segmentItemActive]}>
                 <Txt
                   variant="bodySmMedium"
@@ -131,31 +132,53 @@ export default function HomeScreen() {
           })}
         </View>
 
-        {/* Programs */}
-        <SectionHeader title="Programs" onSeeAll={() => router.push('/workshop/list')} />
-        <LinearGradient
-          colors={['#10243A', '#1C3B55', '#3A2A5A']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.program}>
-          <Txt variant="caption" color={Colors.orangePale} style={{ letterSpacing: 1 }}>
-            {heroProgram.badge.toUpperCase()}
-          </Txt>
-          <Txt variant="title" color={Colors.white} center style={{ marginTop: Spacing.sm }}>
-            {heroProgram.title}
-          </Txt>
-          <View style={styles.programProgress}>
-            <ProgressBar progress={heroProgram.progress} />
-            <Txt variant="caption" color={Colors.white} style={{ marginTop: Spacing.xs }}>
-              {Math.round(heroProgram.progress * 100)}% 🔥
-            </Txt>
-          </View>
-          <Button
-            title="Continue to Lesson"
-            variant="white"
-            onPress={() => router.push('/workshop/intro')}
-          />
-        </LinearGradient>
+        {/* Tab content — swaps inline with the segmented control above */}
+        {tab === 'Programs' && (
+          <>
+            <SectionHeader title="Programs" onSeeAll={() => router.push('/workshop/list')} />
+            <LinearGradient
+              colors={['#10243A', '#1C3B55', '#3A2A5A']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.program}>
+              <Txt variant="caption" color={Colors.orangePale} style={{ letterSpacing: 1 }}>
+                {heroProgram.badge.toUpperCase()}
+              </Txt>
+              <Txt variant="title" color={Colors.white} center style={{ marginTop: Spacing.sm }}>
+                {heroProgram.title}
+              </Txt>
+              <View style={styles.programProgress}>
+                <ProgressBar progress={heroProgram.progress} />
+                <Txt variant="caption" color={Colors.white} style={{ marginTop: Spacing.xs }}>
+                  {Math.round(heroProgram.progress * 100)}% 🔥
+                </Txt>
+              </View>
+              <Button
+                title="Continue to Lesson"
+                variant="white"
+                onPress={() => router.push('/workshop/intro')}
+              />
+            </LinearGradient>
+          </>
+        )}
+
+        {tab === 'Workshop' && (
+          <>
+            <SectionHeader title="Workshops" onSeeAll={() => router.push('/workshop/list')} />
+            {workshops.map((w) => (
+              <WorkshopRow key={w.id} workshop={w} onPress={() => router.push('/workshop/intro')} />
+            ))}
+          </>
+        )}
+
+        {tab === 'Challenges' && (
+          <>
+            <SectionHeader title="Challenges" />
+            {challenges.map((c) => (
+              <ChallengeCard key={c.id} challenge={c} />
+            ))}
+          </>
+        )}
 
         {/* Upcoming meetings */}
         <SectionHeader
@@ -245,6 +268,58 @@ export default function HomeScreen() {
         </View>
       </ScrollView>
     </View>
+  );
+}
+
+function WorkshopRow({ workshop, onPress }: { workshop: WorkshopSummary; onPress: () => void }) {
+  return (
+    <Pressable style={styles.wRow} onPress={onPress}>
+      <Image source={{ uri: workshop.image }} style={styles.wThumb} />
+      <View style={{ flex: 1, gap: 2 }}>
+        <Txt variant="bodySmBold" numberOfLines={2}>
+          {workshop.title}
+        </Txt>
+        <Txt variant="caption" color={Colors.textSub}>
+          {workshop.author}
+        </Txt>
+        <View style={styles.stars}>
+          {[0, 1, 2, 3, 4].map((i) => (
+            <Ionicons
+              key={i}
+              name={i < workshop.rating ? 'star' : 'star-outline'}
+              size={12}
+              color={Colors.orange}
+            />
+          ))}
+        </View>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={Colors.textSub} />
+    </Pressable>
+  );
+}
+
+function ChallengeCard({ challenge }: { challenge: Challenge }) {
+  return (
+    <Card style={{ gap: Spacing.md }}>
+      <View style={styles.challengeHead}>
+        <View style={[styles.challengeIcon, { backgroundColor: `${challenge.color}22` }]}>
+          <Ionicons name={challenge.icon as never} size={20} color={challenge.color} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Txt variant="bodyMedium">{challenge.title}</Txt>
+          <Txt variant="caption" color={Colors.textSub}>
+            {challenge.days}-day challenge
+          </Txt>
+        </View>
+      </View>
+      <Txt variant="bodySm" color={Colors.textSub}>
+        {challenge.description}
+      </Txt>
+      <ProgressBar progress={challenge.progress} track={Colors.soft} fill={challenge.color} />
+      <Txt variant="caption" color={Colors.textSub}>
+        {Math.round(challenge.progress * 100)}% complete
+      </Txt>
+    </Card>
   );
 }
 
@@ -367,6 +442,20 @@ const styles = StyleSheet.create({
     ...Shadow.card,
   },
   programProgress: { alignSelf: 'stretch', alignItems: 'center' },
+  wRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    backgroundColor: Colors.white,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.stroke,
+    padding: Spacing.md,
+  },
+  wThumb: { width: 84, height: 64, borderRadius: Radius.sm, backgroundColor: Colors.soft },
+  stars: { flexDirection: 'row', gap: 1, marginTop: 2 },
+  challengeHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  challengeIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   meeting: { gap: 0 },
   meetingTop: {
     flexDirection: 'row',
