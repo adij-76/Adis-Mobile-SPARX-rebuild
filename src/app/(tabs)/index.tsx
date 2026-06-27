@@ -135,7 +135,7 @@ export default function HomeScreen() {
         {/* Tab content — swaps inline with the segmented control above */}
         {tab === 'Programs' && (
           <>
-            <SectionHeader title="Programs" onSeeAll={() => router.push('/workshop/list')} />
+            <SeeAllRow onPress={() => router.push('/workshop/list')} />
             <LinearGradient
               colors={['#10243A', '#1C3B55', '#3A2A5A']}
               start={{ x: 0, y: 0 }}
@@ -164,21 +164,15 @@ export default function HomeScreen() {
 
         {tab === 'Workshop' && (
           <>
-            <SectionHeader title="Workshops" onSeeAll={() => router.push('/workshop/list')} />
+            <SeeAllRow onPress={() => router.push('/workshop/list')} />
             {workshops.map((w) => (
               <WorkshopRow key={w.id} workshop={w} onPress={() => router.push('/workshop/intro')} />
             ))}
           </>
         )}
 
-        {tab === 'Challenges' && (
-          <>
-            <SectionHeader title="Challenges" />
-            {challenges.map((c) => (
-              <ChallengeCard key={c.id} challenge={c} />
-            ))}
-          </>
-        )}
+        {tab === 'Challenges' &&
+          challenges.map((c) => <ChallengeCard key={c.id} challenge={c} />)}
 
         {/* Upcoming meetings */}
         <SectionHeader
@@ -267,6 +261,18 @@ export default function HomeScreen() {
           ))}
         </View>
       </ScrollView>
+    </View>
+  );
+}
+
+function SeeAllRow({ onPress }: { onPress: () => void }) {
+  return (
+    <View style={styles.seeAllRow}>
+      <Pressable onPress={onPress} hitSlop={8}>
+        <Txt variant="bodySmMedium" color={Colors.primary}>
+          See all
+        </Txt>
+      </Pressable>
     </View>
   );
 }
@@ -442,6 +448,7 @@ const styles = StyleSheet.create({
     ...Shadow.card,
   },
   programProgress: { alignSelf: 'stretch', alignItems: 'center' },
+  seeAllRow: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: -Spacing.sm },
   wRow: {
     flexDirection: 'row',
     alignItems: 'center',
