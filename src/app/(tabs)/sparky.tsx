@@ -200,7 +200,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  bubble: { borderRadius: Radius.lg, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md },
+  bubble: {
+    flexShrink: 1,
+    borderRadius: Radius.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+  },
   bubbleSparky: { backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.stroke, borderBottomLeftRadius: 4 },
   bubbleMe: { backgroundColor: Colors.primary, borderBottomRightRadius: 4 },
   suggestions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginTop: Spacing.sm },
