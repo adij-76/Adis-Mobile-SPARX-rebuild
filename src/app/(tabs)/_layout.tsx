@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Tabs } from 'expo-router';
 import { StyleSheet, View, type ColorValue } from 'react-native';
 
-import { Colors, FontFamily, Shadow } from '@/constants/theme';
+import { Colors, Shadow } from '@/constants/theme';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -33,29 +33,19 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        tabBarShowLabel: false,
         tabBarActiveTintColor: Colors.white,
         tabBarInactiveTintColor: 'rgba(255,255,255,0.55)',
         tabBarStyle: {
           backgroundColor: Colors.primaryDark,
           borderTopWidth: 0,
-          height: 88,
-          paddingTop: 8,
-        },
-        tabBarLabelStyle: {
-          fontFamily: FontFamily.medium,
-          fontSize: 11,
+          height: 64,
+          paddingTop: 6,
         },
       }}>
       <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: tabIcon('home') }} />
       <Tabs.Screen name="data" options={{ title: 'My Data', tabBarIcon: tabIcon('stats-chart') }} />
-      <Tabs.Screen
-        name="sparky"
-        options={{
-          title: 'Sparky',
-          tabBarIcon: sparkyIcon,
-          tabBarLabelStyle: { fontFamily: FontFamily.semibold, fontSize: 11 },
-        }}
-      />
+      <Tabs.Screen name="sparky" options={{ title: 'Sparky', tabBarIcon: sparkyIcon }} />
       <Tabs.Screen
         name="community"
         options={{ title: 'Community', tabBarIcon: tabIcon('people') }}
