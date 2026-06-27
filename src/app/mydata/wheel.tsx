@@ -5,25 +5,39 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { RadarChart } from '@/components/ui/radar-chart';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
+import { WheelChart } from '@/components/ui/wheel-chart';
 import { Colors, Radius, Spacing } from '@/constants/theme';
-import { wheelCategories, wheelScore } from '@/data/content';
+import { wheelAreas } from '@/data/content';
 
 export default function WheelOfLife() {
   const router = useRouter();
-  const scored = wheelCategories.map((c) => ({ ...c, value: wheelScore(c) }));
+  const scored = wheelAreas.map((a) => ({ ...a, value: a.current }));
   const best = scored.reduce((a, b) => (b.value > a.value ? b : a));
   const worst = scored.reduce((a, b) => (b.value < a.value ? b : a));
-  const improved = scored[0]; // "most improved" — first category in this mock
+  const improved = scored.reduce((a, b) => (b.current - b.last > a.current - a.last ? b : a));
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScreenHeader title="Back" largeTitle="IGNTD Wheel of Life" />
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         <Card style={{ alignItems: 'center', paddingVertical: Spacing.xl }}>
-          <RadarChart data={scored.map((c) => ({ label: c.short, value: c.value }))} size={280} />
+          <WheelChart data={scored} size={320} />
+          <View style={styles.legend}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: 'rgba(122,90,248,0.32)' }]} />
+              <Txt variant="caption" color={Colors.textSub}>
+                Last Month
+              </Txt>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: 'rgba(122,90,248,0.85)' }]} />
+              <Txt variant="caption" color={Colors.textSub}>
+                Current Month
+              </Txt>
+            </View>
+          </View>
         </Card>
 
         {/* Activities / scores */}
@@ -101,6 +115,9 @@ function InsightCard({ title, item, color }: { title: string; item: string; colo
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.screen },
   body: { padding: Spacing.lg, gap: Spacing.lg },
+  legend: { flexDirection: 'row', gap: Spacing.xl, marginTop: Spacing.lg },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  legendDot: { width: 14, height: 14, borderRadius: 4 },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.lg },
   rowDivider: { borderBottomWidth: 1, borderBottomColor: Colors.stroke },
   dot: { width: 12, height: 12, borderRadius: 3 },
