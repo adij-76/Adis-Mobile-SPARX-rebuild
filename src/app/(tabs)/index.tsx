@@ -89,7 +89,7 @@ export default function HomeScreen() {
             dailyChecklist.map((item, i) => (
               <Pressable
                 key={item.id}
-                onPress={() => item.id === 'checkin' && router.push('/checkin')}
+                onPress={() => router.push(item.route as never)}
                 style={[
                   styles.checkRow,
                   i === 0 && item.done && styles.checkRowDone,
@@ -116,7 +116,10 @@ export default function HomeScreen() {
             return (
               <Pressable
                 key={t}
-                onPress={() => setTab(t)}
+                onPress={() => {
+                  setTab(t);
+                  router.push(`/workshop/list?cat=${t}`);
+                }}
                 style={[styles.segmentItem, active && styles.segmentItemActive]}>
                 <Txt
                   variant="bodySmMedium"

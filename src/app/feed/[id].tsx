@@ -13,11 +13,88 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PostCard } from '@/components/ui/post-card';
+import { ReactionBar, type ReactionKey } from '@/components/ui/reaction-bar';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
-import { user } from '@/data/content';
+import { user, type Comment } from '@/data/content';
 import { useStore } from '@/lib/store';
+
+function CommentItem({ comment, isReply = false }: { comment: Comment; isReply?: boolean }) {
+  const { commentReactionFor, setCommentReaction, repliesFor, addReply } = useStore();
+  const reaction = commentReactionFor(comment.id) as ReactionKey | null;
+  const replies = isReply ? [] : repliesFor(comment.id);
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState('');
+
+  const submit = () => {
+    if (!text.trim()) return;
+    addReply(comment.id, {
+      id: `r${Date.now()}`,
+      author: user.name,
+      avatar: user.avatar,
+      time: 'now',
+      text: text.trim(),
+    });
+    setText('');
+    setOpen(false);
+  };
+
+  return (
+    <View style={[styles.commentBlock, isReply && styles.replyBlock]}>
+      <View style={styles.comment}>
+        <Image source={{ uri: comment.avatar }} style={styles.cAvatar} />
+        <View style={styles.bubble}>
+          <View style={styles.cHead}>
+            <Txt variant="bodySmBold">{comment.author}</Txt>
+            <Txt variant="caption" color={Colors.textSub}>
+              {comment.time}
+            </Txt>
+          </View>
+          <Txt variant="bodySm">{comment.text}</Txt>
+        </View>
+      </View>
+
+      <View style={styles.cActions}>
+        <ReactionBar
+          compact
+          reaction={reaction}
+          count={reaction ? 1 : 0}
+          onChange={(k) => setCommentReaction(comment.id, k)}
+        />
+        {!isReply && (
+          <Pressable onPress={() => setOpen((o) => !o)} hitSlop={6}>
+            <Txt variant="caption" color={Colors.textSub}>
+              Reply
+            </Txt>
+          </Pressable>
+        )}
+      </View>
+
+      {open && (
+        <View style={styles.replyComposer}>
+          <TextInput
+            value={text}
+            onChangeText={setText}
+            placeholder={`Reply to ${comment.author}…`}
+            placeholderTextColor={Colors.textSub}
+            style={styles.replyInput}
+            autoFocus
+          />
+          <Pressable onPress={submit} style={styles.replySend}>
+            <Txt variant="bodySmBold" color={Colors.white}>
+              Reply
+            </Txt>
+          </Pressable>
+        </View>
+      )}
+
+      {replies.map((r) => (
+        <CommentItem key={r.id} comment={r} isReply />
+      ))}
+    </View>
+  );
+}
 
 export default function PostDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -49,18 +126,7 @@ export default function PostDetail() {
 
           <Txt variant="titleSm">Comments ({comments.length})</Txt>
           {comments.map((c) => (
-            <View key={c.id} style={styles.comment}>
-              <Image source={{ uri: c.avatar }} style={styles.cAvatar} />
-              <View style={styles.bubble}>
-                <View style={styles.cHead}>
-                  <Txt variant="bodySmBold">{c.author}</Txt>
-                  <Txt variant="caption" color={Colors.textSub}>
-                    {c.time}
-                  </Txt>
-                </View>
-                <Txt variant="bodySm">{c.text}</Txt>
-              </View>
-            </View>
+            <CommentItem key={c.id} comment={c} />
           ))}
         </ScrollView>
 
@@ -87,6 +153,8 @@ export default function PostDetail() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.screen },
   body: { padding: Spacing.lg, gap: Spacing.lg },
+  commentBlock: { gap: Spacing.sm },
+  replyBlock: { marginLeft: 44, marginTop: Spacing.sm },
   comment: { flexDirection: 'row', gap: Spacing.md },
   cAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.soft },
   bubble: {
@@ -99,6 +167,24 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   cHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.lg, marginLeft: 48 },
+  replyComposer: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginLeft: 48 },
+  replyInput: {
+    flex: 1,
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.stroke,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    color: Colors.textMain,
+  },
+  replySend: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.md,
+  },
   composer: {
     flexDirection: 'row',
     alignItems: 'flex-end',

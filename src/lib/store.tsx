@@ -29,9 +29,19 @@ type Persisted = {
   userPosts: Post[]; // posts the user created
   reactions: Record<string, string>; // postId -> reaction key
   comments: Record<string, Comment[]>; // postId -> added comments
+  commentReactions: Record<string, string>; // commentId -> reaction key
+  replies: Record<string, Comment[]>; // parent commentId -> replies
 };
 
-const EMPTY: Persisted = { favorites: [], joined: [], userPosts: [], reactions: {}, comments: {} };
+const EMPTY: Persisted = {
+  favorites: [],
+  joined: [],
+  userPosts: [],
+  reactions: {},
+  comments: {},
+  commentReactions: {},
+  replies: {},
+};
 
 type StoreValue = {
   ready: boolean;
@@ -51,6 +61,11 @@ type StoreValue = {
   setReaction: (postId: string, key: string | null) => void;
   // comments
   addComment: (postId: string, c: Comment) => void;
+  // comment reactions + threaded replies
+  commentReactionFor: (commentId: string) => string | null;
+  setCommentReaction: (commentId: string, key: string | null) => void;
+  repliesFor: (commentId: string) => Comment[];
+  addReply: (parentCommentId: string, c: Comment) => void;
   // account
   clearAll: () => void;
 };
@@ -142,6 +157,21 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         update((s) => ({
           ...s,
           comments: { ...s.comments, [postId]: [...(s.comments[postId] ?? []), c] },
+        })),
+
+      commentReactionFor: (commentId) => state.commentReactions[commentId] ?? null,
+      setCommentReaction: (commentId, key) =>
+        update((s) => {
+          const commentReactions = { ...s.commentReactions };
+          if (key) commentReactions[commentId] = key;
+          else delete commentReactions[commentId];
+          return { ...s, commentReactions };
+        }),
+      repliesFor: (commentId) => state.replies[commentId] ?? [],
+      addReply: (parentCommentId, c) =>
+        update((s) => ({
+          ...s,
+          replies: { ...s.replies, [parentCommentId]: [...(s.replies[parentCommentId] ?? []), c] },
         })),
 
       clearAll: () => setState(EMPTY),
