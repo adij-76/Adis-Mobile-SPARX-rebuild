@@ -1,0 +1,852 @@
+{
+  "fileKey": "ll9YRfqYgjDPVLbHDTLPAN",
+  "page": "Designs (6:10)",
+  "sections": [
+    {
+      "id": "966:8337",
+      "name": "Wheel of life dynamic assessment",
+      "screens": [
+        {
+          "id": "254:17794",
+          "name": "Home",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "237:7968",
+          "name": "Personalised reports",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "237:7993",
+          "name": "Personalised reports",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "237:8015",
+          "name": "Personalised reports",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "237:8043",
+          "name": "Personalised reports",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "237:8071",
+          "name": "Personalised reports",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "237:8099",
+          "name": "points",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "568:17889",
+          "name": "Personalised reports",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "237:8145",
+          "name": "sheet",
+          "w": 375,
+          "h": 470
+        }
+      ]
+    },
+    {
+      "id": "966:8338",
+      "name": "Daily Assessment",
+      "screens": [
+        {
+          "id": "200:9470",
+          "name": "Home",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "796:38055",
+          "name": "Group 44",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "796:38056",
+          "name": "Group 45",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "542:11474",
+          "name": "review question",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "542:11555",
+          "name": "review question",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "542:11655",
+          "name": "review question",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "542:11807",
+          "name": "review question",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "543:11339",
+          "name": "review question",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "543:11458",
+          "name": "review question",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "543:11559",
+          "name": "review question",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "570:20074",
+          "name": "points",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "543:11883",
+          "name": "recommended video - see all",
+          "w": 375,
+          "h": 807
+        }
+      ]
+    },
+    {
+      "id": "966:8339",
+      "name": "Homepage, book group meeting and manage meetings",
+      "screens": [
+        {
+          "id": "246:12511",
+          "name": "Home",
+          "w": 375,
+          "h": 1704
+        },
+        {
+          "id": "200:11604",
+          "name": "upcoming meetings",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "248:13699",
+          "name": "Past meetings",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "254:17685",
+          "name": "Canceled meetings",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "200:11831",
+          "name": "view meeting info",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "215:3794",
+          "name": "view meeting info",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "250:15752",
+          "name": "view meeting info",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "215:2965",
+          "name": "book a group",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "215:2988",
+          "name": "success",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "215:3898",
+          "name": "book a group (For paid sessions)",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "215:4041",
+          "name": "book a group",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "248:14005",
+          "name": "view meeting info",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "248:13886",
+          "name": "sheet",
+          "w": 375,
+          "h": 544
+        },
+        {
+          "id": "248:13804",
+          "name": "failed",
+          "w": 375,
+          "h": 812
+        }
+      ]
+    },
+    {
+      "id": "966:8340",
+      "name": "Community",
+      "screens": [
+        {
+          "id": "215:4147",
+          "name": "helping hands",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "215:4235",
+          "name": "view comment",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "232:5393",
+          "name": "view comment",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "215:4529",
+          "name": "make a post- community rules",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "215:4558",
+          "name": "Make a post",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "254:16998",
+          "name": "Update post",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "215:4683",
+          "name": "Explore more communities",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "254:16725",
+          "name": "message",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "254:16791",
+          "name": "message",
+          "w": 375,
+          "h": 812
+        }
+      ]
+    },
+    {
+      "id": "966:8341",
+      "name": "My lessons",
+      "screens": [
+        {
+          "id": "218:5846",
+          "name": "my lessons",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "538:10807",
+          "name": "my lessons",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "218:5920",
+          "name": "Lesson- intro",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "550:15970",
+          "name": "workshop- worksheet",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "583:22032",
+          "name": "workshop- worksheet",
+          "w": 375,
+          "h": 1329
+        },
+        {
+          "id": "552:16372",
+          "name": "workshop- worksheet",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "555:16522",
+          "name": "workshop- worksheet",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "555:16781",
+          "name": "workshop- worksheet",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "583:25459",
+          "name": "Frame 1618869222",
+          "w": 343,
+          "h": 394
+        },
+        {
+          "id": "583:25460",
+          "name": "points",
+          "w": 375,
+          "h": 812
+        }
+      ]
+    },
+    {
+      "id": "966:8342",
+      "name": "Quotes",
+      "screens": [
+        {
+          "id": "799:38302",
+          "name": "Home",
+          "w": 375,
+          "h": 1641
+        },
+        {
+          "id": "200:11673",
+          "name": "quotes",
+          "w": 375,
+          "h": 812
+        }
+      ]
+    },
+    {
+      "id": "966:8343",
+      "name": "Recommended Videos",
+      "screens": [
+        {
+          "id": "799:38057",
+          "name": "Home",
+          "w": 375,
+          "h": 1641
+        },
+        {
+          "id": "239:8843",
+          "name": "recommended video - see all",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "239:9136",
+          "name": "recommended video - details",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "452:9660",
+          "name": "recommended video - details",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "451:8857",
+          "name": "option",
+          "w": 375,
+          "h": 283
+        },
+        {
+          "id": "452:9460",
+          "name": "recommended video - details",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "452:9117",
+          "name": "option",
+          "w": 375,
+          "h": 370
+        },
+        {
+          "id": "452:9560",
+          "name": "recommended video - details",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "452:9061",
+          "name": "option",
+          "w": 375,
+          "h": 222
+        }
+      ]
+    },
+    {
+      "id": "966:8344",
+      "name": "Workshop",
+      "screens": [
+        {
+          "id": "799:38547",
+          "name": "Home",
+          "w": 375,
+          "h": 1641
+        },
+        {
+          "id": "250:15952",
+          "name": "workshop- intro",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "250:15999",
+          "name": "workshop- video",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "250:16058",
+          "name": "workshop- worksheet",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "545:15658",
+          "name": "workshop- worksheet",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "545:15520",
+          "name": "workshop- worksheet",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "250:16110",
+          "name": "workshop- worksheet",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "250:16175",
+          "name": "points",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "239:8990",
+          "name": "workshop- see all",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "545:15924",
+          "name": "Group 37",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "827:7136",
+          "name": "Frame 1618869193",
+          "w": 375,
+          "h": 156
+        },
+        {
+          "id": "550:16065",
+          "name": "profile",
+          "w": 343,
+          "h": 124
+        }
+      ]
+    },
+    {
+      "id": "966:8345",
+      "name": "Notifications",
+      "screens": [
+        {
+          "id": "248:14530",
+          "name": "message",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "248:14692",
+          "name": "message",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "799:38792",
+          "name": "Home",
+          "w": 375,
+          "h": 1641
+        },
+        {
+          "id": "247:13226",
+          "name": "Notification",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "242:11003",
+          "name": "message",
+          "w": 375,
+          "h": 812
+        }
+      ]
+    },
+    {
+      "id": "966:8346",
+      "name": "PWA installation",
+      "screens": [
+        {
+          "id": "799:39037",
+          "name": "Home",
+          "w": 375,
+          "h": 1641
+        },
+        {
+          "id": "254:17539",
+          "name": "how to install the application",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "565:17784",
+          "name": "how to install the application",
+          "w": 375,
+          "h": 812
+        }
+      ]
+    },
+    {
+      "id": "966:8347",
+      "name": "Profile",
+      "screens": [
+        {
+          "id": "491:11406",
+          "name": "Profile",
+          "w": 375,
+          "h": 1462
+        },
+        {
+          "id": "583:26336",
+          "name": "Profile",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "491:11422",
+          "name": "Profile",
+          "w": 375,
+          "h": 1625
+        },
+        {
+          "id": "491:11524",
+          "name": "choose",
+          "w": 375,
+          "h": 168
+        },
+        {
+          "id": "491:11533",
+          "name": "Logout",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "491:11558",
+          "name": "delete account",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "491:11713",
+          "name": "theme",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "491:11743",
+          "name": "theme",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "491:11773",
+          "name": "FAQs",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "491:11800",
+          "name": "Languages",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "491:11870",
+          "name": "Notifications",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "491:11906",
+          "name": "Notifications",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "491:11945",
+          "name": "change password",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "491:11993",
+          "name": "Get Premium",
+          "w": 375,
+          "h": 976
+        },
+        {
+          "id": "491:12059",
+          "name": "payment method",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "491:12128",
+          "name": "add card",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "491:12156",
+          "name": "Full Assessment Summary",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "491:12173",
+          "name": "Privacy Policy",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "491:12194",
+          "name": "Terms &amp; Conditions",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "491:12258",
+          "name": "leaderboard",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "874:7133",
+          "name": "leaderboard",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "718:11307",
+          "name": "Frame 1618869149",
+          "w": 343,
+          "h": 60
+        }
+      ]
+    },
+    {
+      "id": "966:8348",
+      "name": "Privacy Policy and Terms & Conditions",
+      "screens": [
+        {
+          "id": "491:10054",
+          "name": "Privacy Policy",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "491:10075",
+          "name": "Terms &amp; Conditions",
+          "w": 375,
+          "h": 812
+        }
+      ]
+    },
+    {
+      "id": "966:8349",
+      "name": "Wheels of Life",
+      "screens": [
+        {
+          "id": "491:10168",
+          "name": "calendar",
+          "w": 375,
+          "h": 1005
+        },
+        {
+          "id": "491:10256",
+          "name": "wheel of life",
+          "w": 375,
+          "h": 1593
+        },
+        {
+          "id": "491:10651",
+          "name": "wheel of life",
+          "w": 375,
+          "h": 1992
+        },
+        {
+          "id": "491:10865",
+          "name": "how it works",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "491:11068",
+          "name": "how it works",
+          "w": 375,
+          "h": 264
+        },
+        {
+          "id": "491:11076",
+          "name": "sample",
+          "w": 171,
+          "h": 162
+        },
+        {
+          "id": "491:12126",
+          "name": " ",
+          "w": 324,
+          "h": 80
+        },
+        {
+          "id": "1049:13811",
+          "name": "wheel of life",
+          "w": 375,
+          "h": 864
+        },
+        {
+          "id": "1143:14085",
+          "name": "wheel of life",
+          "w": 375,
+          "h": 1992
+        },
+        {
+          "id": "1143:14294",
+          "name": "wheel of life",
+          "w": 375,
+          "h": 814
+        },
+        {
+          "id": "1143:14519",
+          "name": "wheel of life",
+          "w": 375,
+          "h": 814
+        },
+        {
+          "id": "1143:14743",
+          "name": "wheel of life",
+          "w": 375,
+          "h": 1593
+        },
+        {
+          "id": "1143:14859",
+          "name": "wheel of life",
+          "w": 375,
+          "h": 1593
+        }
+      ]
+    },
+    {
+      "id": "966:8350",
+      "name": "Favorite",
+      "screens": [
+        {
+          "id": "491:10100",
+          "name": "Favorite- lesson-active",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "577:20420",
+          "name": "Favorite- lesson-active",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "577:21061",
+          "name": "Favorite- lesson-active",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "491:10557",
+          "name": "Favorite- lesson- default",
+          "w": 375,
+          "h": 812
+        },
+        {
+          "id": "577:20892",
+          "name": "recommended video - see all",
+          "w": 375,
+          "h": 812
+        }
+      ]
+    }
+  ]
+}

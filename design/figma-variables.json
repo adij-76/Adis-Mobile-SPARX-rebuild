@@ -1,0 +1,36 @@
+{
+  "_note": "IGNTD design variables captured from the Figma file (node 799:38547). Source of truth mirrored into src/constants/theme.ts.",
+  "colors": {
+    "Main": "#166890",
+    "Main1": "#0a3653",
+    "Foundation/Blue/blue-500": "#0A3653",
+    "Foundation/Blue/blue-600": "#1C3B55",
+    "Dark blue": "#00314E",
+    "Light blue": "#699AC1",
+    "teal/light": "#c2efff",
+    "Orange main": "#FF9D4B",
+    "Pale": "#FFB879",
+    "state/success": "#38c793",
+    "red/base": "#df1c41",
+    "text/main-900": "#0a0d14",
+    "text/sub-500": "#525866",
+    "icon/sub-500": "#525866",
+    "icon/strong-900": "#0a0d14",
+    "Gray/100": "#111827",
+    "bg/white-0": "#ffffff",
+    "bg/soft-200": "#e2e4e9",
+    "stroke/soft-200": "#e2e4e9"
+  },
+  "typography": {
+    "PL/18/SB": "Lato SemiBold 18 / lh 28",
+    "PL/18/M": "Lato Medium 18 / lh 28",
+    "PM/16/R": "Lato Regular 16 / lh 24",
+    "PM/16/M": "Lato Medium 16 / lh 24",
+    "PS/14/SB": "Lato SemiBold 14 / lh 20",
+    "PS/14/M": "Lato Medium 14 / lh 20",
+    "PS/14/R": "Lato Regular 14 / lh 20",
+    "PXs/12/R": "Lato Regular 12 / lh 20",
+    "text-xs/font-medium": "Inter Medium 12"
+  },
+  "radius": { "rounded-sm": 2 }
+}

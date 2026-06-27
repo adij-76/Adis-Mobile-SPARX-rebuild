@@ -39,8 +39,8 @@ export default function HomeScreen() {
             </Txt>
           </View>
           <View style={styles.headerIcons}>
-            <HeaderIcon name="notifications-outline" />
-            <HeaderIcon name="bookmark-outline" />
+            <HeaderIcon name="notifications-outline" onPress={() => router.push('/notifications')} />
+            <HeaderIcon name="bookmark-outline" onPress={() => router.push('/favorites')} />
           </View>
         </View>
       </SafeAreaView>
@@ -50,14 +50,15 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
         {/* Install banner */}
-        <View style={styles.banner}>
+        <Pressable style={styles.banner} onPress={() => router.push('/pwa-install')}>
           <Ionicons name="download-outline" size={18} color={Colors.primaryDark} />
           <Txt variant="bodySmMedium" color={Colors.primaryDark}>
             Install IGNTD app for a better experience
           </Txt>
-        </View>
+        </Pressable>
 
         {/* Quote */}
+        <Pressable onPress={() => router.push('/quotes')}>
         <LinearGradient
           colors={['#4A2B6B', '#2D2350']}
           start={{ x: 0, y: 0 }}
@@ -73,6 +74,7 @@ export default function HomeScreen() {
           </View>
           <Ionicons name="chevron-forward" size={20} color={Colors.white} />
         </LinearGradient>
+        </Pressable>
 
         {/* Daily checklist */}
         <Card padded={false} style={styles.checklist}>
@@ -184,25 +186,32 @@ export default function HomeScreen() {
         ))}
         <View style={styles.meetingActions}>
           <View style={{ flex: 1 }}>
-            <Button title="Book a group" variant="primary" onPress={() => router.push('/meetings')} />
+            <Button
+              title="Book a group"
+              variant="primary"
+              onPress={() => router.push('/meetings/book')}
+            />
           </View>
           <View style={{ flex: 1 }}>
             <Button
               title="Book a session"
               variant="primary"
-              onPress={() => router.push('/meetings')}
+              onPress={() => router.push('/meetings/book?paid=1')}
             />
           </View>
         </View>
 
         {/* Recommended videos */}
-        <SectionHeader title="Recommended Videos" onSeeAll={() => router.push('/workshop/list')} />
+        <SectionHeader title="Recommended Videos" onSeeAll={() => router.push('/videos')} />
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.videoRow}>
           {recommendedVideos.map((v) => (
-            <View key={v.id} style={styles.videoCard}>
+            <Pressable
+              key={v.id}
+              style={styles.videoCard}
+              onPress={() => router.push(`/videos/${v.id}`)}>
               <View>
                 <Image source={{ uri: v.image }} style={styles.videoImage} />
                 <View style={styles.videoDuration}>
@@ -217,7 +226,7 @@ export default function HomeScreen() {
               <Txt variant="bodySm" numberOfLines={2} style={{ marginTop: Spacing.sm }}>
                 {v.title}
               </Txt>
-            </View>
+            </Pressable>
           ))}
         </ScrollView>
 
@@ -238,9 +247,15 @@ export default function HomeScreen() {
   );
 }
 
-function HeaderIcon({ name }: { name: keyof typeof Ionicons.glyphMap }) {
+function HeaderIcon({
+  name,
+  onPress,
+}: {
+  name: keyof typeof Ionicons.glyphMap;
+  onPress?: () => void;
+}) {
   return (
-    <Pressable style={styles.headerIconBtn} hitSlop={8}>
+    <Pressable style={styles.headerIconBtn} hitSlop={8} onPress={onPress}>
       <Ionicons name={name} size={20} color={Colors.white} />
     </Pressable>
   );
