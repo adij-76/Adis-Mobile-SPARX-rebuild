@@ -59,7 +59,11 @@ export async function askSparky(
   const data: unknown = contentType.includes('application/json')
     ? await res.json()
     : (await res.text()).trim();
-  return extractReply(data);
+  const reply = extractReply(data);
+  // The model sometimes invents Vimeo links — verify each one really exists
+  // before we show a card, so we never render a broken/non-existent video.
+  const videos = await validateVideos(reply.videos);
+  return { text: reply.text, videos };
 }
 
 const FALLBACK_TEXT = "I'm here, but I didn't quite catch a reply. Mind trying again?";
@@ -188,4 +192,44 @@ export function vimeoEmbedUrl(url: string): string | null {
     url.match(/vimeo\.com\/(?:video\/)?\d+\/(\w+)/i)?.[1] ?? url.match(/[?&]h=(\w+)/i)?.[1] ?? null;
   const base = `https://player.vimeo.com/video/${id}`;
   return hash ? `${base}?h=${hash}` : base;
+}
+
+/** Canonical watch URL (vimeo.com/ID[?h=hash]) used for oEmbed lookups. */
+function vimeoWatchUrl(url: string): string | null {
+  const id = vimeoId(url);
+  if (!id) return null;
+  const hash =
+    url.match(/vimeo\.com\/(?:video\/)?\d+\/(\w+)/i)?.[1] ?? url.match(/[?&]h=(\w+)/i)?.[1] ?? null;
+  return hash ? `https://vimeo.com/${id}?h=${hash}` : `https://vimeo.com/${id}`;
+}
+
+/**
+ * Drop videos the model invented. Vimeo's (CORS-enabled, public) oEmbed endpoint
+ * returns 404 for non-existent videos and 4xx for ones that can't be embedded —
+ * in those cases we hide the card instead of showing a broken player. Valid
+ * videos are enriched with the real title + thumbnail. A network failure keeps
+ * the video unvalidated (benefit of the doubt) rather than dropping everything.
+ */
+async function validateVideos(videos: SparkyVideo[]): Promise<SparkyVideo[]> {
+  const results = await Promise.all(
+    videos.map(async (v): Promise<SparkyVideo | null> => {
+      const watch = vimeoWatchUrl(v.url);
+      if (!watch) return null; // not a Vimeo link → can't play → drop
+      try {
+        const res = await fetch(
+          `https://vimeo.com/api/oembed.json?url=${encodeURIComponent(watch)}`,
+        );
+        if (!res.ok) return res.status >= 500 ? v : null; // 4xx → non-existent/blocked → drop
+        const data = (await res.json()) as { title?: string; thumbnail_url?: string };
+        return {
+          url: v.url,
+          title: v.title ?? data.title,
+          thumbnail: v.thumbnail ?? data.thumbnail_url,
+        };
+      } catch {
+        return v; // couldn't reach Vimeo (rare) → keep as-is
+      }
+    }),
+  );
+  return results.filter((x): x is SparkyVideo => x !== null);
 }
