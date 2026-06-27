@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRef, useState } from 'react';
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -12,11 +13,24 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { VideoPlayerModal } from '@/components/video-player-modal';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
-import { askSparky, sparkyConfigured, type SparkyTurn } from '@/lib/sparky';
+import {
+  askSparky,
+  sparkyConfigured,
+  type SparkyReply,
+  type SparkyTurn,
+  type SparkyVideo,
+} from '@/lib/sparky';
 
-type Msg = { id: string; from: 'sparky' | 'me'; text: string; typing?: boolean };
+type Msg = {
+  id: string;
+  from: 'sparky' | 'me';
+  text: string;
+  typing?: boolean;
+  videos?: SparkyVideo[];
+};
 
 const SUGGESTIONS = [
   'I had a tough day',
@@ -44,10 +58,43 @@ function reply(prompt: string): string {
   return "I hear you. Tell me a little more, and we'll take it one step at a time together.";
 }
 
+function VideoCard({ video, onPress }: { video: SparkyVideo; onPress: () => void }) {
+  return (
+    <Pressable style={styles.videoCard} onPress={onPress}>
+      <View style={styles.videoThumb}>
+        {video.thumbnail ? (
+          <Image
+            source={{ uri: video.thumbnail }}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+          />
+        ) : (
+          <LinearGradient
+            colors={['#FF9D4B', '#166890']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+        )}
+        <View style={styles.playBadge}>
+          <Ionicons name="play" size={22} color={Colors.white} />
+        </View>
+      </View>
+      <View style={styles.videoMeta}>
+        <Ionicons name="logo-vimeo" size={16} color={Colors.primary} />
+        <Txt variant="bodySm" color={Colors.textMain} numberOfLines={2} style={styles.videoTitle}>
+          {video.title ?? 'Watch video'}
+        </Txt>
+      </View>
+    </Pressable>
+  );
+}
+
 export default function Sparky() {
   const [messages, setMessages] = useState<Msg[]>([WELCOME]);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
+  const [activeVideo, setActiveVideo] = useState<SparkyVideo | null>(null);
   const sessionId = useRef(`s-${Date.now()}-${Math.floor(Math.random() * 1e6)}`).current;
 
   const send = async (value?: string) => {
@@ -66,25 +113,31 @@ export default function Sparky() {
       { id: typingId, from: 'sparky', text: '', typing: true },
     ]);
 
-    let answer: string;
+    let answer: SparkyReply;
     if (sparkyConfigured) {
       setBusy(true);
       try {
         answer = await askSparky(content, sessionId, history);
       } catch {
-        answer =
-          "I couldn't reach my brain just now — please check your connection and try again in a moment.";
+        answer = {
+          text: "I couldn't reach my brain just now — please check your connection and try again in a moment.",
+          videos: [],
+        };
       } finally {
         setBusy(false);
       }
     } else {
       // No webhook configured yet → local fallback.
       await new Promise((r) => setTimeout(r, 500));
-      answer = reply(content);
+      answer = { text: reply(content), videos: [] };
     }
 
     setMessages((m) =>
-      m.map((msg) => (msg.id === typingId ? { ...msg, text: answer, typing: false } : msg)),
+      m.map((msg) =>
+        msg.id === typingId
+          ? { ...msg, text: answer.text, videos: answer.videos, typing: false }
+          : msg,
+      ),
     );
   };
 
@@ -115,25 +168,30 @@ export default function Sparky() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
           {messages.map((m) => (
-            <View
-              key={m.id}
-              style={[styles.row, m.from === 'me' ? styles.rowMe : styles.rowSparky]}>
-              {m.from === 'sparky' && (
-                <View style={styles.bubbleAvatar}>
-                  <Ionicons name="sparkles" size={14} color={Colors.white} />
-                </View>
-              )}
-              <View style={[styles.bubble, m.from === 'me' ? styles.bubbleMe : styles.bubbleSparky]}>
-                {m.typing ? (
-                  <Txt variant="bodySm" color={Colors.textSub}>
-                    Sparky is typing…
-                  </Txt>
-                ) : (
-                  <Txt variant="bodySm" color={m.from === 'me' ? Colors.white : Colors.textMain}>
-                    {m.text}
-                  </Txt>
+            <View key={m.id} style={styles.msgGroup}>
+              <View style={[styles.row, m.from === 'me' ? styles.rowMe : styles.rowSparky]}>
+                {m.from === 'sparky' && (
+                  <View style={styles.bubbleAvatar}>
+                    <Ionicons name="sparkles" size={14} color={Colors.white} />
+                  </View>
                 )}
+                <View
+                  style={[styles.bubble, m.from === 'me' ? styles.bubbleMe : styles.bubbleSparky]}>
+                  {m.typing ? (
+                    <Txt variant="bodySm" color={Colors.textSub}>
+                      Sparky is typing…
+                    </Txt>
+                  ) : (
+                    <Txt variant="bodySm" color={m.from === 'me' ? Colors.white : Colors.textMain}>
+                      {m.text}
+                    </Txt>
+                  )}
+                </View>
               </View>
+
+              {m.videos?.map((v, i) => (
+                <VideoCard key={`${m.id}-v${i}`} video={v} onPress={() => setActiveVideo(v)} />
+              ))}
             </View>
           ))}
 
@@ -167,6 +225,8 @@ export default function Sparky() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+
+      <VideoPlayerModal video={activeVideo} onClose={() => setActiveVideo(null)} />
     </View>
   );
 }
@@ -189,6 +249,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   body: { padding: Spacing.lg, gap: Spacing.md },
+  msgGroup: { gap: Spacing.sm },
   row: { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.sm, maxWidth: '90%' },
   rowSparky: { alignSelf: 'flex-start' },
   rowMe: { alignSelf: 'flex-end' },
@@ -206,8 +267,46 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
   },
-  bubbleSparky: { backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.stroke, borderBottomLeftRadius: 4 },
+  bubbleSparky: {
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.stroke,
+    borderBottomLeftRadius: 4,
+  },
   bubbleMe: { backgroundColor: Colors.primary, borderBottomRightRadius: 4 },
+  videoCard: {
+    alignSelf: 'flex-start',
+    marginLeft: 36,
+    width: 248,
+    maxWidth: '86%',
+    borderRadius: Radius.lg,
+    overflow: 'hidden',
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.stroke,
+  },
+  videoThumb: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  playBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  videoMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  videoTitle: { flex: 1 },
   suggestions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginTop: Spacing.sm },
   chip: {
     borderWidth: 1,
