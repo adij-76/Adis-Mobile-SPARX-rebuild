@@ -1,0 +1,106 @@
+{
+  "name": "Sparky — Chat Agent (RAG)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sparky-chat",
+        "responseMode": "lastNode",
+        "options": {
+          "allowedOrigins": "https://adij-76.github.io"
+        }
+      },
+      "id": "webhook-in",
+      "name": "Webhook (Sparky)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 300],
+      "webhookId": "sparky-chat"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.body.chatInput }}",
+        "options": {
+          "systemMessage": "PASTE THE CONTENTS OF system-prompt.md HERE"
+        }
+      },
+      "id": "ai-agent",
+      "name": "Sparky Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [320, 300]
+    },
+    {
+      "parameters": {
+        "model": "claude-sonnet-4-20250514",
+        "options": { "temperature": 0.7 }
+      },
+      "id": "anthropic-model",
+      "name": "Claude (Anthropic)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.2,
+      "position": [120, 540],
+      "credentials": { "anthropicApi": { "id": "REPLACE", "name": "Anthropic account" } }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.body.sessionId }}",
+        "tableName": "sparky_chat_histories",
+        "contextWindowLength": 12
+      },
+      "id": "pg-memory",
+      "name": "Postgres Chat Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [320, 540],
+      "credentials": { "postgres": { "id": "REPLACE", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolName": "knowledge_base",
+        "toolDescription": "Search Adi Jaffe's books, IGNTD lessons, workshops, and past-session transcripts. Use this before answering anything about the IGNTD method, specific lessons, or exercises.",
+        "tableName": "sparky_documents",
+        "topK": 6,
+        "options": {
+          "columnNames": {
+            "contentColumnName": "content",
+            "metadataColumnName": "metadata",
+            "vectorColumnName": "embedding"
+          }
+        }
+      },
+      "id": "pgvector-tool",
+      "name": "Knowledge Base (pgvector)",
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePGVector",
+      "typeVersion": 1.1,
+      "position": [560, 540],
+      "credentials": { "postgres": { "id": "REPLACE", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "model": "text-embedding-3-small",
+        "options": {}
+      },
+      "id": "openai-embeddings",
+      "name": "OpenAI Embeddings",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.1,
+      "position": [560, 760],
+      "credentials": { "openAiApi": { "id": "REPLACE", "name": "OpenAI account" } }
+    }
+  ],
+  "connections": {
+    "Webhook (Sparky)": { "main": [[{ "node": "Sparky Agent", "type": "main", "index": 0 }]] },
+    "Claude (Anthropic)": { "ai_languageModel": [[{ "node": "Sparky Agent", "type": "ai_languageModel", "index": 0 }]] },
+    "Postgres Chat Memory": { "ai_memory": [[{ "node": "Sparky Agent", "type": "ai_memory", "index": 0 }]] },
+    "Knowledge Base (pgvector)": { "ai_tool": [[{ "node": "Sparky Agent", "type": "ai_tool", "index": 0 }]] },
+    "OpenAI Embeddings": { "ai_embedding": [[{ "node": "Knowledge Base (pgvector)", "type": "ai_embedding", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "meta": {
+    "_comment": "Sparky RAG chat agent. After import: (1) open each node with REPLACE credentials and pick your Anthropic / OpenAI / Postgres credentials; (2) paste system-prompt.md into the Sparky Agent system message; (3) confirm the Claude model id is one your key can access; (4) Save, then toggle the workflow Active; (5) copy the PRODUCTION webhook URL into the GitHub repo variable SPARKY_WEBHOOK. Node typeVersions may differ in your n8n — if a node warns, delete it and re-add the same node from the palette, keeping the parameters shown here."
+  }
+}
