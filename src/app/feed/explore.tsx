@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -7,9 +6,10 @@ import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { communities } from '@/data/content';
+import { useStore } from '@/lib/store';
 
 export default function ExploreCommunities() {
-  const [joined, setJoined] = useState<Record<string, boolean>>({});
+  const { isJoined, toggleJoined } = useStore();
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -20,7 +20,7 @@ export default function ExploreCommunities() {
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         renderItem={({ item }) => {
-          const isJoined = joined[item.id];
+          const joined = isJoined(item.id);
           return (
             <View style={styles.row}>
               <View style={[styles.icon, { backgroundColor: `${item.color}22` }]}>
@@ -33,10 +33,10 @@ export default function ExploreCommunities() {
                 </Txt>
               </View>
               <Pressable
-                onPress={() => setJoined((j) => ({ ...j, [item.id]: !j[item.id] }))}
-                style={[styles.joinBtn, isJoined && styles.joinedBtn]}>
-                <Txt variant="bodySmBold" color={isJoined ? Colors.primary : Colors.white}>
-                  {isJoined ? 'Joined' : 'Join'}
+                onPress={() => toggleJoined(item.id)}
+                style={[styles.joinBtn, joined && styles.joinedBtn]}>
+                <Txt variant="bodySmBold" color={joined ? Colors.primary : Colors.white}>
+                  {joined ? 'Joined' : 'Join'}
                 </Txt>
               </Pressable>
             </View>

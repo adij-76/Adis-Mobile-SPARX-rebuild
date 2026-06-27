@@ -1,21 +1,26 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, View } from 'react-native';
 
 import { WorkshopScaffold } from '@/components/workshop-scaffold';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { Txt } from '@/components/ui/text';
+import { VideoPlayerModal } from '@/components/video-player-modal';
 import { Colors, Radius, Spacing } from '@/constants/theme';
-import { workshop } from '@/data/content';
+import { DEMO_VIDEO_URL, workshop } from '@/data/content';
 
 export default function WorkshopVideo() {
+  const [playing, setPlaying] = useState(false);
+
   return (
     <WorkshopScaffold current={1} prev="/workshop/intro" next="/workshop/worksheet">
-      {/* Mock video player */}
-      <View style={{ borderRadius: Radius.md, overflow: 'hidden', backgroundColor: '#000' }}>
+      <Pressable
+        style={{ borderRadius: Radius.md, overflow: 'hidden', backgroundColor: '#000' }}
+        onPress={() => setPlaying(true)}>
         <Image source={{ uri: workshop.videoPoster }} style={{ width: '100%', height: 200 }} />
-        <View style={{ position: 'absolute', top: Spacing.md, right: Spacing.md }}>
-          <Ionicons name="heart-outline" size={22} color={Colors.white} />
+        <View style={styles.playBig}>
+          <Ionicons name="play" size={26} color={Colors.primaryDark} />
         </View>
         <View
           style={{
@@ -33,16 +38,36 @@ export default function WorkshopVideo() {
           <View style={{ flex: 1 }}>
             <ProgressBar progress={0.02} track="rgba(255,255,255,0.3)" fill={Colors.white} />
           </View>
-          <Ionicons name="volume-high" size={18} color={Colors.white} />
-          <Ionicons name="settings-outline" size={18} color={Colors.white} />
-          <Ionicons name="scan" size={18} color={Colors.white} />
+          <Txt variant="caption" color={Colors.white}>
+            Tap to play
+          </Txt>
         </View>
-      </View>
+      </Pressable>
 
       <Txt variant="title">{workshop.title}</Txt>
       <Txt variant="body" color={Colors.textSub}>
         {workshop.videoBody}
       </Txt>
+
+      <VideoPlayerModal
+        video={playing ? { url: DEMO_VIDEO_URL, title: workshop.title } : null}
+        onClose={() => setPlaying(false)}
+      />
     </WorkshopScaffold>
   );
 }
+
+const styles = {
+  playBig: {
+    position: 'absolute' as const,
+    top: 70,
+    left: '50%' as const,
+    marginLeft: -26,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+};

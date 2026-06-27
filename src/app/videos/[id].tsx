@@ -1,26 +1,54 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { Platform, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
+import { VideoPlayerModal } from '@/components/video-player-modal';
 import { Colors, Radius, Spacing } from '@/constants/theme';
-import { recommendedVideos } from '@/data/content';
+import { DEMO_VIDEO_URL, recommendedVideos } from '@/data/content';
+import { useStore } from '@/lib/store';
 
 export default function VideoDetail() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const video = recommendedVideos.find((v) => v.id === id) ?? recommendedVideos[0];
   const more = recommendedVideos.filter((v) => v.id !== video.id);
+  const playUrl = video.vimeoUrl ?? DEMO_VIDEO_URL;
+
+  const { isFav, toggleFav } = useStore();
+  const saved = isFav('video', video.id);
+  const [liked, setLiked] = useState(false);
+  const [playing, setPlaying] = useState(false);
+
+  const onShare = async () => {
+    const message = `${video.title} — a video from IGNTD`;
+    if (Platform.OS === 'web') {
+      const nav = (globalThis as { navigator?: any }).navigator;
+      try {
+        if (nav?.share) await nav.share({ title: video.title, text: message });
+        else await nav?.clipboard?.writeText(message);
+      } catch {
+        /* user cancelled */
+      }
+    } else {
+      try {
+        await Share.share({ message });
+      } catch {
+        /* user cancelled */
+      }
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScreenHeader title="Back" />
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         {/* Player */}
-        <View style={styles.player}>
+        <Pressable style={styles.player} onPress={() => setPlaying(true)}>
           <Image source={{ uri: video.image }} style={styles.poster} />
           <View style={styles.playBig}>
             <Ionicons name="play" size={28} color={Colors.primaryDark} />
@@ -28,13 +56,14 @@ export default function VideoDetail() {
           <View style={styles.controls}>
             <Ionicons name="play" size={16} color={Colors.white} />
             <Txt variant="caption" color={Colors.white}>
-              0:00 / {video.duration}
+              {video.duration}
             </Txt>
             <View style={{ flex: 1 }} />
-            <Ionicons name="volume-high" size={16} color={Colors.white} />
-            <Ionicons name="expand" size={16} color={Colors.white} />
+            <Txt variant="caption" color={Colors.white}>
+              Tap to play
+            </Txt>
           </View>
-        </View>
+        </Pressable>
 
         <Txt variant="title">{video.title}</Txt>
         <View style={styles.meta}>
@@ -42,9 +71,23 @@ export default function VideoDetail() {
             {video.presenter} · {video.views}
           </Txt>
           <View style={styles.actions}>
-            <Ionicons name="heart-outline" size={20} color={Colors.primary} />
-            <Ionicons name="bookmark-outline" size={20} color={Colors.primary} />
-            <Ionicons name="share-social-outline" size={20} color={Colors.primary} />
+            <Pressable onPress={() => setLiked((l) => !l)} hitSlop={8}>
+              <Ionicons
+                name={liked ? 'heart' : 'heart-outline'}
+                size={20}
+                color={liked ? Colors.orange : Colors.primary}
+              />
+            </Pressable>
+            <Pressable onPress={() => toggleFav('video', video.id)} hitSlop={8}>
+              <Ionicons
+                name={saved ? 'bookmark' : 'bookmark-outline'}
+                size={20}
+                color={Colors.primary}
+              />
+            </Pressable>
+            <Pressable onPress={onShare} hitSlop={8}>
+              <Ionicons name="share-social-outline" size={20} color={Colors.primary} />
+            </Pressable>
           </View>
         </View>
         <Txt variant="body" color={Colors.textSub}>
@@ -55,10 +98,7 @@ export default function VideoDetail() {
           More like this
         </Txt>
         {more.map((v) => (
-          <Pressable
-            key={v.id}
-            style={styles.moreRow}
-            onPress={() => router.push(`/videos/${v.id}`)}>
+          <Pressable key={v.id} style={styles.moreRow} onPress={() => router.push(`/videos/${v.id}`)}>
             <Image source={{ uri: v.image }} style={styles.moreThumb} />
             <View style={{ flex: 1 }}>
               <Txt variant="bodySmBold" numberOfLines={2}>
@@ -71,6 +111,11 @@ export default function VideoDetail() {
           </Pressable>
         ))}
       </ScrollView>
+
+      <VideoPlayerModal
+        video={playing ? { url: playUrl, title: video.title, thumbnail: video.image } : null}
+        onClose={() => setPlaying(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -105,7 +150,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
   },
   meta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  actions: { flexDirection: 'row', gap: Spacing.md },
+  actions: { flexDirection: 'row', gap: Spacing.md, alignItems: 'center' },
   moreRow: { flexDirection: 'row', gap: Spacing.md, alignItems: 'center' },
   moreThumb: { width: 110, height: 70, borderRadius: Radius.sm, backgroundColor: Colors.soft },
 });

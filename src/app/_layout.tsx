@@ -11,6 +11,8 @@ import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { AppStoreProvider } from '@/lib/store';
+
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
@@ -33,8 +35,9 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <StatusBar style="auto" />
-        <Stack screenOptions={{ headerShown: false }}>
+        <AppStoreProvider>
+          <StatusBar style="auto" />
+          <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="workshop" options={{ presentation: 'card' }} />
           <Stack.Screen name="meetings" options={{ presentation: 'card' }} />
@@ -50,7 +53,8 @@ export default function RootLayout() {
           <Stack.Screen name="notifications" options={{ presentation: 'card' }} />
           <Stack.Screen name="favorites" options={{ presentation: 'card' }} />
           <Stack.Screen name="pwa-install" options={{ presentation: 'card' }} />
-        </Stack>
+          </Stack>
+        </AppStoreProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
