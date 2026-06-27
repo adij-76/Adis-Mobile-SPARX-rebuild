@@ -36,6 +36,8 @@ jobs:
         env:
           # Served from https://<user>.github.io/Adis-Mobile-SPARX-rebuild/
           EXPO_PUBLIC_BASE_URL: /Adis-Mobile-SPARX-rebuild
+          # Optional: set repo variable SPARKY_WEBHOOK to connect Sparky to n8n.
+          EXPO_PUBLIC_SPARKY_WEBHOOK: ${{ vars.SPARKY_WEBHOOK }}
 
       - name: Disable Jekyll (serve _expo/ and _sitemap)
         run: touch dist/.nojekyll

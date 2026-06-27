@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -14,8 +14,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
+import { askSparky, sparkyConfigured, type SparkyTurn } from '@/lib/sparky';
 
-type Msg = { id: string; from: 'sparky' | 'me'; text: string };
+type Msg = { id: string; from: 'sparky' | 'me'; text: string; typing?: boolean };
 
 const SUGGESTIONS = [
   'I had a tough day',
@@ -46,16 +47,45 @@ function reply(prompt: string): string {
 export default function Sparky() {
   const [messages, setMessages] = useState<Msg[]>([WELCOME]);
   const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const sessionId = useRef(`s-${Date.now()}-${Math.floor(Math.random() * 1e6)}`).current;
 
-  const send = (value?: string) => {
+  const send = async (value?: string) => {
     const content = (value ?? text).trim();
-    if (!content) return;
+    if (!content || busy) return;
+    setText('');
+
+    const history: SparkyTurn[] = messages
+      .filter((m) => !m.typing)
+      .map((m) => ({ role: m.from === 'me' ? 'user' : 'assistant', text: m.text }));
+
+    const typingId = `typing-${Date.now()}`;
     setMessages((m) => [
       ...m,
       { id: `me-${m.length}`, from: 'me', text: content },
-      { id: `sp-${m.length}`, from: 'sparky', text: reply(content) },
+      { id: typingId, from: 'sparky', text: '', typing: true },
     ]);
-    setText('');
+
+    let answer: string;
+    if (sparkyConfigured) {
+      setBusy(true);
+      try {
+        answer = await askSparky(content, sessionId, history);
+      } catch {
+        answer =
+          "I couldn't reach my brain just now — please check your connection and try again in a moment.";
+      } finally {
+        setBusy(false);
+      }
+    } else {
+      // No webhook configured yet → local fallback.
+      await new Promise((r) => setTimeout(r, 500));
+      answer = reply(content);
+    }
+
+    setMessages((m) =>
+      m.map((msg) => (msg.id === typingId ? { ...msg, text: answer, typing: false } : msg)),
+    );
   };
 
   return (
@@ -94,9 +124,15 @@ export default function Sparky() {
                 </View>
               )}
               <View style={[styles.bubble, m.from === 'me' ? styles.bubbleMe : styles.bubbleSparky]}>
-                <Txt variant="bodySm" color={m.from === 'me' ? Colors.white : Colors.textMain}>
-                  {m.text}
-                </Txt>
+                {m.typing ? (
+                  <Txt variant="bodySm" color={Colors.textSub}>
+                    Sparky is typing…
+                  </Txt>
+                ) : (
+                  <Txt variant="bodySm" color={m.from === 'me' ? Colors.white : Colors.textMain}>
+                    {m.text}
+                  </Txt>
+                )}
               </View>
             </View>
           ))}
@@ -123,7 +159,10 @@ export default function Sparky() {
             style={styles.input}
             multiline
           />
-          <Pressable onPress={() => send()} style={styles.sendBtn}>
+          <Pressable
+            onPress={() => send()}
+            disabled={busy}
+            style={[styles.sendBtn, busy && { opacity: 0.5 }]}>
             <Ionicons name="arrow-up" size={20} color={Colors.white} />
           </Pressable>
         </View>
