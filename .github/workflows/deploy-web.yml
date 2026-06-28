@@ -38,6 +38,10 @@ jobs:
           EXPO_PUBLIC_BASE_URL: /Adis-Mobile-SPARX-rebuild
           # Optional: set repo variable SPARKY_WEBHOOK to connect Sparky to n8n.
           EXPO_PUBLIC_SPARKY_WEBHOOK: ${{ vars.SPARKY_WEBHOOK }}
+          # Optional: set these two repo variables to serve content from Supabase.
+          # Until both are set, the app falls back to local mock content.
+          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
 
       - name: Disable Jekyll (serve _expo/ and _sitemap)
         run: touch dist/.nojekyll
