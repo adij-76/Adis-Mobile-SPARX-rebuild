@@ -9,13 +9,16 @@ import { Button } from '@/components/ui/button';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { meetings } from '@/data/content';
+import { useStore } from '@/lib/store';
 
 export default function MeetingDetail() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [booked, setBooked] = useState(false);
+  const { bookings, isBooked, bookMeeting } = useStore();
+  const [showConfirm, setShowConfirm] = useState(false);
 
-  const meeting = meetings.find((m) => m.id === id) ?? meetings[0];
+  const meeting = [...bookings, ...meetings].find((m) => m.id === id) ?? meetings[0];
+  const booked = isBooked(meeting.id) || meeting.id.startsWith('b');
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -74,10 +77,18 @@ export default function MeetingDetail() {
       </ScrollView>
 
       <View style={styles.footer}>
-        <Button title="Book Meeting" variant="primary" onPress={() => setBooked(true)} />
+        <Button
+          title={booked ? 'Booked ✓' : 'Book Meeting'}
+          variant="primary"
+          disabled={booked}
+          onPress={() => {
+            bookMeeting(meeting.id);
+            setShowConfirm(true);
+          }}
+        />
       </View>
 
-      <Modal visible={booked} transparent animationType="fade">
+      <Modal visible={showConfirm} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <View style={styles.modalIcon}>
@@ -93,7 +104,7 @@ export default function MeetingDetail() {
               title="Done"
               variant="primary"
               onPress={() => {
-                setBooked(false);
+                setShowConfirm(false);
                 router.back();
               }}
             />

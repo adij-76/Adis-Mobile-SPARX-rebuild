@@ -8,17 +8,30 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Segmented } from '@/components/ui/segmented';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
-import { recommendedVideos, workshops } from '@/data/content';
+import { recommendedVideos, workshop, workshops } from '@/data/content';
 import { useStore } from '@/lib/store';
 
 type Tab = 'lessons' | 'videos';
+
+// All lessons that can be favorited: the browse list + the featured workshop.
+const ALL_LESSONS = [
+  ...workshops,
+  {
+    id: workshop.id,
+    title: workshop.title,
+    author: 'IGNTD',
+    description: workshop.intro,
+    rating: workshop.rating,
+    image: workshop.hero,
+  },
+];
 
 export default function Favorites() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('lessons');
   const { favoriteIds, toggleFav } = useStore();
 
-  const savedLessons = workshops.filter((w) => favoriteIds('lesson').includes(w.id));
+  const savedLessons = ALL_LESSONS.filter((w) => favoriteIds('lesson').includes(w.id));
   const savedVideos = recommendedVideos.filter((v) => favoriteIds('video').includes(v.id));
 
   return (

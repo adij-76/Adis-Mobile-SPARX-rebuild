@@ -10,10 +10,15 @@ import { Txt } from '@/components/ui/text';
 import { WheelChart } from '@/components/ui/wheel-chart';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { wheelAreas } from '@/data/content';
+import { useStore } from '@/lib/store';
 
 export default function WheelOfLife() {
   const router = useRouter();
-  const scored = wheelAreas.map((a) => ({ ...a, value: a.current }));
+  const { wheelScores } = useStore();
+  const scored = wheelAreas.map((a) => {
+    const current = wheelScores[a.id] ?? a.current;
+    return { ...a, current, value: current };
+  });
   const best = scored.reduce((a, b) => (b.value > a.value ? b : a));
   const worst = scored.reduce((a, b) => (b.value < a.value ? b : a));
   const improved = scored.reduce((a, b) => (b.current - b.last > a.current - a.last ? b : a));

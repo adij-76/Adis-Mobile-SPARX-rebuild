@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View, type GestureResponderEvent } from 'react-native';
 
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Shadow, Spacing } from '@/constants/theme';
 import type { WorkshopSummary } from '@/data/content';
+import { useStore } from '@/lib/store';
 
 export type WorkshopCardProps = {
   item: WorkshopSummary;
@@ -13,6 +14,12 @@ export type WorkshopCardProps = {
 
 /** List card used on the workshop browse / "See all" screen. */
 export function WorkshopCard({ item, onPress }: WorkshopCardProps) {
+  const { isFav, toggleFav } = useStore();
+  const saved = isFav('lesson', item.id);
+  const onBookmark = (e: GestureResponderEvent) => {
+    (e as unknown as { stopPropagation?: () => void }).stopPropagation?.();
+    toggleFav('lesson', item.id);
+  };
   return (
     <Pressable
       onPress={onPress}
@@ -30,7 +37,13 @@ export function WorkshopCard({ item, onPress }: WorkshopCardProps) {
               />
             ))}
           </View>
-          <Ionicons name="bookmark-outline" size={20} color={Colors.textMain} />
+          <Pressable onPress={onBookmark} hitSlop={10}>
+            <Ionicons
+              name={saved ? 'bookmark' : 'bookmark-outline'}
+              size={20}
+              color={saved ? Colors.primary : Colors.textMain}
+            />
+          </Pressable>
         </View>
         <Txt variant="titleSm">{item.title}</Txt>
         <Txt variant="bodySm" color={Colors.textSub} numberOfLines={2}>

@@ -11,9 +11,11 @@ import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { wheelAreas } from '@/data/content';
+import { useStore } from '@/lib/store';
 
 export default function WheelAssessment() {
   const router = useRouter();
+  const { saveWheel } = useStore();
   const [step, setStep] = useState(0);
   const [done, setDone] = useState(false);
   const [values, setValues] = useState<Record<string, number>>(() => {
@@ -108,7 +110,14 @@ export default function WheelAssessment() {
             title={isLast ? 'Finish' : 'Next'}
             variant="primary"
             iconRight={isLast ? undefined : 'chevron-forward'}
-            onPress={() => (isLast ? setDone(true) : setStep((s) => s + 1))}
+            onPress={() => {
+              if (isLast) {
+                saveWheel(values);
+                setDone(true);
+              } else {
+                setStep((s) => s + 1);
+              }
+            }}
           />
         </View>
       </View>

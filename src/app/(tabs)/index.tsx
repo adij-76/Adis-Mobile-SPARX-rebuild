@@ -24,11 +24,13 @@ import {
   type WorkshopSummary,
 } from '@/data/content';
 import { isDoneToday } from '@/lib/checkin';
+import { useStore } from '@/lib/store';
 
 const TABS = ['Programs', 'Workshop', 'Challenges'] as const;
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { isFav, toggleFav } = useStore();
   const [tab, setTab] = useState<(typeof TABS)[number]>('Programs');
   const [checklistOpen, setChecklistOpen] = useState(true);
 
@@ -240,6 +242,19 @@ export default function HomeScreen() {
                 <View style={styles.playButton}>
                   <Ionicons name="play" size={18} color={Colors.primaryDark} />
                 </View>
+                <Pressable
+                  style={styles.videoBookmark}
+                  hitSlop={8}
+                  onPress={(e) => {
+                    (e as unknown as { stopPropagation?: () => void }).stopPropagation?.();
+                    toggleFav('video', v.id);
+                  }}>
+                  <Ionicons
+                    name={isFav('video', v.id) ? 'bookmark' : 'bookmark-outline'}
+                    size={16}
+                    color={Colors.white}
+                  />
+                </Pressable>
               </View>
               <Txt variant="bodySm" numberOfLines={2} style={{ marginTop: Spacing.sm }}>
                 {v.title}
@@ -486,6 +501,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
     borderRadius: Radius.sm,
+  },
+  videoBookmark: {
+    position: 'absolute',
+    top: Spacing.sm,
+    right: Spacing.sm,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(10,13,20,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   playButton: {
     position: 'absolute',
