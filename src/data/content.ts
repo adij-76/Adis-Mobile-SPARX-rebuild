@@ -359,6 +359,7 @@ export const challenges: Challenge[] = [
 ];
 
 export const workshop = {
+  id: 'master-belief',
   title: 'Master your belief with Dr. Bruce Lipton',
   rating: 5,
   hero: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=800&q=70',

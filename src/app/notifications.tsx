@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import { FlatList, StyleSheet, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
+import { useStore } from '@/lib/store';
 
 type Notif = {
   id: string;
@@ -25,6 +26,9 @@ const NOTIFS: Notif[] = [
 ];
 
 export default function Notifications() {
+  const { isNotifRead, markNotifRead, markAllNotifsRead } = useStore();
+  const anyUnread = NOTIFS.some((n) => n.unread && !isNotifRead(n.id));
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScreenHeader title="Back" largeTitle="Notifications" />
@@ -33,23 +37,43 @@ export default function Notifications() {
         keyExtractor={(n) => n.id}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
-        ItemSeparatorComponent={() => <View style={{ height: Spacing.sm }} />}
-        renderItem={({ item }) => (
-          <View style={[styles.row, item.unread && styles.unread]}>
-            <View style={[styles.icon, { backgroundColor: `${item.color}22` }]}>
-              <Ionicons name={item.icon} size={20} color={item.color} />
-            </View>
-            <View style={{ flex: 1, gap: 2 }}>
-              <Txt variant="bodySmBold">{item.title}</Txt>
-              <Txt variant="bodySm" color={Colors.textSub} numberOfLines={2}>
-                {item.body}
+        ListHeaderComponent={
+          anyUnread ? (
+            <Pressable
+              style={styles.markAll}
+              onPress={() => markAllNotifsRead(NOTIFS.map((n) => n.id))}>
+              <Ionicons name="checkmark-done" size={16} color={Colors.primary} />
+              <Txt variant="bodySmMedium" color={Colors.primary}>
+                Mark all as read
               </Txt>
-            </View>
-            <Txt variant="caption" color={Colors.textSub}>
-              {item.time}
-            </Txt>
-          </View>
-        )}
+            </Pressable>
+          ) : null
+        }
+        ItemSeparatorComponent={() => <View style={{ height: Spacing.sm }} />}
+        renderItem={({ item }) => {
+          const unread = !!item.unread && !isNotifRead(item.id);
+          return (
+            <Pressable
+              style={[styles.row, unread && styles.unread]}
+              onPress={() => markNotifRead(item.id)}>
+              <View style={[styles.icon, { backgroundColor: `${item.color}22` }]}>
+                <Ionicons name={item.icon} size={20} color={item.color} />
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Txt variant="bodySmBold">{item.title}</Txt>
+                <Txt variant="bodySm" color={Colors.textSub} numberOfLines={2}>
+                  {item.body}
+                </Txt>
+              </View>
+              <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                <Txt variant="caption" color={Colors.textSub}>
+                  {item.time}
+                </Txt>
+                {unread ? <View style={styles.dot} /> : null}
+              </View>
+            </Pressable>
+          );
+        }}
       />
     </SafeAreaView>
   );
@@ -70,4 +94,12 @@ const styles = StyleSheet.create({
   },
   unread: { borderColor: Colors.highlightBorder, backgroundColor: Colors.highlight },
   icon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  markAll: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: Spacing.xs,
+    paddingBottom: Spacing.md,
+  },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.orange },
 });

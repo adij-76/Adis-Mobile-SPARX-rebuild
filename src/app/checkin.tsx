@@ -27,11 +27,13 @@ import {
   type VideoItem,
 } from '@/data/content';
 import { recordCheckin, type CheckinResult } from '@/lib/checkin';
+import { useStore } from '@/lib/store';
 
 const TOTAL = 5;
 
 export default function CheckinScreen() {
   const router = useRouter();
+  const { addCheckin } = useStore();
   const [step, setStep] = useState(0);
   const [result, setResult] = useState<CheckinResult | null>(null);
   const [showSummary, setShowSummary] = useState(false);
@@ -46,6 +48,16 @@ export default function CheckinScreen() {
   const [affirmation, setAffirmation] = useState('');
 
   const finish = async () => {
+    addCheckin({
+      date: new Date().toISOString().slice(0, 10),
+      mood,
+      positive,
+      negative,
+      behavior,
+      amount,
+      count,
+      affirmation,
+    });
     const r = await recordCheckin();
     setResult(r);
   };

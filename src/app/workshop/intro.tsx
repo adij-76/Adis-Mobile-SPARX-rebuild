@@ -1,13 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { WorkshopScaffold } from '@/components/workshop-scaffold';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { workshop } from '@/data/content';
+import { useStore } from '@/lib/store';
 
 export default function WorkshopIntro() {
+  const { isFav, toggleFav } = useStore();
+  const saved = isFav('lesson', workshop.id);
   return (
     <WorkshopScaffold current={0} next="/workshop/video">
       <Image
@@ -26,7 +29,9 @@ export default function WorkshopIntro() {
             />
           ))}
         </View>
-        <Ionicons name="bookmark-outline" size={22} color={Colors.primary} />
+        <Pressable onPress={() => toggleFav('lesson', workshop.id)} hitSlop={10}>
+          <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={22} color={Colors.primary} />
+        </Pressable>
       </View>
 
       <Txt variant="title">{workshop.title}</Txt>

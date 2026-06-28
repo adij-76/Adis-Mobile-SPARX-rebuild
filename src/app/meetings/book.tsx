@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
+import { coachAdi } from '@/data/content';
+import { useStore } from '@/lib/store';
 
 const DAYS = [
   { key: 'mon', d: 'Mon', n: '22' },
@@ -20,11 +22,29 @@ const SLOTS = ['09:00 AM', '10:00 AM', '11:30 AM', '02:00 PM', '04:00 PM'];
 
 export default function BookMeeting() {
   const router = useRouter();
+  const { addBooking } = useStore();
   const { paid } = useLocalSearchParams<{ paid?: string }>();
   const isPaid = paid === '1';
   const [day, setDay] = useState('wed');
   const [slot, setSlot] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+
+  const confirm = () => {
+    const d = DAYS.find((x) => x.key === day);
+    addBooking({
+      id: `b${Date.now()}`,
+      time: `${d?.d} ${d?.n} July · ${slot}`,
+      date: `${d?.d} ${d?.n} July, 2024`,
+      title: isPaid ? '1:1 Coaching session' : 'Group coaching session',
+      host: 'IGNTD Coach',
+      status: 'upcoming',
+      description:
+        "Your booked session. You'll get a Zoom link and a reminder before it starts.",
+      via: 'Video Meeting via Zoom call',
+      coach: coachAdi,
+    });
+    setDone(true);
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -88,7 +108,7 @@ export default function BookMeeting() {
           title={isPaid ? 'Pay & Book' : 'Book session'}
           variant="primary"
           disabled={!slot}
-          onPress={() => setDone(true)}
+          onPress={confirm}
         />
       </View>
 

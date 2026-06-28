@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { meetings, type MeetingStatus } from '@/data/content';
+import { useStore } from '@/lib/store';
 
 const TABS: { key: MeetingStatus; label: string }[] = [
   { key: 'upcoming', label: 'Upcoming' },
@@ -16,10 +17,15 @@ const TABS: { key: MeetingStatus; label: string }[] = [
 
 export default function ManageMeetings() {
   const router = useRouter();
+  const { bookings, isBooked } = useStore();
   const params = useLocalSearchParams<{ tab?: MeetingStatus }>();
   const [tab, setTab] = useState<MeetingStatus>(params.tab ?? 'upcoming');
 
-  const data = meetings.filter((m) => m.status === tab);
+  // Booked sessions show at the top of Upcoming.
+  const data =
+    tab === 'upcoming'
+      ? [...bookings, ...meetings.filter((m) => m.status === 'upcoming')]
+      : meetings.filter((m) => m.status === tab);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -85,6 +91,11 @@ export default function ManageMeetings() {
               <Txt variant="caption" color={Colors.primary}>
                 Meeting with {item.host}
               </Txt>
+              {(item.id.startsWith('b') || isBooked(item.id)) && (
+                <Txt variant="caption" color={Colors.success}>
+                  ✓ Booked
+                </Txt>
+              )}
             </View>
             <Ionicons name="chevron-forward" size={18} color={Colors.textSub} />
           </Pressable>

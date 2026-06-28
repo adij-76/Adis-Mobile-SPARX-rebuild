@@ -16,7 +16,7 @@ import {
   type ReactNode,
 } from 'react';
 
-import { posts as basePosts, user, type Comment, type Post } from '@/data/content';
+import { posts as basePosts, user, type Comment, type Meeting, type Post } from '@/data/content';
 
 const KEY = 'igntd.store.v1';
 
@@ -25,6 +25,17 @@ const favKey = (k: FavKind, id: string) => `${k}:${id}`;
 
 export type DmMessage = { id: string; from: 'me' | 'them'; text: string; time: string };
 export type DmThread = { id: string; name: string; avatar: string; messages: DmMessage[] };
+
+export type CheckinEntry = {
+  date: string; // YYYY-MM-DD
+  mood: number; // 0-100
+  positive: string[];
+  negative: string[];
+  behavior: 'yes' | 'no' | null;
+  amount: 'less' | 'same' | 'more' | null;
+  count: string;
+  affirmation: string;
+};
 
 /** Slug used as a DM thread id, derived from a person's name. */
 export const chatId = (name: string) =>
@@ -40,6 +51,11 @@ type Persisted = {
   replies: Record<string, Comment[]>; // parent commentId -> replies
   hidden: string[]; // hidden/reported post ids
   dms: Record<string, { name: string; avatar: string; messages: DmMessage[] }>; // chatId -> thread
+  checkins: CheckinEntry[]; // saved daily check-in answers (newest first)
+  wheel: Record<string, number>; // wheel area id -> current score
+  bookings: Meeting[]; // meetings booked via the booking flow
+  bookedIds: string[]; // ids of existing meetings the user reserved
+  readNotifications: string[]; // notification ids marked read
 };
 
 const EMPTY: Persisted = {
@@ -52,6 +68,11 @@ const EMPTY: Persisted = {
   replies: {},
   hidden: [],
   dms: {},
+  checkins: [],
+  wheel: {},
+  bookings: [],
+  bookedIds: [],
+  readNotifications: [],
 };
 
 type StoreValue = {
@@ -84,6 +105,21 @@ type StoreValue = {
   chatFor: (id: string) => DmThread | null;
   chatThreads: () => DmThread[];
   sendDm: (id: string, name: string, avatar: string, text: string) => void;
+  // daily check-ins
+  checkins: CheckinEntry[];
+  addCheckin: (e: CheckinEntry) => void;
+  // wheel of life
+  wheelScores: Record<string, number>;
+  saveWheel: (scores: Record<string, number>) => void;
+  // meetings
+  bookings: Meeting[];
+  addBooking: (m: Meeting) => void;
+  isBooked: (id: string) => boolean;
+  bookMeeting: (id: string) => void;
+  // notifications
+  isNotifRead: (id: string) => boolean;
+  markNotifRead: (id: string) => void;
+  markAllNotifsRead: (ids: string[]) => void;
   // account
   clearAll: () => void;
 };
@@ -213,6 +249,32 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
             dms: { ...s.dms, [id]: { name, avatar, messages: [...prev.messages, msg] } },
           };
         }),
+
+      checkins: state.checkins,
+      addCheckin: (e) =>
+        update((s) => ({ ...s, checkins: [e, ...s.checkins.filter((c) => c.date !== e.date)] })),
+
+      wheelScores: state.wheel,
+      saveWheel: (scores) => update((s) => ({ ...s, wheel: { ...s.wheel, ...scores } })),
+
+      bookings: state.bookings,
+      addBooking: (m) => update((s) => ({ ...s, bookings: [m, ...s.bookings] })),
+      isBooked: (id) => state.bookedIds.includes(id),
+      bookMeeting: (id) =>
+        update((s) => (s.bookedIds.includes(id) ? s : { ...s, bookedIds: [...s.bookedIds, id] })),
+
+      isNotifRead: (id) => state.readNotifications.includes(id),
+      markNotifRead: (id) =>
+        update((s) =>
+          s.readNotifications.includes(id)
+            ? s
+            : { ...s, readNotifications: [...s.readNotifications, id] },
+        ),
+      markAllNotifsRead: (ids) =>
+        update((s) => ({
+          ...s,
+          readNotifications: Array.from(new Set([...s.readNotifications, ...ids])),
+        })),
 
       clearAll: () => setState(EMPTY),
     };
