@@ -12,8 +12,17 @@ or will be made to that repo.
 ### Why this matters for the Expo app
 Our mobile app is a **separate origin** (github.io) with **no Devise cookie**. It can't call these endpoints as-is: they need a session cookie, a CSRF token, and CORS for our origin — none of which a cross-origin SPA/native client has. **A dedicated mobile API is required.**
 
-## Content model (our first track)
-Workshops **are** lessons (`WorkshopsController < LessonsController`; `Lesson.workshop` scope). Structure: `programs → portions/sections → lessons`, gated by **subscription role + program**.
+## Content model (our first track) — confirmed hierarchy
+`programs → portions (= modules) → lessons`, via a `portion_lessons` join.
+- **`programs`** — e.g. "The Hero Code" (`id, name, active`).
+- **`portions`** — the **modules** (`id, program_id, title, order`); Hero Code ≈ 13.
+- **`lessons`** — the ~53 lessons. `lesson_type` enum = **`[lesson, workshop]`**, so
+  **workshops are lessons** with `lesson_type = workshop` (grouped into portions too;
+  attached after the main program — a DB shape they want to clean up later).
+- **`snippets`** — standalone short-form videos (`lesson_id` nullable), own `vimeo_url`.
+- **`program_links`** — flexible link table (program/portion/snippet/lesson/group).
+
+Gated by **subscription role + program** (`subscription_role_workshops`, `program_links`).
 
 | Table | Key columns (real shapes) |
 |---|---|

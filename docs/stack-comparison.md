@@ -49,6 +49,39 @@ Hybrid = keep the DB + own the API, and rent only auth/realtime.**
 - **Realtime (B):** you'll bolt on Supabase Realtime/Pusher anyway — which nudges B toward C.
 - **All three:** keep **n8n** for AI/automation; keep **Vimeo** (URLs are in `snippets`); port **S3 presign + Stripe/Zoom webhooks** into a few serverless functions.
 
+## Switching A → B later — is it a nightmare?
+**No — if you build one abstraction layer up front (which we will anyway).** The
+"nightmare" version only happens if the app calls `supabase-js` directly in every
+screen and leans on RLS as the *only* authorization. Avoid that and A→B is a
+contained job, not a rewrite.
+
+**What carries over for free:**
+- **Postgres schema + data** — identical. (Supabase's DB is *just Postgres*; B's
+  Drizzle can connect to that same connection string — **the DB doesn't have to
+  move twice.**)
+- **The Expo app + every screen** — untouched, *if* they call a thin `src/api/*`
+  layer instead of Supabase directly. Today that layer calls Supabase; in B it
+  calls tRPC. Screens never know.
+- **Most business logic** — if it lives in **Postgres views/functions** or portable
+  TS Edge Functions, it ports nearly verbatim to tRPC procedures.
+
+**What actually costs effort A→B:**
+- **Auth** (biggest). Mitigate by using a **portable auth from day one** — either
+  keep Supabase Auth (open-source GoTrue, runs anywhere) or use **Auth0/Clerk
+  *through* Supabase** so B inherits the same identity provider unchanged.
+- **RLS reliance.** If RLS is your *only* gate, B must reimplement it. Mitigate by
+  keeping gating in **views/functions** (RLS as defense-in-depth, not sole authz).
+- **Realtime/Storage.** Keep them behind the abstraction (or keep Supabase
+  Realtime in B — it works standalone).
+
+**Rule of thumb:** A→B done right is days–to–weeks (mostly auth), not months.
+
+> **The kicker:** if the A→B switch is even a worry, that's the strongest case for
+> **C (Hybrid)** — it *is* B's architecture (your own tRPC/Drizzle API) with A's
+> conveniences rented (auth/realtime/storage). There's no "A→B migration" because
+> you never built on Supabase's data API in the first place. C = pay a little more
+> now, owe nothing later.
+
 ## My recommendation
 If you want to **move fast with a lean team and don't mind hosting the DB on
 Supabase → A (Supabase + Expo).** If keeping Postgres exactly where it is and
