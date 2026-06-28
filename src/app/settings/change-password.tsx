@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -35,7 +36,39 @@ export default function ChangePassword() {
   const [cur, setCur] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
-  const valid = next.length >= 8 && next === confirm;
+  const [done, setDone] = useState(false);
+  const valid = cur.length > 0 && next.length >= 8 && next === confirm;
+
+  const submit = () => {
+    if (!valid) return;
+    // Local-only for now; wires to Supabase Auth updateUser when auth lands.
+    setCur('');
+    setNext('');
+    setConfirm('');
+    setDone(true);
+  };
+
+  if (done) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <ScreenHeader title="Back" largeTitle="Change password" />
+        <View style={styles.success}>
+          <View style={styles.successIcon}>
+            <Ionicons name="checkmark" size={40} color={Colors.white} />
+          </View>
+          <Txt variant="title" center>
+            Password updated
+          </Txt>
+          <Txt variant="bodySm" color={Colors.textSub} center>
+            Your password has been changed. Use it next time you sign in.
+          </Txt>
+        </View>
+        <View style={styles.footer}>
+          <Button title="Done" variant="primary" onPress={() => setDone(false)} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -49,7 +82,7 @@ export default function ChangePassword() {
         </Txt>
       </ScrollView>
       <View style={styles.footer}>
-        <Button title="Update password" variant="primary" disabled={!valid} />
+        <Button title="Update password" variant="primary" disabled={!valid} onPress={submit} />
       </View>
     </SafeAreaView>
   );
@@ -69,4 +102,14 @@ const styles = StyleSheet.create({
     borderColor: Colors.stroke,
   },
   footer: { padding: Spacing.lg },
+  success: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.md, padding: Spacing.xl },
+  successIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.success,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.sm,
+  },
 });

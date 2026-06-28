@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppHeader } from '@/components/app-header';
 import { Button } from '@/components/ui/button';
@@ -11,16 +12,46 @@ import { ListRow } from '@/components/ui/list-row';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { user } from '@/data/content';
+import { useStore } from '@/lib/store';
 
-const STATS = [
-  { label: 'Workshops', value: '12' },
-  { label: 'Day streak', value: '6' },
-  { label: 'Points', value: '1,480' },
+const STATS: { label: string; value: string; route: string }[] = [
+  { label: 'Workshops', value: '12', route: '/workshop/list' },
+  { label: 'Day streak', value: '6', route: '/checkin' },
+  { label: 'Points', value: '1,480', route: '/mydata/leaderboard' },
 ];
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { clearAll } = useStore();
   const [confirm, setConfirm] = useState<null | 'logout' | 'delete'>(null);
+  const [avatar, setAvatar] = useState<string | null>(null);
+
+  const pickImage = () => {
+    if (Platform.OS === 'web') {
+      const doc = (globalThis as { document?: any }).document;
+      const input = doc?.createElement?.('input');
+      if (!input) return;
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.onchange = () => {
+        const file = input.files?.[0];
+        if (file) setAvatar(URL.createObjectURL(file));
+      };
+      input.click();
+    }
+    // native: wire expo-image-picker when we ship native builds
+  };
+
+  const resetLocal = async () => {
+    clearAll();
+    try {
+      await AsyncStorage.removeItem('igntd.checkin.v1');
+    } catch {
+      /* best effort */
+    }
+    setConfirm(null);
+    router.replace('/');
+  };
 
   return (
     <View style={styles.root}>
@@ -28,12 +59,12 @@ export default function ProfileScreen() {
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.profileCard}>
-          <Image source={{ uri: user.avatar }} style={styles.avatar} />
+          <Image source={{ uri: avatar ?? user.avatar }} style={styles.avatar} />
           <Txt variant="title">{user.name} Joseph</Txt>
           <Txt variant="bodySm" color={Colors.textSub}>
             okeijoseph@igntd.com
           </Txt>
-          <Pressable style={styles.editBtn} onPress={() => router.push('/settings/change-password')}>
+          <Pressable style={styles.editBtn} onPress={pickImage}>
             <Ionicons name="image-outline" size={16} color={Colors.white} />
             <Txt variant="bodySmMedium" color={Colors.white}>
               Change Image
@@ -45,7 +76,7 @@ export default function ProfileScreen() {
           {STATS.map((s, i) => (
             <Pressable
               key={s.label}
-              onPress={() => router.push('/mydata/leaderboard')}
+              onPress={() => router.push(s.route as never)}
               style={[styles.stat, i < STATS.length - 1 && styles.statDivider]}>
               <Txt variant="titleLg" color={Colors.primary}>
                 {s.value}
@@ -122,7 +153,7 @@ export default function ProfileScreen() {
               <Button
                 title={confirm === 'delete' ? 'Delete' : 'Log out'}
                 variant="primary"
-                onPress={() => setConfirm(null)}
+                onPress={resetLocal}
               />
             </View>
           </View>
