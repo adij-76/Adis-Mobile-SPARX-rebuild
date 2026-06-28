@@ -54,10 +54,24 @@ export type ContentApi = {
   snippets(): Promise<Snippet[]>;
 };
 
+/** One month's overall Wheel of Life score (for the Monthly/Annual trend views). */
+export type WheelPoint = { key: string; label: string; year: number; score: number };
+
+export type InsightsApi = {
+  /**
+   * Trailing months of the user's overall Wheel score, oldest → newest.
+   * `anchor` lets the mock pin the two most recent points to the values the
+   * screen already computed; the Supabase adapter reads real history and
+   * ignores it.
+   */
+  wheelHistory(anchor?: { current: number; last: number }): Promise<WheelPoint[]>;
+};
+
 export type Api = {
   /** Which backend is serving requests — handy for debugging. */
   backend: 'mock' | 'supabase';
   content: ContentApi;
+  insights: InsightsApi;
   // Future seams (kept here so adapters grow uniformly):
   // auth: AuthApi; checkins: CheckinApi; community: CommunityApi;
 };

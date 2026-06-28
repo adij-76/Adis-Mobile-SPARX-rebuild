@@ -6,7 +6,7 @@
  * Activated when EXPO_PUBLIC_SUPABASE_URL + EXPO_PUBLIC_SUPABASE_ANON_KEY are set.
  * A logged-in user's JWT (once auth lands) replaces the anon key in Authorization.
  */
-import type { ContentApi, Lesson, LessonType, Module, Program, Snippet, Workshop } from '@/api/types';
+import type { ContentApi, InsightsApi, Lesson, LessonType, Module, Program, Snippet, WheelPoint, Workshop } from '@/api/types';
 
 const BASE = (process.env.EXPO_PUBLIC_SUPABASE_URL ?? '').replace(/\/$/, '');
 const ANON = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
@@ -118,6 +118,22 @@ export const supabaseContent: ContentApi = {
           vimeoId: r.vimeo_id,
           aiGenerated: r.ai_generated,
         }) satisfies Snippet,
+    );
+  },
+};
+
+type WheelScoreRow = { month_key: string; label: string; year: number; score: number };
+
+export const supabaseInsights: InsightsApi = {
+  // anchor is ignored — Supabase returns the user's real monthly history (RLS-scoped).
+  async wheelHistory() {
+    const rows = await rest<WheelScoreRow[]>('mobile_wheel_scores', {
+      order: 'month_key.asc',
+      limit: '12',
+    });
+    return rows.map(
+      (r) =>
+        ({ key: r.month_key, label: r.label, year: r.year, score: r.score }) satisfies WheelPoint,
     );
   },
 };

@@ -2,8 +2,8 @@
  * Mock adapter — serves the existing local content so the app fully works with
  * no backend configured. Default until EXPO_PUBLIC_SUPABASE_URL is set.
  */
-import { recommendedVideos, workshops, type WorkshopSummary } from '@/data/content';
-import type { ContentApi, Lesson, Module, Program, Snippet, Workshop } from '@/api/types';
+import { recommendedVideos, wheelHistory, workshops, type WorkshopSummary } from '@/data/content';
+import type { ContentApi, InsightsApi, Lesson, Module, Program, Snippet, Workshop } from '@/api/types';
 
 const HERO: Program = { id: 'hero-code', name: 'The Hero Code', active: true };
 
@@ -50,4 +50,8 @@ export const mockContent: ContentApi = {
         aiGenerated: false,
       })),
     ),
+};
+
+export const mockInsights: InsightsApi = {
+  wheelHistory: (anchor) => delay(wheelHistory(anchor?.current ?? 71, anchor?.last ?? 67)),
 };

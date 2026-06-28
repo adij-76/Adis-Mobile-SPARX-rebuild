@@ -82,10 +82,44 @@ using (
 *(Audit gating parity against the Rails controllers before exposing — this is the
 one area to get exactly right.)*
 
+## Wheel of Life history (Monthly / Annual trend views)
+The wheel screen's Monthly + Annual selectors read the trailing 12 months of the
+user's **overall** wheel score. Until this view exists the app synthesises the
+older months from the live `current`/`last` averages; once it's live the adapter
+(`supabaseInsights.wheelHistory`) reads real history.
+
+This is per-user data, so it ships **with auth/RLS** (Step 2), not in the anon
+catalog. Shape returned: `WheelPoint {key,label,year,score}` (see `src/api/types.ts`).
+
+```sql
+-- One row per month: the user's average score across all wheel areas.
+-- Assumes a wheel_scores table (user_id, area, score, recorded_at). Adjust the
+-- source table/columns to match the imported schema.
+create or replace view mobile_wheel_scores as
+  select to_char(date_trunc('month', ws.recorded_at), 'YYYY-MM') as month_key,
+         to_char(date_trunc('month', ws.recorded_at), 'Mon')     as label,
+         extract(year from ws.recorded_at)::int                  as year,
+         round(avg(ws.score))::int                               as score,
+         ws.user_id
+  from wheel_scores ws
+  group by 1, 2, 3, ws.user_id;
+
+alter table wheel_scores enable row level security;
+create policy mobile_wheel_scores_self on wheel_scores for select to authenticated
+using (user_id = (auth.jwt() ->> 'app_user_id')::int);
+```
+The adapter requests `?order=month_key.asc&limit=12`, so RLS returns only the
+signed-in user's last 12 months.
+
+> If production has no per-month wheel history yet, populate `wheel_scores` from a
+> monthly snapshot job (or backfill from existing assessment submissions). The app
+> keeps working on synthesised history until then — no client change needed.
+
 ## Endpoints the adapter calls (PostgREST)
 `GET /rest/v1/mobile_programs` · `…/mobile_modules?program_id=eq.<id>&order=order` ·
 `…/mobile_lessons?portion_id=eq.<id>&lesson_type=eq.lesson&order=position` ·
-`…/mobile_lessons?lesson_type=eq.workshop` · `…/mobile_snippets?order=created_at.desc`
+`…/mobile_lessons?lesson_type=eq.workshop` · `…/mobile_snippets?order=created_at.desc` ·
+`…/mobile_wheel_scores?order=month_key.asc&limit=12` (per-user, RLS)
 Headers: `apikey: <anon>`, `Authorization: Bearer <user-jwt | anon>`.
 
 ## App wiring (already prepared)
