@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,6 +24,7 @@ const PLANS = [
 ];
 
 export default function Premium() {
+  const router = useRouter();
   const [plan, setPlan] = useState('annual');
   return (
     <View style={styles.root}>
@@ -80,7 +82,11 @@ export default function Premium() {
           </View>
         </ScrollView>
         <View style={styles.footer}>
-          <Button title="Start 7-day free trial" variant="primary" />
+          <Button
+            title="Start 7-day free trial"
+            variant="primary"
+            onPress={() => router.push('/settings/payment')}
+          />
         </View>
       </SafeAreaView>
     </View>

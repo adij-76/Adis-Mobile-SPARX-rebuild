@@ -88,7 +88,12 @@ export default function WheelOfLife() {
               </Txt>
             </View>
           </View>
-          <Button title="Contact my coach" variant="outline" iconLeft="calendar-outline" />
+          <Button
+            title="Contact my coach"
+            variant="outline"
+            iconLeft="calendar-outline"
+            onPress={() => router.push('/meetings/book')}
+          />
         </Card>
 
         <Button

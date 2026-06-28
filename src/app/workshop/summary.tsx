@@ -45,7 +45,7 @@ export default function WorkshopSummary() {
           <Button
             title="Watch recommended videos"
             variant="white"
-            onPress={() => router.dismissTo('/')}
+            onPress={() => router.push('/videos')}
           />
         </View>
       </SafeAreaView>
