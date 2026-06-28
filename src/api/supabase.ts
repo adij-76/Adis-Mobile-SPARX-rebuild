@@ -1,0 +1,123 @@
+/**
+ * Supabase adapter — talks to PostgREST over plain HTTP (no SDK, so it works
+ * identically on web + native). Reads from the read-only mobile views defined
+ * in docs/content-api-spec.md. RLS enforces per-user access.
+ *
+ * Activated when EXPO_PUBLIC_SUPABASE_URL + EXPO_PUBLIC_SUPABASE_ANON_KEY are set.
+ * A logged-in user's JWT (once auth lands) replaces the anon key in Authorization.
+ */
+import type { ContentApi, Lesson, LessonType, Module, Program, Snippet, Workshop } from '@/api/types';
+
+const BASE = (process.env.EXPO_PUBLIC_SUPABASE_URL ?? '').replace(/\/$/, '');
+const ANON = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
+
+// Set after login; until auth lands we fall back to the anon key.
+let authToken: string | null = null;
+export function setSupabaseToken(token: string | null) {
+  authToken = token;
+}
+
+async function rest<T>(view: string, query: Record<string, string> = {}): Promise<T> {
+  const qs = new URLSearchParams(query).toString();
+  const res = await fetch(`${BASE}/rest/v1/${view}${qs ? `?${qs}` : ''}`, {
+    headers: {
+      apikey: ANON,
+      Authorization: `Bearer ${authToken ?? ANON}`,
+      Accept: 'application/json',
+    },
+  });
+  if (!res.ok) throw new Error(`Supabase ${view} → ${res.status}`);
+  return (await res.json()) as T;
+}
+
+// --- row → domain mappers (views return snake_case) ---
+type ProgramRow = { id: number | string; name: string; active: boolean };
+type ModuleRow = { id: number | string; program_id: number | string; title: string; order: number };
+type LessonRow = {
+  id: number | string;
+  portion_id: number | string;
+  title: string;
+  nav_title: string;
+  position: number;
+  description: string;
+  vimeo_url: string;
+  vimeo_id: number | null;
+  lesson_type: LessonType;
+  worksheet_url: string | null;
+  thumbnail: string | null;
+  progress?: number;
+  rating?: number;
+  favorite?: boolean;
+};
+type SnippetRow = {
+  id: number | string;
+  lesson_id: number | string | null;
+  description: string;
+  length_seconds: number | null;
+  vimeo_url: string | null;
+  vimeo_id: number | null;
+  ai_generated: boolean;
+};
+
+const toLesson = (r: LessonRow): Lesson => ({
+  id: String(r.id),
+  moduleId: String(r.portion_id),
+  title: r.title,
+  navTitle: r.nav_title,
+  position: r.position,
+  description: r.description,
+  vimeoUrl: r.vimeo_url,
+  vimeoId: r.vimeo_id,
+  lessonType: r.lesson_type,
+  worksheetUrl: r.worksheet_url,
+  thumbnail: r.thumbnail,
+  progress: r.progress,
+  rating: r.rating,
+  favorite: r.favorite,
+});
+
+export const supabaseContent: ContentApi = {
+  async programs() {
+    const rows = await rest<ProgramRow[]>('mobile_programs', { order: 'name' });
+    return rows.map((r) => ({ id: String(r.id), name: r.name, active: r.active }) satisfies Program);
+  },
+  async modules(programId) {
+    const rows = await rest<ModuleRow[]>('mobile_modules', {
+      program_id: `eq.${programId}`,
+      order: 'order',
+    });
+    return rows.map(
+      (r) => ({ id: String(r.id), programId: String(r.program_id), title: r.title, order: r.order }) satisfies Module,
+    );
+  },
+  async moduleLessons(moduleId) {
+    const rows = await rest<LessonRow[]>('mobile_lessons', {
+      portion_id: `eq.${moduleId}`,
+      lesson_type: 'eq.lesson',
+      order: 'position',
+    });
+    return rows.map(toLesson);
+  },
+  async workshops() {
+    const rows = await rest<LessonRow[]>('mobile_lessons', {
+      lesson_type: 'eq.workshop',
+      order: 'position',
+    });
+    return rows.map(toLesson) as Workshop[];
+  },
+  async snippets() {
+    const rows = await rest<SnippetRow[]>('mobile_snippets', { order: 'created_at.desc' });
+    return rows.map(
+      (r) =>
+        ({
+          id: String(r.id),
+          lessonId: r.lesson_id != null ? String(r.lesson_id) : null,
+          description: r.description,
+          lengthSeconds: r.length_seconds,
+          vimeoUrl: r.vimeo_url,
+          vimeoId: r.vimeo_id,
+          aiGenerated: r.ai_generated,
+        }) satisfies Snippet,
+    );
+  },
+};
