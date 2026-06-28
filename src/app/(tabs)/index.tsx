@@ -182,6 +182,22 @@ export default function HomeScreen() {
           count={upcomingMeetings.length}
           onSeeAll={() => router.push('/meetings')}
         />
+        <View style={styles.meetingActions}>
+          <View style={{ flex: 1 }}>
+            <Button
+              title="Book a group"
+              variant="primary"
+              onPress={() => router.push('/meetings/book')}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Button
+              title="Book a session"
+              variant="primary"
+              onPress={() => router.push('/meetings/book?paid=1')}
+            />
+          </View>
+        </View>
         {upcomingMeetings.map((m) => (
           <Pressable key={m.id} onPress={() => router.push(`/meetings/${m.id}`)}>
             <Card style={styles.meeting}>
@@ -204,22 +220,6 @@ export default function HomeScreen() {
             </Card>
           </Pressable>
         ))}
-        <View style={styles.meetingActions}>
-          <View style={{ flex: 1 }}>
-            <Button
-              title="Book a group"
-              variant="primary"
-              onPress={() => router.push('/meetings/book')}
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Button
-              title="Book a session"
-              variant="primary"
-              onPress={() => router.push('/meetings/book?paid=1')}
-            />
-          </View>
-        </View>
 
         {/* Recommended videos */}
         <SectionHeader title="Recommended Videos" onSeeAll={() => router.push('/videos')} />

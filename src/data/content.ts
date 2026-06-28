@@ -415,6 +415,42 @@ export const wheelAreas: WheelArea[] = [
 export const wheelCategories = wheelAreas;
 export const wheelScore = (a: WheelArea) => a.current;
 
+/** One month's overall Wheel of Life score. */
+export type WheelMonth = { key: string; label: string; year: number; score: number };
+
+const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/**
+ * Builds the trailing 12 months of overall Wheel scores, ending at the current
+ * month. The two most recent points are the user's real `current` + `last`
+ * averages; earlier months are synthesised as a believable rising trend so the
+ * Monthly/Annual views have something to render. Swap this for real monthly
+ * snapshots from Supabase (`wheel_scores` history) when the backend is live.
+ */
+export function wheelHistory(current: number, last: number): WheelMonth[] {
+  const now = new Date();
+  const start = Math.max(28, Math.min(current, last) - 20);
+  const wobble = [0, 3, -2, 4, 1, -3, 2, 4, -1, 2]; // 10 oldest months
+  const out: WheelMonth[] = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    let score: number;
+    if (i === 0) score = current; // this month
+    else if (i === 1) score = last; // last month
+    else {
+      const t = (11 - i) / 9; // 0 at oldest → ~1 approaching last month
+      score = Math.round(start + (last - start) * t) + (wobble[(11 - i) % wobble.length] ?? 0);
+    }
+    out.push({
+      key: `${d.getFullYear()}-${d.getMonth() + 1}`,
+      label: MONTH_LABELS[d.getMonth()],
+      year: d.getFullYear(),
+      score: Math.max(0, Math.min(100, score)),
+    });
+  }
+  return out;
+}
+
 export type AssessmentQuestion = {
   id: string;
   prompt: string;
