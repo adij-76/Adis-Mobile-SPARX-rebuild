@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - claude/mobile-design-app-build-lhqhpm
   workflow_dispatch:
 
 permissions:
