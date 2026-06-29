@@ -9,9 +9,9 @@ type ScreenProps = {
   /** The screen's root style (background, flex). Applied to the outer fill. */
   style?: StyleProp<ViewStyle>;
   /**
-   * `app` (default) — a tab screen sharing the window with the sidebar, so it
-   * clears the sidebar width. `modal` — a pushed stack/modal screen that covers
-   * the window (no sidebar), centered in a narrower column.
+   * Sets the centered column width on desktop: `app` (default, wider, for the
+   * primary tab screens) or `modal` (narrower, for focused stack/detail flows).
+   * The persistent sidebar lives outside the content area, so neither pads for it.
    */
   variant?: 'app' | 'modal';
   /** Override the centered column width (defaults per variant). */
@@ -21,8 +21,8 @@ type ScreenProps = {
 /**
  * Responsive page wrapper. On phone/tablet it's a transparent passthrough
  * (`flex: 1` + the screen's own style), so mobile layout is unchanged. On
- * desktop it centers content in a max-width column — clearing the sidebar for
- * `app` screens — with the screen background filling the gutters.
+ * desktop it centers content in a max-width column within the content area
+ * (right of the persistent sidebar), with the background filling the gutters.
  */
 export function Screen({ children, style, variant = 'app', maxWidth }: ScreenProps) {
   const { isDesktop } = useBreakpoint();
@@ -31,11 +31,10 @@ export function Screen({ children, style, variant = 'app', maxWidth }: ScreenPro
     return <View style={[styles.fill, style]}>{children}</View>;
   }
 
-  const paddingLeft = variant === 'app' ? Layout.sidebarWidth : 0;
   const colMax = maxWidth ?? (variant === 'app' ? Layout.contentMax : Layout.modalMax);
 
   return (
-    <View style={[styles.fill, style, { paddingLeft }]}>
+    <View style={[styles.fill, style]}>
       <View style={[styles.column, { maxWidth: colMax }]}>{children}</View>
     </View>
   );

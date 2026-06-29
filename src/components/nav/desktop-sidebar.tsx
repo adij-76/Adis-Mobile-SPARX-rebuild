@@ -26,9 +26,10 @@ const isActive = (pathname: string, href: string) =>
   href === '/' ? pathname === '/' : pathname.startsWith(href);
 
 /**
- * Fixed left sidebar shown only on desktop (rendered by the tabs layout as an
- * overlay; the bottom tab bar is hidden at that breakpoint). Uses Expo Router's
- * own routing hooks, so it stays decoupled from React Navigation internals.
+ * Fixed left sidebar shown only on desktop. Rendered by the root layout as a
+ * persistent, in-flow rail beside the content area, so it stays put across every
+ * route while only the content swaps. Uses Expo Router's own routing hooks, so
+ * it's decoupled from React Navigation internals.
  */
 export function DesktopSidebar() {
   const router = useRouter();
@@ -74,10 +75,6 @@ export function DesktopSidebar() {
 
 const styles = StyleSheet.create({
   sidebar: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
     width: Layout.sidebarWidth,
     backgroundColor: Colors.primaryDark,
     paddingHorizontal: Spacing.md,
