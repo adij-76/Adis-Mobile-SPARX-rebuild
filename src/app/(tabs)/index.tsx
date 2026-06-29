@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppHeader } from '@/components/app-header';
+import { Screen } from '@/components/layout/screen';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ProgressBar } from '@/components/ui/progress-bar';
@@ -45,7 +46,7 @@ export default function HomeScreen() {
   }, [router]);
 
   return (
-    <View style={styles.root}>
+    <Screen style={styles.root}>
       <AppHeader />
 
       <ScrollView
@@ -276,7 +277,7 @@ export default function HomeScreen() {
           ))}
         </View>
       </ScrollView>
-    </View>
+    </Screen>
   );
 }
 

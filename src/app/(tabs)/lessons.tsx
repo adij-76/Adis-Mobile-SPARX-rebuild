@@ -1,13 +1,14 @@
 import { StyleSheet, View } from 'react-native';
 
 import { AppHeader } from '@/components/app-header';
+import { Screen } from '@/components/layout/screen';
 import { WorkshopList } from '@/components/workshop-list';
 import { Txt } from '@/components/ui/text';
 import { Colors, Spacing } from '@/constants/theme';
 
 export default function LessonsScreen() {
   return (
-    <View style={styles.root}>
+    <Screen style={styles.root}>
       <AppHeader />
       <WorkshopList
         ListHeaderComponent={
@@ -19,7 +20,7 @@ export default function LessonsScreen() {
           </View>
         }
       />
-    </View>
+    </Screen>
   );
 }
 

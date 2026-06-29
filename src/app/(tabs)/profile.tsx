@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppHeader } from '@/components/app-header';
+import { Screen } from '@/components/layout/screen';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ListRow } from '@/components/ui/list-row';
@@ -54,7 +55,7 @@ export default function ProfileScreen() {
   };
 
   return (
-    <View style={styles.root}>
+    <Screen style={styles.root}>
       <AppHeader />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -159,7 +160,7 @@ export default function ProfileScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+    </Screen>
   );
 }
 
