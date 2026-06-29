@@ -4,7 +4,7 @@ import {
   Lato_900Black,
   useFonts,
 } from '@expo-google-fonts/lato';
-import { Stack } from 'expo-router';
+import { Stack, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
@@ -23,8 +23,13 @@ SplashScreen.preventAutoHideAsync();
  * only the content area (the navigator) swaps. On phone/tablet the navigator
  * renders full-screen and the bottom tab bar handles navigation.
  */
+/** Routes that take over the whole screen with no nav — must be completed
+ *  or explicitly closed, not navigated away from (e.g. the daily check-in). */
+const NAV_LOCKED = ['/checkin'];
+
 function Shell() {
   const { isDesktop } = useBreakpoint();
+  const pathname = usePathname();
   const stack = (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
@@ -47,9 +52,12 @@ function Shell() {
 
   if (!isDesktop) return stack;
 
+  // Keep the row + content wrappers stable so the navigator never remounts;
+  // only the sidebar is toggled, so nav-locked routes (check-in) hide it.
+  const navLocked = NAV_LOCKED.some((r) => pathname.startsWith(r));
   return (
     <View style={{ flex: 1, flexDirection: 'row' }}>
-      <DesktopSidebar />
+      {!navLocked && <DesktopSidebar />}
       <View style={{ flex: 1 }}>{stack}</View>
     </View>
   );
