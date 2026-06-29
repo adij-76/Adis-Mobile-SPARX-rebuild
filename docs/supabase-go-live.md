@@ -7,6 +7,11 @@ The app is already wired to flip automatically — it serves **mock content unti
 both repo variables below are set**, then reads from Supabase. No code change is
 needed to cut over; these are the steps on your side, plus a final verify on mine.
 
+> **Data plan:** the long-term target is a **single** Supabase Postgres that *is*
+> the database (Rails repointed at it via `DATABASE_URL`) — no second DB, no sync.
+> See `full-supabase-migration.md`. This runbook is the fast path to first live
+> reads; step 1 below becomes the one-time host migration in that plan.
+
 ---
 
 ## 1. Import the database
