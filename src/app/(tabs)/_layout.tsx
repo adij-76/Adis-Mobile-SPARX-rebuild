@@ -3,7 +3,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Tabs } from 'expo-router';
 import { StyleSheet, View, type ColorValue } from 'react-native';
 
-import { DesktopSidebar } from '@/components/nav/desktop-sidebar';
 import { Colors, Shadow } from '@/constants/theme';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
 
@@ -33,36 +32,33 @@ function sparkyIcon({ focused }: { focused: boolean }) {
 export default function TabsLayout() {
   const { isDesktop } = useBreakpoint();
   return (
-    <View style={styles.root}>
-      <Tabs
-        screenOptions={{
-          headerShown: false,
-          tabBarShowLabel: false,
-          tabBarActiveTintColor: Colors.white,
-          tabBarInactiveTintColor: 'rgba(255,255,255,0.55)',
-          // On desktop the left sidebar replaces the bottom bar.
-          tabBarStyle: isDesktop
-            ? { display: 'none' }
-            : {
-                backgroundColor: Colors.primaryDark,
-                borderTopWidth: 0,
-                height: 64,
-                paddingTop: 6,
-              },
-        }}>
-        <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: tabIcon('home') }} />
-        <Tabs.Screen name="data" options={{ title: 'My Data', tabBarIcon: tabIcon('stats-chart') }} />
-        <Tabs.Screen name="sparky" options={{ title: 'Sparky', tabBarIcon: sparkyIcon }} />
-        <Tabs.Screen
-          name="community"
-          options={{ title: 'Community', tabBarIcon: tabIcon('people') }}
-        />
-        <Tabs.Screen name="lessons" options={{ title: 'My Lessons', tabBarIcon: tabIcon('book') }} />
-        {/* Profile is reached from the top-right avatar, not the tab bar. */}
-        <Tabs.Screen name="profile" options={{ href: null }} />
-      </Tabs>
-      {isDesktop && <DesktopSidebar />}
-    </View>
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarShowLabel: false,
+        tabBarActiveTintColor: Colors.white,
+        tabBarInactiveTintColor: 'rgba(255,255,255,0.55)',
+        // On desktop the persistent sidebar (root layout) replaces the bottom bar.
+        tabBarStyle: isDesktop
+          ? { display: 'none' }
+          : {
+              backgroundColor: Colors.primaryDark,
+              borderTopWidth: 0,
+              height: 64,
+              paddingTop: 6,
+            },
+      }}>
+      <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: tabIcon('home') }} />
+      <Tabs.Screen name="data" options={{ title: 'My Data', tabBarIcon: tabIcon('stats-chart') }} />
+      <Tabs.Screen name="sparky" options={{ title: 'Sparky', tabBarIcon: sparkyIcon }} />
+      <Tabs.Screen
+        name="community"
+        options={{ title: 'Community', tabBarIcon: tabIcon('people') }}
+      />
+      <Tabs.Screen name="lessons" options={{ title: 'My Lessons', tabBarIcon: tabIcon('book') }} />
+      {/* Profile is reached from the top-right avatar, not the tab bar. */}
+      <Tabs.Screen name="profile" options={{ href: null }} />
+    </Tabs>
   );
 }
 
