@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppHeader } from '@/components/app-header';
+import { Screen } from '@/components/layout/screen';
 import { PostCard } from '@/components/ui/post-card';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Shadow, Spacing } from '@/constants/theme';
@@ -14,7 +15,7 @@ export default function CommunityScreen() {
   const { allPosts } = useStore();
 
   return (
-    <View style={styles.root}>
+    <Screen style={styles.root}>
       <AppHeader />
 
       <FlatList
@@ -77,7 +78,7 @@ export default function CommunityScreen() {
       <Pressable style={styles.fab} onPress={() => router.push('/feed/new')}>
         <Ionicons name="add" size={28} color={Colors.white} />
       </Pressable>
-    </View>
+    </Screen>
   );
 }
 

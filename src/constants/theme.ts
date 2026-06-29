@@ -120,3 +120,15 @@ export const Shadow = {
     elevation: 2,
   },
 } as const;
+
+/** Responsive breakpoints (min-width, in px). Drives `useBreakpoint()`. */
+export const Breakpoints = {
+  tablet: 768,
+  desktop: 1024,
+} as const;
+
+/** Desktop layout dimensions for the responsive shell. */
+export const Layout = {
+  sidebarWidth: 248,
+  contentMax: 1120,
+} as const;

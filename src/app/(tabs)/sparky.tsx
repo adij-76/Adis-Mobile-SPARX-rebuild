@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Screen } from '@/components/layout/screen';
 import { VideoPlayerModal } from '@/components/video-player-modal';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
@@ -142,7 +143,7 @@ export default function Sparky() {
   };
 
   return (
-    <View style={styles.root}>
+    <Screen style={styles.root}>
       <SafeAreaView edges={['top']}>
         <LinearGradient
           colors={['#FF9D4B', '#166890']}
@@ -227,7 +228,7 @@ export default function Sparky() {
       </KeyboardAvoidingView>
 
       <VideoPlayerModal video={activeVideo} onClose={() => setActiveVideo(null)} />
-    </View>
+    </Screen>
   );
 }
 

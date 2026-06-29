@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppHeader } from '@/components/app-header';
+import { Screen } from '@/components/layout/screen';
 import { Card } from '@/components/ui/card';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
@@ -14,7 +15,7 @@ export default function DataScreen() {
   const balance = Math.round(scored.reduce((s, a) => s + a.score, 0) / scored.length);
 
   return (
-    <View style={styles.root}>
+    <Screen style={styles.root}>
       <AppHeader />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -106,7 +107,7 @@ export default function DataScreen() {
           </Card>
         ))}
       </ScrollView>
-    </View>
+    </Screen>
   );
 }
 
