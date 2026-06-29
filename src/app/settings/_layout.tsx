@@ -1,8 +1,11 @@
 import { Stack } from 'expo-router';
 
+import { Screen } from '@/components/layout/screen';
+
 export default function SettingsLayout() {
   return (
-    <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+    <Screen variant="modal">
+      <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
       <Stack.Screen name="theme" />
       <Stack.Screen name="notifications" />
       <Stack.Screen name="languages" />
@@ -13,7 +16,8 @@ export default function SettingsLayout() {
       <Stack.Screen name="faqs" />
       <Stack.Screen name="privacy" />
       <Stack.Screen name="terms" />
-      <Stack.Screen name="assessment-summary" />
-    </Stack>
+        <Stack.Screen name="assessment-summary" />
+      </Stack>
+    </Screen>
   );
 }

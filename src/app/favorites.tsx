@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Screen } from '@/components/layout/screen';
 import { Segmented } from '@/components/ui/segmented';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
@@ -35,6 +36,7 @@ export default function Favorites() {
   const savedVideos = recommendedVideos.filter((v) => favoriteIds('video').includes(v.id));
 
   return (
+    <Screen variant="modal" style={styles.safe}>
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={12} style={styles.back}>
@@ -115,6 +117,7 @@ export default function Favorites() {
         )}
       </ScrollView>
     </SafeAreaView>
+    </Screen>
   );
 }
 

@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Screen } from '@/components/layout/screen';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
@@ -39,6 +40,7 @@ export default function Notifications() {
   };
 
   return (
+    <Screen variant="modal" style={styles.safe}>
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScreenHeader title="Back" largeTitle="Notifications" />
       <FlatList
@@ -85,6 +87,7 @@ export default function Notifications() {
         }}
       />
     </SafeAreaView>
+    </Screen>
   );
 }
 

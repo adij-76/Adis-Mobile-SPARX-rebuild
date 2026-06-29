@@ -7,13 +7,18 @@ import { Colors, Layout, Radius, Spacing } from '@/constants/theme';
 
 type NavItem = { href: string; label: string; icon: keyof typeof Ionicons.glyphMap };
 
-/** Primary nav, mirrors the bottom tab set. `href` matches the (tabs) routes. */
+/**
+ * Primary desktop nav. Mirrors the production desktop app's sidebar (Wheel of
+ * Life / data lives on its own page, so it's not here). `href` targets the
+ * matching route.
+ */
 const NAV: NavItem[] = [
-  { href: '/', label: 'Home', icon: 'home' },
-  { href: '/data', label: 'My Data', icon: 'stats-chart' },
+  { href: '/', label: 'Dashboard', icon: 'home' },
   { href: '/sparky', label: 'Sparky AI', icon: 'sparkles' },
-  { href: '/community', label: 'Community', icon: 'people' },
+  { href: '/favorites', label: 'Favorites', icon: 'heart' },
   { href: '/lessons', label: 'My Lessons', icon: 'book' },
+  { href: '/community', label: 'Community', icon: 'people' },
+  { href: '/feed/messages', label: 'Chats', icon: 'chatbubbles' },
 ];
 
 const isActive = (pathname: string, href: string) =>
@@ -48,10 +53,10 @@ export function DesktopSidebar() {
     <View style={styles.sidebar}>
       <View style={styles.brand}>
         <View style={styles.logo}>
-          <Ionicons name="flame" size={20} color={Colors.white} />
+          <Ionicons name="sparkles" size={20} color={Colors.white} />
         </View>
         <Txt variant="titleSm" color={Colors.white}>
-          IGNTD
+          SPARx
         </Txt>
       </View>
 

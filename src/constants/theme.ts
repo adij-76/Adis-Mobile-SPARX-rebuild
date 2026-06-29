@@ -131,4 +131,6 @@ export const Breakpoints = {
 export const Layout = {
   sidebarWidth: 248,
   contentMax: 1120,
+  /** Narrower column for focused stack/modal screens (forms, detail flows). */
+  modalMax: 860,
 } as const;
