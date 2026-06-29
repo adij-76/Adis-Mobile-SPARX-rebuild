@@ -5,6 +5,11 @@ hierarchy: `programs → portions(modules) → lessons` (lesson_type lesson|work
 + standalone `snippets`. The app already calls this via `src/api/` (Supabase
 adapter); these are the views + policies the adapter reads.
 
+> **Data topology:** these views live in a **single** Supabase Postgres that is
+> *the* database — Rails repoints at it via `DATABASE_URL`, so there is no second
+> DB and no sync. See `full-supabase-migration.md` (canonical). Wherever this doc
+> says "imported/connected prod Postgres," read it as that one migrated database.
+
 ## Response shapes (= `src/api/types.ts`)
 `Program {id,name,active}` · `Module {id,programId,title,order}` ·
 `Lesson {id,moduleId,title,navTitle,position,description,vimeoUrl,vimeoId,lessonType,worksheetUrl,thumbnail, progress?,rating?,favorite?}` ·
