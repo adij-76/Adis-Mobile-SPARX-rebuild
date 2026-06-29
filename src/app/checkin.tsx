@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 
+import { Screen } from '@/components/layout/screen';
 import { Button } from '@/components/ui/button';
 import { Confetti } from '@/components/confetti';
 import { ProgressBar } from '@/components/ui/progress-bar';
@@ -89,6 +90,7 @@ export default function CheckinScreen() {
   }
 
   return (
+    <Screen variant="modal" style={styles.gutter}>
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.header}>
         <Pressable onPress={() => router.dismissTo('/')} hitSlop={12}>
@@ -270,6 +272,7 @@ export default function CheckinScreen() {
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
+    </Screen>
   );
 }
 
@@ -475,6 +478,7 @@ function CheckinSummary({
 }) {
   const { headline, focus, question } = buildSummary({ mood, positive, negative, behavior });
   return (
+    <Screen variant="modal" style={styles.gutter}>
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.header}>
         <Pressable onPress={onDone} hitSlop={12}>
@@ -518,10 +522,12 @@ function CheckinSummary({
         <Button title="Done" variant="primary" onPress={onDone} />
       </View>
     </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  gutter: { backgroundColor: Colors.screen },
   safe: { flex: 1, backgroundColor: Colors.white },
   header: {
     flexDirection: 'row',
