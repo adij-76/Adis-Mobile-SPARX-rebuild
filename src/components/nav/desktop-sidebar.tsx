@@ -8,12 +8,13 @@ import { Colors, Layout, Radius, Spacing } from '@/constants/theme';
 type NavItem = { href: string; label: string; icon: keyof typeof Ionicons.glyphMap };
 
 /**
- * Primary desktop nav. Mirrors the production desktop app's sidebar (Wheel of
- * Life / data lives on its own page, so it's not here). `href` targets the
- * matching route.
+ * Primary desktop nav. Mirrors the production desktop app's sidebar. The Wheel
+ * of Life / scores live on the My Data page (not on the dashboard). `href`
+ * targets the matching route.
  */
 const NAV: NavItem[] = [
   { href: '/', label: 'Dashboard', icon: 'home' },
+  { href: '/data', label: 'My Data', icon: 'stats-chart' },
   { href: '/sparky', label: 'Sparky AI', icon: 'sparkles' },
   { href: '/favorites', label: 'Favorites', icon: 'heart' },
   { href: '/lessons', label: 'My Lessons', icon: 'book' },
