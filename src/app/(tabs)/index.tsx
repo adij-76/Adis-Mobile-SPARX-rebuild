@@ -7,6 +7,7 @@ import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppHeader } from '@/components/app-header';
 import { Screen } from '@/components/layout/screen';
+import { useBreakpoint } from '@/hooks/use-breakpoint';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ProgressBar } from '@/components/ui/progress-bar';
@@ -32,6 +33,7 @@ const TABS = ['Programs', 'Workshop', 'Challenges'] as const;
 export default function HomeScreen() {
   const router = useRouter();
   const { isFav, toggleFav } = useStore();
+  const { isDesktop } = useBreakpoint();
   const [tab, setTab] = useState<(typeof TABS)[number]>('Programs');
   const [checklistOpen, setChecklistOpen] = useState(true);
 
@@ -45,6 +47,230 @@ export default function HomeScreen() {
     });
   }, [router]);
 
+  const banner = (
+    <Pressable style={styles.banner} onPress={() => router.push('/pwa-install')}>
+      <Ionicons name="download-outline" size={18} color={Colors.primaryDark} />
+      <Txt variant="bodySmMedium" color={Colors.primaryDark}>
+        Install SPARx app for a better experience
+      </Txt>
+    </Pressable>
+  );
+
+  const quote = (
+    <Pressable onPress={() => router.push('/quotes')}>
+      <LinearGradient
+        colors={['#4A2B6B', '#2D2350']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.quote}>
+        <View style={{ flex: 1 }}>
+          <Txt variant="bodySmMedium" color={Colors.white}>
+            “{dailyQuote.text}”
+          </Txt>
+          <Txt variant="caption" color={Colors.textMutedOnDark} style={{ marginTop: Spacing.sm }}>
+            - {dailyQuote.author}
+          </Txt>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color={Colors.white} />
+      </LinearGradient>
+    </Pressable>
+  );
+
+  const checklist = (
+    <Card padded={false} style={styles.checklist}>
+      <Pressable style={styles.checklistHead} onPress={() => setChecklistOpen((v) => !v)}>
+        <Txt variant="titleSm">Daily Checklist</Txt>
+        <Ionicons
+          name={checklistOpen ? 'chevron-up' : 'chevron-down'}
+          size={20}
+          color={Colors.textSub}
+        />
+      </Pressable>
+      {checklistOpen &&
+        dailyChecklist.map((item, i) => (
+          <Pressable
+            key={item.id}
+            onPress={() => router.push(item.route as never)}
+            style={[styles.checkRow, i === 0 && item.done && styles.checkRowDone]}>
+            <Ionicons
+              name={item.done ? 'checkmark-circle' : 'ellipse-outline'}
+              size={22}
+              color={item.done ? Colors.success : Colors.orange}
+            />
+            <Txt variant="bodySm" style={{ flex: 1 }}>
+              {item.label}
+            </Txt>
+            {!item.done && <Ionicons name="chevron-forward" size={18} color={Colors.textSub} />}
+          </Pressable>
+        ))}
+    </Card>
+  );
+
+  const tabsBlock = (
+    <>
+      <View style={styles.segment}>
+        {TABS.map((t) => {
+          const active = t === tab;
+          return (
+            <Pressable
+              key={t}
+              onPress={() => setTab(t)}
+              style={[styles.segmentItem, active && styles.segmentItemActive]}>
+              <Txt variant="bodySmMedium" color={active ? Colors.white : Colors.textSub}>
+                {t}
+              </Txt>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {tab === 'Programs' && (
+        <>
+          <SeeAllRow onPress={() => router.push('/workshop/list')} />
+          <LinearGradient
+            colors={['#10243A', '#1C3B55', '#3A2A5A']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.program}>
+            <Txt variant="caption" color={Colors.orangePale} style={{ letterSpacing: 1 }}>
+              {heroProgram.badge.toUpperCase()}
+            </Txt>
+            <Txt variant="title" color={Colors.white} center style={{ marginTop: Spacing.sm }}>
+              {heroProgram.title}
+            </Txt>
+            <View style={styles.programProgress}>
+              <ProgressBar progress={heroProgram.progress} />
+              <Txt variant="caption" color={Colors.white} style={{ marginTop: Spacing.xs }}>
+                {Math.round(heroProgram.progress * 100)}% 🔥
+              </Txt>
+            </View>
+            <Button
+              title="Continue to Lesson"
+              variant="white"
+              onPress={() => router.push('/workshop/intro')}
+            />
+          </LinearGradient>
+        </>
+      )}
+
+      {tab === 'Workshop' && (
+        <>
+          <SeeAllRow onPress={() => router.push('/workshop/list')} />
+          {workshops.map((w) => (
+            <WorkshopRow key={w.id} workshop={w} onPress={() => router.push('/workshop/intro')} />
+          ))}
+        </>
+      )}
+
+      {tab === 'Challenges' && challenges.map((c) => <ChallengeCard key={c.id} challenge={c} />)}
+    </>
+  );
+
+  const meetingsBlock = (
+    <>
+      <SectionHeader
+        title="Upcoming Meetings"
+        count={upcomingMeetings.length}
+        onSeeAll={() => router.push('/meetings')}
+      />
+      <View style={styles.meetingActions}>
+        <View style={{ flex: 1 }}>
+          <Button title="Book a group" variant="primary" onPress={() => router.push('/meetings/book')} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Button
+            title="Book a session"
+            variant="primary"
+            onPress={() => router.push('/meetings/book?paid=1')}
+          />
+        </View>
+      </View>
+      {upcomingMeetings.map((m) => (
+        <Pressable key={m.id} onPress={() => router.push(`/meetings/${m.id}`)}>
+          <Card style={styles.meeting}>
+            <View style={styles.meetingTop}>
+              <Txt variant="bodySmBold" color={Colors.primary}>
+                {m.time}
+              </Txt>
+              {m.startsIn && (
+                <Txt variant="caption" color={Colors.orange}>
+                  ● {m.startsIn}
+                </Txt>
+              )}
+            </View>
+            <Txt variant="bodyMedium" style={{ marginTop: Spacing.sm }}>
+              {m.title}
+            </Txt>
+            <Txt variant="caption" color={Colors.textSub} style={{ marginTop: Spacing.xs }}>
+              Meeting with {m.host}
+            </Txt>
+          </Card>
+        </Pressable>
+      ))}
+    </>
+  );
+
+  const videoCards = recommendedVideos.map((v) => (
+    <Pressable
+      key={v.id}
+      style={isDesktop ? styles.videoCardWide : styles.videoCard}
+      onPress={() => router.push(`/videos/${v.id}`)}>
+      <View>
+        <Image source={{ uri: v.image }} style={isDesktop ? styles.videoImageWide : styles.videoImage} />
+        <View style={styles.videoDuration}>
+          <Txt variant="caption" color={Colors.white}>
+            {v.duration}
+          </Txt>
+        </View>
+        <View style={styles.playButton}>
+          <Ionicons name="play" size={18} color={Colors.primaryDark} />
+        </View>
+        <Pressable
+          style={styles.videoBookmark}
+          hitSlop={8}
+          onPress={(e) => {
+            (e as unknown as { stopPropagation?: () => void }).stopPropagation?.();
+            toggleFav('video', v.id);
+          }}>
+          <Ionicons
+            name={isFav('video', v.id) ? 'bookmark' : 'bookmark-outline'}
+            size={16}
+            color={Colors.white}
+          />
+        </Pressable>
+      </View>
+      <Txt variant="bodySm" numberOfLines={2} style={{ marginTop: Spacing.sm }}>
+        {v.title}
+      </Txt>
+    </Pressable>
+  ));
+
+  const videosBlock = (
+    <>
+      <SectionHeader title="Recommended Videos" onSeeAll={() => router.push('/videos')} />
+      {isDesktop ? (
+        <View style={{ gap: Spacing.md }}>{videoCards}</View>
+      ) : (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.videoRow}>
+          {videoCards}
+        </ScrollView>
+      )}
+    </>
+  );
+
+  const socialsBlock = (
+    <>
+      <Txt variant="titleSm">Socials</Txt>
+      <View style={styles.socialsRow}>
+        {socials.map((s) => (
+          <Pressable key={s.id} style={styles.socialBtn} onPress={() => Linking.openURL(s.url)}>
+            <Ionicons name={s.icon} size={22} color={Colors.primary} />
+          </Pressable>
+        ))}
+      </View>
+    </>
+  );
+
   return (
     <Screen style={styles.root}>
       <AppHeader />
@@ -53,229 +279,31 @@ export default function HomeScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
-        {/* Install banner */}
-        <Pressable style={styles.banner} onPress={() => router.push('/pwa-install')}>
-          <Ionicons name="download-outline" size={18} color={Colors.primaryDark} />
-          <Txt variant="bodySmMedium" color={Colors.primaryDark}>
-            Install IGNTD app for a better experience
-          </Txt>
-        </Pressable>
-
-        {/* Quote */}
-        <Pressable onPress={() => router.push('/quotes')}>
-        <LinearGradient
-          colors={['#4A2B6B', '#2D2350']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.quote}>
-          <View style={{ flex: 1 }}>
-            <Txt variant="bodySmMedium" color={Colors.white}>
-              “{dailyQuote.text}”
-            </Txt>
-            <Txt variant="caption" color={Colors.textMutedOnDark} style={{ marginTop: Spacing.sm }}>
-              - {dailyQuote.author}
-            </Txt>
+        {isDesktop ? (
+          <View style={styles.twoCol}>
+            <View style={styles.mainCol}>
+              {banner}
+              {quote}
+              {checklist}
+              {tabsBlock}
+              {socialsBlock}
+            </View>
+            <View style={styles.rail}>
+              {meetingsBlock}
+              {videosBlock}
+            </View>
           </View>
-          <Ionicons name="chevron-forward" size={20} color={Colors.white} />
-        </LinearGradient>
-        </Pressable>
-
-        {/* Daily checklist */}
-        <Card padded={false} style={styles.checklist}>
-          <Pressable
-            style={styles.checklistHead}
-            onPress={() => setChecklistOpen((v) => !v)}>
-            <Txt variant="titleSm">Daily Checklist</Txt>
-            <Ionicons
-              name={checklistOpen ? 'chevron-up' : 'chevron-down'}
-              size={20}
-              color={Colors.textSub}
-            />
-          </Pressable>
-          {checklistOpen &&
-            dailyChecklist.map((item, i) => (
-              <Pressable
-                key={item.id}
-                onPress={() => router.push(item.route as never)}
-                style={[
-                  styles.checkRow,
-                  i === 0 && item.done && styles.checkRowDone,
-                ]}>
-                <Ionicons
-                  name={item.done ? 'checkmark-circle' : 'ellipse-outline'}
-                  size={22}
-                  color={item.done ? Colors.success : Colors.orange}
-                />
-                <Txt variant="bodySm" style={{ flex: 1 }}>
-                  {item.label}
-                </Txt>
-                {!item.done && (
-                  <Ionicons name="chevron-forward" size={18} color={Colors.textSub} />
-                )}
-              </Pressable>
-            ))}
-        </Card>
-
-        {/* Segmented tabs */}
-        <View style={styles.segment}>
-          {TABS.map((t) => {
-            const active = t === tab;
-            return (
-              <Pressable
-                key={t}
-                onPress={() => setTab(t)}
-                style={[styles.segmentItem, active && styles.segmentItemActive]}>
-                <Txt
-                  variant="bodySmMedium"
-                  color={active ? Colors.white : Colors.textSub}>
-                  {t}
-                </Txt>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        {/* Tab content — swaps inline with the segmented control above */}
-        {tab === 'Programs' && (
+        ) : (
           <>
-            <SeeAllRow onPress={() => router.push('/workshop/list')} />
-            <LinearGradient
-              colors={['#10243A', '#1C3B55', '#3A2A5A']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.program}>
-              <Txt variant="caption" color={Colors.orangePale} style={{ letterSpacing: 1 }}>
-                {heroProgram.badge.toUpperCase()}
-              </Txt>
-              <Txt variant="title" color={Colors.white} center style={{ marginTop: Spacing.sm }}>
-                {heroProgram.title}
-              </Txt>
-              <View style={styles.programProgress}>
-                <ProgressBar progress={heroProgram.progress} />
-                <Txt variant="caption" color={Colors.white} style={{ marginTop: Spacing.xs }}>
-                  {Math.round(heroProgram.progress * 100)}% 🔥
-                </Txt>
-              </View>
-              <Button
-                title="Continue to Lesson"
-                variant="white"
-                onPress={() => router.push('/workshop/intro')}
-              />
-            </LinearGradient>
+            {banner}
+            {quote}
+            {checklist}
+            {tabsBlock}
+            {meetingsBlock}
+            {videosBlock}
+            {socialsBlock}
           </>
         )}
-
-        {tab === 'Workshop' && (
-          <>
-            <SeeAllRow onPress={() => router.push('/workshop/list')} />
-            {workshops.map((w) => (
-              <WorkshopRow key={w.id} workshop={w} onPress={() => router.push('/workshop/intro')} />
-            ))}
-          </>
-        )}
-
-        {tab === 'Challenges' &&
-          challenges.map((c) => <ChallengeCard key={c.id} challenge={c} />)}
-
-        {/* Upcoming meetings */}
-        <SectionHeader
-          title="Upcoming Meetings"
-          count={upcomingMeetings.length}
-          onSeeAll={() => router.push('/meetings')}
-        />
-        <View style={styles.meetingActions}>
-          <View style={{ flex: 1 }}>
-            <Button
-              title="Book a group"
-              variant="primary"
-              onPress={() => router.push('/meetings/book')}
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Button
-              title="Book a session"
-              variant="primary"
-              onPress={() => router.push('/meetings/book?paid=1')}
-            />
-          </View>
-        </View>
-        {upcomingMeetings.map((m) => (
-          <Pressable key={m.id} onPress={() => router.push(`/meetings/${m.id}`)}>
-            <Card style={styles.meeting}>
-              <View style={styles.meetingTop}>
-                <Txt variant="bodySmBold" color={Colors.primary}>
-                  {m.time}
-                </Txt>
-                {m.startsIn && (
-                  <Txt variant="caption" color={Colors.orange}>
-                    ● {m.startsIn}
-                  </Txt>
-                )}
-              </View>
-              <Txt variant="bodyMedium" style={{ marginTop: Spacing.sm }}>
-                {m.title}
-              </Txt>
-              <Txt variant="caption" color={Colors.textSub} style={{ marginTop: Spacing.xs }}>
-                Meeting with {m.host}
-              </Txt>
-            </Card>
-          </Pressable>
-        ))}
-
-        {/* Recommended videos */}
-        <SectionHeader title="Recommended Videos" onSeeAll={() => router.push('/videos')} />
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.videoRow}>
-          {recommendedVideos.map((v) => (
-            <Pressable
-              key={v.id}
-              style={styles.videoCard}
-              onPress={() => router.push(`/videos/${v.id}`)}>
-              <View>
-                <Image source={{ uri: v.image }} style={styles.videoImage} />
-                <View style={styles.videoDuration}>
-                  <Txt variant="caption" color={Colors.white}>
-                    {v.duration}
-                  </Txt>
-                </View>
-                <View style={styles.playButton}>
-                  <Ionicons name="play" size={18} color={Colors.primaryDark} />
-                </View>
-                <Pressable
-                  style={styles.videoBookmark}
-                  hitSlop={8}
-                  onPress={(e) => {
-                    (e as unknown as { stopPropagation?: () => void }).stopPropagation?.();
-                    toggleFav('video', v.id);
-                  }}>
-                  <Ionicons
-                    name={isFav('video', v.id) ? 'bookmark' : 'bookmark-outline'}
-                    size={16}
-                    color={Colors.white}
-                  />
-                </Pressable>
-              </View>
-              <Txt variant="bodySm" numberOfLines={2} style={{ marginTop: Spacing.sm }}>
-                {v.title}
-              </Txt>
-            </Pressable>
-          ))}
-        </ScrollView>
-
-        {/* Socials */}
-        <Txt variant="titleSm">Socials</Txt>
-        <View style={styles.socialsRow}>
-          {socials.map((s) => (
-            <Pressable
-              key={s.id}
-              style={styles.socialBtn}
-              onPress={() => Linking.openURL(s.url)}>
-              <Ionicons name={s.icon} size={22} color={Colors.primary} />
-            </Pressable>
-          ))}
-        </View>
       </ScrollView>
     </Screen>
   );
@@ -379,6 +407,12 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.screen },
   scroll: { flex: 1 },
   scrollContent: { padding: Spacing.lg, gap: Spacing.lg, paddingBottom: Spacing.xxl },
+  // Desktop two-column dashboard
+  twoCol: { flexDirection: 'row', gap: Spacing.xl, alignItems: 'flex-start' },
+  mainCol: { flex: 1, minWidth: 0, gap: Spacing.lg },
+  rail: { width: 340, gap: Spacing.lg },
+  videoCardWide: { width: '100%' },
+  videoImageWide: { width: '100%', height: 170, borderRadius: Radius.md, backgroundColor: Colors.soft },
   socialsRow: { flexDirection: 'row', gap: Spacing.md },
   socialBtn: {
     width: 44,
