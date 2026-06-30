@@ -42,25 +42,23 @@ create or replace view mobile_lessons as
   from lessons l;
 
 -- NOTE: CREATE OR REPLACE VIEW can only append columns, never rename/reorder
--- existing ones — so `title` goes at the END (column order is irrelevant to the
--- adapter, which reads by name). The `description` column keeps its position and
--- just changes its expression to coalesce(ai_summary, real description).
+-- existing ones (column order is irrelevant to the adapter, which reads by name).
+-- The snippet *title* lives in the DB `description` column; `ai_summary` is the
+-- generated long description. The adapter maps description→title, summary→description.
 create or replace view mobile_snippets as
   select id,
          lesson_id,
-         coalesce(                           -- AI summary, else a real description, else null
-           nullif(trim(ai_summary), ''),
-           nullif(trim(description), 'No description available')
-         ) as description,
+         description,                          -- the DB "title" text
          length_seconds, vimeo_url, vimeo_id, ai_generated, created_at,
-         title                               -- real DB title (preferred over Vimeo's)
+         title,                               -- DB title column (usually empty)
+         ai_summary as summary                -- generated long description
   from snippets
   where classified = true;                  -- only real, classified snippets
 ```
-> `snippets` also has `transcript` (source for AI summaries) and `ai_summary`
-> (generated description). The view surfaces `ai_summary` as `description`;
-> backfill `ai_summary` from `transcript` with a batch job (see below). Thumbnails
-> still come from Vimeo oEmbed client-side (no thumbnail column).
+> `snippets` also has `transcript` (source for AI summaries) and `ai_summary`.
+> The adapter uses `description` as the title and `summary` (ai_summary) as the
+> shown description; backfill `ai_summary` from `transcript` with the
+> backfill-summaries Action. Thumbnails come from Vimeo oEmbed client-side.
 
 Grant read to the API role and expose to PostgREST:
 ```sql

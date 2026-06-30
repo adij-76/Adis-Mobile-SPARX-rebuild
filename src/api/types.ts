@@ -51,6 +51,7 @@ export type ContentApi = {
   programs(): Promise<Program[]>;
   modules(programId: string): Promise<Module[]>;
   moduleLessons(moduleId: string): Promise<Lesson[]>;
+  lesson(id: string): Promise<Lesson | null>;
   workshops(): Promise<Workshop[]>;
   snippets(): Promise<Snippet[]>;
 };
