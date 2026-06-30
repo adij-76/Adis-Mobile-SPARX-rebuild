@@ -1,6 +1,6 @@
-# IGNTD Mobile
+# SPARx Mobile
 
-A rebuild of the IGNTD recovery & coaching mobile app, built from the Figma
+A rebuild of the SPARx recovery & coaching mobile app, built from the Figma
 design board on a modern React Native stack.
 
 ## Stack
@@ -62,12 +62,12 @@ on-brand placeholders, ready to be built out in the next phase.
 
 ## Design source
 
-Figma: IGNTD board, "Workshop" section. Design tokens were extracted from the
+Figma: SPARx board, "Workshop" section. Design tokens were extracted from the
 file's Figma variables and the published text styles.
 
 ## Notes
 
-- Content in `src/data/content.ts` is mock data; wire it to the IGNTD API when
+- Content in `src/data/content.ts` is mock data; wire it to the SPARx API when
   the backend is ready.
 - Lato ships Regular/Bold/Black weights, so the Figma "Medium"/"SemiBold"
   steps are approximated — swap in a licensed Lato Medium/SemiBold if exact

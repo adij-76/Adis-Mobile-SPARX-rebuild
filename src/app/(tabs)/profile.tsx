@@ -63,7 +63,7 @@ export default function ProfileScreen() {
           <Image source={{ uri: avatar ?? user.avatar }} style={styles.avatar} />
           <Txt variant="title">{user.name} Joseph</Txt>
           <Txt variant="bodySm" color={Colors.textSub}>
-            okeijoseph@igntd.com
+            okeijoseph@sparx.app
           </Txt>
           <Pressable style={styles.editBtn} onPress={pickImage}>
             <Ionicons name="image-outline" size={16} color={Colors.white} />
@@ -94,7 +94,7 @@ export default function ProfileScreen() {
             <Ionicons name="diamond" size={24} color={Colors.white} />
             <View style={{ flex: 1 }}>
               <Txt variant="bodySmBold" color={Colors.white}>
-                Get IGNTD Premium
+                Get SPARx Premium
               </Txt>
               <Txt variant="caption" color="rgba(255,255,255,0.85)">
                 Unlock every workshop, report and 1:1 session
@@ -131,7 +131,7 @@ export default function ProfileScreen() {
         </Card>
 
         <Txt variant="caption" color={Colors.textSub} center>
-          IGNTD · v1.0.0
+          SPARx · v1.0.0
         </Txt>
       </ScrollView>
 

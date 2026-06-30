@@ -48,7 +48,7 @@ export default function QuoteCardScreen() {
     if (Platform.OS === 'web') {
       try {
         const g = globalThis as { navigator?: any; alert?: (m: string) => void };
-        if (g.navigator?.share) await g.navigator.share({ text: `${quoteText}\n\nvia IGNTD` });
+        if (g.navigator?.share) await g.navigator.share({ text: `${quoteText}\n\nvia SPARx` });
         else if (g.navigator?.clipboard) {
           await g.navigator.clipboard.writeText(quoteText);
           g.alert?.('Quote copied to clipboard');
@@ -68,13 +68,13 @@ export default function QuoteCardScreen() {
     } catch {
       /* fall through to text share */
     }
-    await Share.share({ message: `${quoteText}\n\nvia IGNTD` });
+    await Share.share({ message: `${quoteText}\n\nvia SPARx` });
   };
 
   const onDownload = async () => {
     if (Platform.OS === 'web') {
       (globalThis as { alert?: (m: string) => void }).alert?.(
-        'Saving the card to your photos is available in the IGNTD app.'
+        'Saving the card to your photos is available in the SPARx app.'
       );
       return;
     }
@@ -124,7 +124,7 @@ export default function QuoteCardScreen() {
           <Txt style={styles.quoteText}>&ldquo;{quote.text}&rdquo;</Txt>
           <Txt style={styles.author}>- {quote.author}</Txt>
         </View>
-        <Txt style={styles.watermark}>IGNTD</Txt>
+        <Txt style={styles.watermark}>SPARx</Txt>
       </View>
 
       {/* Chrome overlay (not captured) */}

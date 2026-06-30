@@ -8,7 +8,7 @@ export default function PrivacyPolicy() {
       sections={[
         {
           heading: 'Overview',
-          body: 'IGNTD is built on trust. This policy explains what information we collect, how we use it, and the choices you have. We only collect what we need to give you a helpful, personalised experience.',
+          body: 'SPARx is built on trust. This policy explains what information we collect, how we use it, and the choices you have. We only collect what we need to give you a helpful, personalised experience.',
         },
         {
           heading: 'What we collect',

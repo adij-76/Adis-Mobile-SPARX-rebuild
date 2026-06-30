@@ -43,7 +43,7 @@ const SUGGESTIONS = [
 const WELCOME: Msg = {
   id: 'w',
   from: 'sparky',
-  text: "Hey, I'm Sparky ✨ — your IGNTD companion. I'm here whenever you want to talk things through, get a quick exercise, or make sense of your progress. What's on your mind?",
+  text: "Hey, I'm Sparky ✨ — your SPARx companion. I'm here whenever you want to talk things through, get a quick exercise, or make sense of your progress. What's on your mind?",
 };
 
 function reply(prompt: string): string {
@@ -158,7 +158,7 @@ export default function Sparky() {
               Sparky
             </Txt>
             <Txt variant="caption" color="rgba(255,255,255,0.9)">
-              Your IGNTD AI companion
+              Your SPARx AI companion
             </Txt>
           </View>
         </LinearGradient>

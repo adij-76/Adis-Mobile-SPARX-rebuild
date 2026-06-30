@@ -38,7 +38,7 @@ export default function VideoDetail() {
   const saved = isFav('video', video.id);
 
   const onShare = async () => {
-    const message = `${video.title} — a video from IGNTD`;
+    const message = `${video.title} — a video from SPARx`;
     if (Platform.OS === 'web') {
       const nav = (globalThis as { navigator?: any }).navigator;
       try {
