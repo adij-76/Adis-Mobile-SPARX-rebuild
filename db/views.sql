@@ -1,0 +1,164 @@
+-- =============================================================================
+-- SPARx mobile layer — PART 1: VIEWS (what the app reads)
+--
+-- WHAT THIS FILE DOES / DOESN'T DO
+--   * It ONLY creates our own `mobile_*` views and grants SELECT on them.
+--   * It does NOT alter, drop, truncate, or update any production table, and it
+--     does NOT change any production row or column. Nothing here touches your
+--     data — it only adds read-only views on top of it.
+--   * The only statement the SQL editor flags as "destructive" is
+--     `DROP VIEW IF EXISTS mobile_lessons` — that drops *our own* view so it can
+--     be recreated with new columns. It can never affect a base table. (Postgres
+--     requires drop+recreate when a view's column list changes; CREATE OR REPLACE
+--     can only append columns.)
+--
+-- SECURITY MODEL
+--   Every per-user view (mobile_me, mobile_lessons, mobile_wheel_scores) filters
+--   internally on the signed-in user's email (auth.jwt() ->> 'email'). A user can
+--   only ever see their own rows, and anon callers see catalog data with no
+--   personal fields. Because the filter lives *inside* the view, we do NOT need
+--   to enable row-level security on the base tables — so this file leaves
+--   public.users (and every other production table) exactly as it found it.
+--
+-- IDEMPOTENT: re-run anytime / after any re-import; you always land in the same
+-- place. (CREATE OR REPLACE everywhere; the one DROP is IF EXISTS.)
+-- =============================================================================
+
+begin;
+
+-- -----------------------------------------------------------------------------
+-- 1. CATALOG VIEWS (no per-user data — safe for anon browse)
+-- -----------------------------------------------------------------------------
+
+create or replace view mobile_programs as
+  select id, name, active from programs where active;
+
+create or replace view mobile_modules as
+  select id, program_id, title, "order" from portions;
+
+-- Each lesson/workshop's Vimeo video lives in the polymorphic `vimeos` table
+-- (vimeoable_type='Lesson'), not on `lessons`, so we lateral-join the newest one.
+--
+-- PER-USER ENRICHMENT (progress / rating / favorite): the GoTrue JWT carries only
+-- `email`, not the production users.id, so we resolve the caller to their users
+-- row by email and LEFT JOIN their personal rows. Anon browse → `me` empty →
+-- NULL personal columns. A signed-in user only ever matches their own rows.
+drop view if exists mobile_lessons;
+create view mobile_lessons as
+  select l.id,
+         l.portion_id,
+         l.title,
+         l.nav_title,
+         l.position,
+         l.description,
+         coalesce(v.url, l.vimeo_url)                 as vimeo_url,
+         coalesce(v.vimeo_id::text, l.vimeo_id::text) as vimeo_id,
+         case l.lesson_type when 1 then 'workshop' else 'lesson' end as lesson_type,
+         l.worksheet_explanation_url as worksheet_url,
+         null::text     as thumbnail,       -- client derives it from Vimeo oEmbed
+         cl.progress_value as progress,     -- 0-100 watch progress (completed_lessons)
+         lr.rating         as rating,       -- the user's star rating (lesson_ratings)
+         (fav.id is not null) as favorite   -- favorited by this user (favorites)
+  from lessons l
+  left join lateral (
+    select url, vimeo_id
+    from vimeos
+    where vimeoable_type = 'Lesson' and vimeoable_id = l.id
+    order by updated_at desc nulls last
+    limit 1
+  ) v on true
+  left join lateral (
+    select id from public.users
+    where lower(email) = lower(auth.jwt() ->> 'email')
+    limit 1
+  ) me on true
+  left join completed_lessons cl on cl.lesson_id = l.id and cl.user_id = me.id
+  left join lesson_ratings   lr on lr.lesson_id = l.id and lr.user_id = me.id
+  left join favorites       fav on fav.favoritable_type = 'Lesson'
+                                and fav.favoritable_id = l.id
+                                and fav.user_id = me.id;
+
+create or replace view mobile_snippets as
+  select id,
+         lesson_id,
+         description,                          -- the DB "title" text
+         length_seconds, vimeo_url, vimeo_id, ai_generated, created_at,
+         title,                               -- DB title column (usually empty)
+         ai_summary as summary                -- generated long description
+  from snippets
+  where classified = true;
+
+grant select on mobile_programs, mobile_modules, mobile_lessons, mobile_snippets
+  to anon, authenticated;
+
+-- NOTE: mobile_quotes is intentionally omitted until we confirm the real `quotes`
+-- columns (the table has no `body`/`active` column). The app falls back to bundled
+-- seed quotes when the view is absent, so nothing breaks. We'll add it once the
+-- quotes columns are known.
+
+-- -----------------------------------------------------------------------------
+-- 2. mobile_me — maps the signed-in auth email → the production users row, plus
+--    the personalisation fields the app reads after login. Filters internally on
+--    the caller's email, so it returns ONLY their row WITHOUT any base-table RLS.
+--    addiction is an integer FK → public.addictions; we JOIN to return its title.
+-- -----------------------------------------------------------------------------
+
+create or replace view mobile_me as
+  select u.id                                          as app_user_id,
+         u.first_name                                  as name,
+         u.email,
+         u.avatar_link                                 as avatar,
+         u.program_id,
+         coalesce(u.subscribed, false)                 as subscribed,
+         -- production schema has the typo "subsctiption" — keep it verbatim.
+         coalesce(u.stripe_subsctiption_active, false) as stripe_active,
+         coalesce(u.advanced_coaching, false)          as advanced_coaching,
+         a.title                                       as addiction,
+         u.days_counter_amount                         as days_count,
+         u.days_counter_updated_at,
+         u.user_handle,
+         u.time_zone,
+         u.team_id,
+         u.zoom_email
+  from public.users u
+  left join public.addictions a on a.id = u.addiction
+  where lower(u.email) = lower(auth.jwt() ->> 'email');   -- self-scope, no RLS needed
+
+grant select on mobile_me to authenticated;
+
+-- -----------------------------------------------------------------------------
+-- 3. mobile_wheel_scores — trailing monthly wheel-of-life averages (per user).
+--    Source: public.wheel_of_life_scores (user_id, life_area_id, score, created_at).
+--    One overall score per month = average across the user's life areas, scoped
+--    by the caller's email.
+--
+--    SCALE NOTE: the app's wheel chart is 0-100. This averages the raw `score`.
+--    If raw scores are 1-10, wrap avg() with `* 10`. Confirm with:
+--        select min(score), max(score) from public.wheel_of_life_scores;
+-- -----------------------------------------------------------------------------
+
+do $$
+begin
+  if to_regclass('public.wheel_of_life_scores') is not null then
+    execute $v$
+      create or replace view mobile_wheel_scores as
+        select to_char(date_trunc('month', ws.created_at), 'YYYY-MM') as month_key,
+               to_char(date_trunc('month', ws.created_at), 'Mon')     as label,
+               extract(year from ws.created_at)::int                  as year,
+               round(avg(ws.score))::int                              as score
+        from public.wheel_of_life_scores ws
+        join public.users u on u.id = ws.user_id
+        where lower(u.email) = lower(auth.jwt() ->> 'email')
+        group by 1, 2, 3
+    $v$;
+    execute 'grant select on mobile_wheel_scores to authenticated';
+  end if;
+end $$;
+
+commit;
+
+-- =============================================================================
+-- VERIFY (optional):
+--   select * from mobile_me;                       -- one row: you (when signed in)
+--   select id, title, progress, rating, favorite from mobile_lessons limit 5;
+-- =============================================================================

@@ -1,73 +1,83 @@
-# Database layer — how it survives a re-import
+# Database layer — what it is, and why it's safe
 
-We never touch the production (Rails / igntd-main) database. We import a **copy**
-into Supabase and build an **additive layer** on top of it. Because that layer
-lives only in our copy, every fresh production snapshot needs it re-applied.
+We **never modify the production (Rails / igntd-main) database** — it's read-only.
+We import a **copy** into Supabase and build a small **additive layer** on that
+copy so the mobile app can read it. This folder is that layer, as code, so it
+re-applies automatically after any fresh import instead of being re-typed by hand.
 
-This folder is that layer, as code, so it propagates automatically instead of
-being re-typed by hand.
+## "The SQL editor says these are destructive — I thought we weren't touching the DB?"
 
-| File | What it is | Idempotent? |
-|------|-----------|-------------|
-| `mobile-layer.sql` | Every view, RLS policy, grant, auth-user import, and storage rule the app depends on. The single source of truth. | Yes — run it any number of times. |
-| `introspect.sql` | One query that dumps the whole schema as JSON, so the layer can be regenerated in one pass. | Read-only. |
+Two different things, worth separating clearly:
 
-## Re-import playbook (the answer to "do we redo all this?")
+- **Production database:** untouched. We don't connect to it, alter it, or delete
+  anything in it. That promise holds.
+- **The Supabase copy:** yes — the whole plan is to *add* objects here (views, a
+  storage bucket, and the auth-login records). That was always the approach; an
+  app needs somewhere to read from. **Everything we add is additive — no
+  production row or column is ever changed or deleted.**
 
-No. Three steps, every time:
+Supabase's SQL editor shows a generic "destructive operation" banner whenever it
+sees the keywords `DROP`, `ALTER`, `UPDATE`, `DELETE`, or `TRUNCATE` — it can't
+tell that our `DROP` only drops *our own* view. Here's every flagged statement in
+this folder and why each is safe:
 
-1. **Import / refresh** the production snapshot into Supabase (`public` schema).
-2. **Run `db/mobile-layer.sql`** — recreates all views, re-applies RLS, imports
-   any new users, re-syncs avatars. Safe to run repeatedly.
-3. **Confirm the dashboard settings below** (one-time; a re-import never changes
-   them, so usually nothing to do).
+| Statement | File | Why it's safe |
+|-----------|------|---------------|
+| `DROP VIEW IF EXISTS mobile_lessons` | views.sql | Drops *our own* view to recreate it with new columns. Postgres requires this when a view's column list changes. Cannot affect a base table. |
+| `INSERT INTO auth.users / auth.identities` | auth-and-storage.sql | Adds login records in Supabase's **auth** schema (not your data tables). Guarded by `WHERE NOT EXISTS` — re-runs never duplicate. |
+| `UPDATE auth.users` (metadata) | auth-and-storage.sql | Edits only the name/avatar keys on the **auth** record. Never touches `public.users`. |
+| `INSERT INTO storage.buckets … ON CONFLICT` | auth-and-storage.sql | Creates the `avatars` bucket once. |
+| `DROP POLICY IF EXISTS … ON storage.objects` | auth-and-storage.sql | Drops *our own* storage policies to recreate them. |
 
-That's it. The views reference `public.*` by name, so they automatically reflect
-whatever the latest import brought in. Add a new column in production → it shows
-up here the moment you `select` it in a view, no migration dance.
+Note what is **not** in that list: there is no `ALTER TABLE`, no RLS toggle, and
+no write of any kind to a production data table. (An earlier draft enabled RLS on
+`public.users`; that's been removed — the views now self-scope by the signed-in
+user's email instead, so no base table is altered at all.)
+
+## The two files
+
+| File | What it does | Touches |
+|------|--------------|---------|
+| `views.sql` | All `mobile_*` views the app reads (catalog + per-user progress/rating/favorite + `mobile_me` + wheel history). | Creates only our own views. **Zero** writes to any table. |
+| `auth-and-storage.sql` | Imports existing users into Supabase Auth (keeping their passwords), re-syncs name/avatar, creates the `avatars` bucket. | Supabase `auth` schema + storage. Reads `public.users`, writes nothing back to it. |
+
+Run `views.sql` anytime — it's pure read-layer. Run `auth-and-storage.sql` when
+you're doing the sign-in cutover. Both are **idempotent**: re-run them as often as
+you like (after every re-import) and you land in the same place.
+
+## Security model (why no row-level security on base tables)
+
+Every per-user view filters internally on `auth.jwt() ->> 'email'`, so it returns
+only the signed-in user's rows and anon callers get catalog data with no personal
+fields. Because that filter lives *inside* the view, we don't need to enable RLS
+on `public.users` or any other base table.
+
+> **Separate hardening note (your decision, not done here):** if the production
+> tables were imported *without* row-level security, the `anon`/`authenticated`
+> API roles may be able to read base tables (e.g. `GET /rest/v1/users`) directly
+> via PostgREST, independent of our views. That's a pre-existing property of the
+> imported copy, not something these files create. Locking it down (enable RLS on
+> sensitive tables, or restrict the API to the `mobile_*` views only) is a
+> deliberate security step worth doing before launch — flag it when you're ready
+> and we'll scope it carefully.
+
+## Re-import playbook
+
+1. Import / refresh the production snapshot into Supabase (`public` schema).
+2. Run `db/views.sql`, then `db/auth-and-storage.sql`.
+3. Confirm the dashboard-only settings below (a data import never changes them).
 
 ## Dashboard-only settings (not SQL — set once, survive re-import)
 
-These live in Supabase project config, not in any table, so a data re-import
-leaves them intact. Re-apply only if you rebuild the project from scratch.
+- **Auth → Providers:** enable Google / Apple / Facebook + OAuth client id/secret.
+- **Auth → URL Configuration → Redirect URLs:** add the deployed web origin and
+  `http://localhost:8081` for local dev.
+- **Repo / build variables:** `EXPO_PUBLIC_SUPABASE_URL`,
+  `EXPO_PUBLIC_SUPABASE_ANON_KEY` (anon/publishable key only — never service_role).
 
-- **Auth → Providers**: enable Google / Apple / Facebook and paste each OAuth
-  client id + secret. (Google failing with "provider is not enabled" = this.)
-- **Auth → URL Configuration → Redirect URLs**: add the deployed web app origin
-  (and `http://localhost:8081` for local dev) so OAuth redirects are accepted.
-- **Project → API → Exposed schemas**: only needed if we move the views into a
-  dedicated `mobile` schema (see below). Default `public` needs nothing.
-- **Repo / build variables**: `EXPO_PUBLIC_SUPABASE_URL`,
-  `EXPO_PUBLIC_SUPABASE_ANON_KEY` (publishable/anon key only — never the
-  service_role key in client builds).
+## Getting schema to the assistant
 
-## Why the layer is additive-only
-
-`mobile-layer.sql` only ever **adds** views and **adds** SELECT policies; it
-never alters or drops a production column or row. That keeps the production
-schema untouched (respecting read-only) and means a re-import can't conflict with
-our work — there's nothing of ours inside the production tables to overwrite.
-
-## Optional hardening — a dedicated `mobile` schema
-
-Today the views live in `public` as `mobile_*`. If you'd rather a `public`
-re-import not touch them at all, move them into their own schema:
-
-```sql
-create schema if not exists mobile;
--- create the same views as mobile.programs, mobile.me, … (drop the prefix)
-```
-
-Then add `mobile` to **Project → API → Exposed schemas** and the adapter sends
-`Accept-Profile: mobile`. Trade-off: a small adapter change for "views never need
-re-running after a data-only import." Not required — re-running one file already
-solves propagation — but it's the cleanest separation if we want it later.
-
-## Letting the assistant read the DB directly (optional)
-
-This session's environment has an egress policy that **blocks the Supabase
-host**, which is why schema is gathered via `introspect.sql` paste-backs rather
-than a live connection. To grant direct read access for faster iteration, create
-the environment with a network policy that allowlists
-`*.supabase.co` (see https://code.claude.com/docs/en/claude-code-on-the-web).
-Until then, `introspect.sql` is the one-paste substitute.
+This environment's egress policy blocks the Supabase host, so the assistant can't
+read the DB directly. `introspect.sql` is the substitute: run it, paste the JSON
+back, and the layer can be regenerated from it. Keep pastes small (scope to a few
+tables) — the chat UI can choke on very large pastes.
