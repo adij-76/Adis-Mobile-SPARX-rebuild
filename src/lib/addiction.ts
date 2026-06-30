@@ -41,19 +41,20 @@ const MAP: Record<string, { verb: string; noun: string }> = {
   codependency:      { verb: 'engage in codependent behavior', noun: 'codependency' },
 };
 
-// Numeric IDs from public.addictions — used when mobile_me hasn't been updated
-// to JOIN the addictions table yet and still returns the raw integer FK.
+// public.users.addiction stores the addictions ENUM_ID (0-9), not the primary
+// key. This fallback resolves that raw integer to a title for when mobile_me
+// returns the enum int instead of the joined title text.
 const ID_MAP: Record<string, string> = {
-  '45': 'Alcohol',
-  '46': 'Cannabis/marijuana',
-  '47': 'Sex & Porn',
-  '48': 'Food & Binge Eating',
-  '49': 'Nicotine & Tobacco',
-  '50': 'Gambling',
-  '51': 'Meth',
-  '52': 'Cocaine',
-  '53': 'Opiates',
-  '54': 'Other addiction-related problems',
+  '0': 'Alcohol',
+  '1': 'Cannabis/marijuana',
+  '2': 'Meth',
+  '3': 'Cocaine',
+  '4': 'Opiates',
+  '5': 'Sex & Porn',
+  '6': 'Food & Binge Eating',
+  '7': 'Gambling',
+  '8': 'Other addiction-related problems',
+  '9': 'Nicotine & Tobacco',
 };
 
 const FALLBACK = { verb: 'engage in your compulsive behavior', noun: 'compulsive behavior' };

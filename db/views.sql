@@ -88,13 +88,19 @@ create or replace view mobile_snippets as
   from snippets
   where classified = true;
 
-grant select on mobile_programs, mobile_modules, mobile_lessons, mobile_snippets
-  to anon, authenticated;
+-- Daily quotes. The text lives in `quote_full`; there is no `mood` column in
+-- production, so default 'steady' (the app's check-in quote recommender falls
+-- back gracefully when it can't match a mood).
+create or replace view mobile_quotes as
+  select id,
+         quote_full     as text,
+         author,
+         'steady'::text as mood
+  from quotes
+  where active = true and quote_full is not null;
 
--- NOTE: mobile_quotes is intentionally omitted until we confirm the real `quotes`
--- columns (the table has no `body`/`active` column). The app falls back to bundled
--- seed quotes when the view is absent, so nothing breaks. We'll add it once the
--- quotes columns are known.
+grant select on mobile_programs, mobile_modules, mobile_lessons, mobile_snippets, mobile_quotes
+  to anon, authenticated;
 
 -- -----------------------------------------------------------------------------
 -- 2. mobile_me — maps the signed-in auth email → the production users row, plus
