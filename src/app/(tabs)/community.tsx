@@ -58,7 +58,7 @@ export default function CommunityScreen() {
                   <View style={[styles.commIcon, { backgroundColor: `${item.color}22` }]}>
                     <Ionicons name={item.icon} size={20} color={item.color} />
                   </View>
-                  <Txt variant="caption" center numberOfLines={1} style={{ width: 72 }}>
+                  <Txt variant="caption" center numberOfLines={2} style={{ width: 76 }}>
                     {item.name}
                   </Txt>
                 </View>
@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
   },
   list: { padding: Spacing.lg, paddingBottom: 96 },
   sectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  commChip: { alignItems: 'center', gap: Spacing.xs, width: 72 },
+  commChip: { alignItems: 'center', gap: Spacing.xs, width: 76 },
   commIcon: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
   fab: {
     position: 'absolute',
