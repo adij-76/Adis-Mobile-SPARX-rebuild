@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { Image } from 'expo-image';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -10,13 +11,67 @@ import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
-import type { SparkyVideo } from '@/lib/sparky';
+import { fetchVimeoMeta, type SparkyVideo } from '@/lib/sparky';
+import type { Snippet } from '@/api/types';
 
 function formatLength(sec: number | null): string | null {
   if (!sec || sec <= 0) return null;
   const m = Math.floor(sec / 60);
   const s = sec % 60;
   return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+const hasRealDescription = (d: string | null) => !!d && !/no description/i.test(d);
+
+/** A snippet row, enriched on mount with its real Vimeo title + thumbnail. */
+function SnippetCard({ snippet, onPlay }: { snippet: Snippet; onPlay: (v: SparkyVideo) => void }) {
+  const [meta, setMeta] = useState<{ title?: string; thumbnail?: string } | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    if (snippet.vimeoUrl) fetchVimeoMeta(snippet.vimeoUrl).then((m) => active && setMeta(m));
+    return () => {
+      active = false;
+    };
+  }, [snippet.vimeoUrl]);
+
+  const dur = formatLength(snippet.lengthSeconds);
+  const title =
+    meta?.title ??
+    (hasRealDescription(snippet.description) ? snippet.description : 'Untitled video');
+
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.card, pressed && { opacity: 0.9 }]}
+      disabled={!snippet.vimeoUrl}
+      onPress={() => snippet.vimeoUrl && onPlay({ url: snippet.vimeoUrl, title })}>
+      <View style={styles.thumb}>
+        {meta?.thumbnail && (
+          <Image source={{ uri: meta.thumbnail }} style={styles.thumbImg} contentFit="cover" />
+        )}
+        <View style={styles.play}>
+          <Ionicons name="play" size={18} color={Colors.primaryDark} />
+        </View>
+        {dur && (
+          <View style={styles.duration}>
+            <Txt variant="caption" color={Colors.white}>
+              {dur}
+            </Txt>
+          </View>
+        )}
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Txt variant="bodySmBold" numberOfLines={3}>
+          {title}
+        </Txt>
+        {snippet.aiGenerated && (
+          <Txt variant="caption" color={Colors.textSub}>
+            ✨ AI-generated
+          </Txt>
+        )}
+      </View>
+    </Pressable>
+  );
 }
 
 export default function VideosList() {
@@ -61,40 +116,7 @@ export default function VideosList() {
           keyExtractor={(v) => v.id}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => {
-            const dur = formatLength(item.lengthSeconds);
-            return (
-              <Pressable
-                style={({ pressed }) => [styles.card, pressed && { opacity: 0.9 }]}
-                disabled={!item.vimeoUrl}
-                onPress={() =>
-                  item.vimeoUrl && setPlaying({ url: item.vimeoUrl, title: item.description })
-                }>
-                <View style={styles.thumb}>
-                  <View style={styles.play}>
-                    <Ionicons name="play" size={18} color={Colors.primaryDark} />
-                  </View>
-                  {dur && (
-                    <View style={styles.duration}>
-                      <Txt variant="caption" color={Colors.white}>
-                        {dur}
-                      </Txt>
-                    </View>
-                  )}
-                </View>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Txt variant="bodySmBold" numberOfLines={3}>
-                    {item.description}
-                  </Txt>
-                  {item.aiGenerated && (
-                    <Txt variant="caption" color={Colors.textSub}>
-                      ✨ AI-generated
-                    </Txt>
-                  )}
-                </View>
-              </Pressable>
-            );
-          }}
+          renderItem={({ item }) => <SnippetCard snippet={item} onPlay={setPlaying} />}
         />
       )}
 
@@ -123,7 +145,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.soft,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
+  thumbImg: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   duration: {
     position: 'absolute',
     right: 6,
