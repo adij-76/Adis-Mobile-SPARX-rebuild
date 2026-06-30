@@ -194,6 +194,26 @@ export function vimeoEmbedUrl(url: string): string | null {
   return hash ? `${base}?h=${hash}` : base;
 }
 
+/**
+ * Fetch a Vimeo video's real title + thumbnail from the public (CORS-enabled)
+ * oEmbed endpoint. Returns null if it's not a Vimeo URL, the video doesn't
+ * exist, or Vimeo can't be reached — callers fall back to whatever they have.
+ */
+export async function fetchVimeoMeta(
+  url: string,
+): Promise<{ title?: string; thumbnail?: string } | null> {
+  const watch = vimeoWatchUrl(url);
+  if (!watch) return null;
+  try {
+    const res = await fetch(`https://vimeo.com/api/oembed.json?url=${encodeURIComponent(watch)}`);
+    if (!res.ok) return null;
+    const data = (await res.json()) as { title?: string; thumbnail_url?: string };
+    return { title: data.title, thumbnail: data.thumbnail_url };
+  } catch {
+    return null;
+  }
+}
+
 /** Canonical watch URL (vimeo.com/ID[?h=hash]) used for oEmbed lookups. */
 function vimeoWatchUrl(url: string): string | null {
   const id = vimeoId(url);
