@@ -1,13 +1,7 @@
 import { Stack } from 'expo-router';
 
-import { Screen } from '@/components/layout/screen';
-
 export default function LessonLayout() {
-  return (
-    <Screen variant="modal">
-      <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
-        <Stack.Screen name="[id]" />
-      </Stack>
-    </Screen>
-  );
+  // No centered Screen wrapper — the lesson screen manages its own responsive
+  // two-column (content + collapsible outline) layout within the app shell.
+  return <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }} />;
 }

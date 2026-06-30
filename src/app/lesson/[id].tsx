@@ -1,29 +1,31 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { api } from '@/api';
 import type { Lesson } from '@/api/types';
+import { CourseOutline } from '@/components/course-outline';
 import { Button } from '@/components/ui/button';
+import { ProgressBar } from '@/components/ui/progress-bar';
 import { Stepper } from '@/components/ui/stepper';
 import { Txt } from '@/components/ui/text';
 import { VideoPlayerModal } from '@/components/video-player-modal';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { WORKSHOP_STEPS } from '@/data/content';
 import { useAsync } from '@/hooks/use-async';
+import { useBreakpoint } from '@/hooks/use-breakpoint';
 import { useVimeoMeta } from '@/hooks/use-vimeo-meta';
 import { useStore } from '@/lib/store';
 import type { SparkyVideo } from '@/lib/sparky';
 
-/** A poster-style card that opens the Vimeo player when tapped. */
 function VideoPoster({ url, label, onPlay }: { url: string | null; label: string; onPlay: () => void }) {
   const meta = useVimeoMeta(url);
   return (
     <Pressable style={styles.poster} onPress={onPlay} disabled={!url}>
-      {meta?.thumbnail && <Image source={{ uri: meta.thumbnail }} style={styles.posterImg} contentFit="cover" />}
+      {meta?.thumbnail && <Image source={{ uri: meta.thumbnail }} style={styles.fill} contentFit="cover" />}
       <View style={styles.posterPlay}>
         <Ionicons name="play" size={26} color={Colors.primaryDark} />
       </View>
@@ -39,16 +41,31 @@ function VideoPoster({ url, label, onPlay }: { url: string | null; label: string
 
 export default function LessonScreen() {
   const router = useRouter();
+  const { isDesktop } = useBreakpoint();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: lesson, loading, error, reload } = useAsync(() => api.content.lesson(String(id)), [id]);
+
+  const lessonQ = useAsync(() => api.content.lesson(String(id)), [id]);
+  const lesson = lessonQ.data;
+  const moduleQ = useAsync(
+    () => (lesson?.moduleId ? api.content.module(lesson.moduleId) : Promise.resolve(null)),
+    [lesson?.moduleId],
+  );
+  const courseModule = moduleQ.data;
+
   const { isFav, toggleFav } = useStore();
   const [step, setStep] = useState(0);
   const [playing, setPlaying] = useState<SparkyVideo | null>(null);
+  const [outlineOpen, setOutlineOpen] = useState(false);
 
-  if (loading) {
+  // Reset to the intro whenever the lesson changes (e.g. picked from the outline).
+  useEffect(() => setStep(0), [id]);
+  // Default the outline open on desktop, closed on phone.
+  useEffect(() => setOutlineOpen(isDesktop), [isDesktop]);
+
+  if (lessonQ.loading) {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <Header onBack={() => router.back()} />
+        <TopBar title="" onBack={() => router.back()} />
         <View style={styles.center}>
           <ActivityIndicator color={Colors.primary} />
         </View>
@@ -56,33 +73,52 @@ export default function LessonScreen() {
     );
   }
 
-  if (error || !lesson) {
+  if (lessonQ.error || !lesson) {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <Header onBack={() => router.back()} />
+        <TopBar title="" onBack={() => router.back()} />
         <View style={styles.center}>
           <Ionicons name="cloud-offline-outline" size={40} color={Colors.strokeStrong} />
           <Txt variant="bodySm" color={Colors.textSub} center>
-            {error ? `Couldn't load this lesson.\n${error.message}` : 'Lesson not found.'}
+            {lessonQ.error ? `Couldn't load this lesson.\n${lessonQ.error.message}` : 'Lesson not found.'}
           </Txt>
-          {error ? <Button title="Try again" variant="outline" onPress={reload} /> : null}
+          {lessonQ.error ? <Button title="Try again" variant="outline" onPress={lessonQ.reload} /> : null}
         </View>
       </SafeAreaView>
     );
   }
 
   const title = lesson.title || lesson.navTitle || 'Lesson';
+  const context = courseModule
+    ? `Module ${courseModule.order} · Lesson ${lesson.position}`
+    : `Lesson ${lesson.position}`;
   const saved = isFav('lesson', lesson.id);
   const last = WORKSHOP_STEPS.length - 1;
 
-  return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <Header onBack={() => router.back()} />
+  const pickLesson = (lessonId: string) => {
+    router.replace(`/lesson/${lessonId}`);
+    if (!isDesktop) setOutlineOpen(false);
+  };
+
+  const outline = (
+    <CourseOutline
+      programId={courseModule?.programId ?? null}
+      currentModuleId={lesson.moduleId}
+      currentLessonId={lesson.id}
+      onPick={pickLesson}
+    />
+  );
+
+  const body = (
+    <>
       <View style={styles.stepperWrap}>
         <Stepper steps={WORKSHOP_STEPS} current={step} />
+        <View style={{ marginTop: Spacing.md }}>
+          <ProgressBar progress={(step + 1) / WORKSHOP_STEPS.length} track={Colors.soft} fill={Colors.primary} />
+        </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {step === 0 && (
           <Intro lesson={lesson} title={title} saved={saved} onToggleSave={() => toggleFav('lesson', lesson.id)} />
         )}
@@ -165,19 +201,80 @@ export default function LessonScreen() {
           />
         </View>
       </View>
+    </>
+  );
+
+  return (
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      <TopBar
+        title={`${context} · ${title}`}
+        onBack={() => router.back()}
+        outlineOpen={outlineOpen}
+        onToggleOutline={() => setOutlineOpen((o) => !o)}
+      />
+
+      {isDesktop ? (
+        <View style={styles.row}>
+          <View style={styles.contentCol}>{body}</View>
+          {outlineOpen && <View style={styles.outlineCol}>{outline}</View>}
+        </View>
+      ) : (
+        <View style={{ flex: 1 }}>{body}</View>
+      )}
+
+      {!isDesktop && (
+        <Modal visible={outlineOpen} animationType="slide" transparent onRequestClose={() => setOutlineOpen(false)}>
+          <Pressable style={styles.backdrop} onPress={() => setOutlineOpen(false)} />
+          <View style={styles.drawer}>
+            <View style={styles.drawerHandle}>
+              <Pressable onPress={() => setOutlineOpen(false)} hitSlop={10} style={styles.drawerClose}>
+                <Ionicons name="close" size={22} color={Colors.textMain} />
+              </Pressable>
+            </View>
+            {outline}
+          </View>
+        </Modal>
+      )}
 
       <VideoPlayerModal video={playing} onClose={() => setPlaying(null)} />
     </SafeAreaView>
   );
 }
 
-function Header({ onBack }: { onBack: () => void }) {
+function TopBar({
+  title,
+  onBack,
+  outlineOpen,
+  onToggleOutline,
+}: {
+  title: string;
+  onBack: () => void;
+  outlineOpen?: boolean;
+  onToggleOutline?: () => void;
+}) {
   return (
-    <View style={styles.header}>
+    <View style={styles.topbar}>
       <Pressable onPress={onBack} hitSlop={12} style={styles.backBtn}>
         <Ionicons name="arrow-back" size={22} color={Colors.textMain} />
         <Txt variant="bodyMedium">Back</Txt>
       </Pressable>
+      <Txt variant="bodySmMedium" numberOfLines={1} style={styles.topTitle}>
+        {title}
+      </Txt>
+      {onToggleOutline ? (
+        <Pressable onPress={onToggleOutline} hitSlop={8} style={[styles.outlineBtn, outlineOpen && styles.outlineBtnOn]}>
+          <Ionicons
+            name="list"
+            size={18}
+            color={outlineOpen ? Colors.white : Colors.primary}
+          />
+          <Txt variant="caption" color={outlineOpen ? Colors.white : Colors.primary}>
+            Outline
+          </Txt>
+        </Pressable>
+      ) : (
+        <View style={{ width: 60 }} />
+      )}
     </View>
   );
 }
@@ -197,7 +294,7 @@ function Intro({
   return (
     <>
       <View style={styles.hero}>
-        {meta?.thumbnail && <Image source={{ uri: meta.thumbnail }} style={styles.posterImg} contentFit="cover" />}
+        {meta?.thumbnail && <Image source={{ uri: meta.thumbnail }} style={styles.fill} contentFit="cover" />}
       </View>
       <View style={styles.introMeta}>
         <View style={{ flexDirection: 'row', gap: 2 }}>
@@ -222,14 +319,47 @@ function Intro({
   );
 }
 
+const OUTLINE_W = 320;
+
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.white },
-  header: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm },
+  topbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.stroke,
+  },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  stepperWrap: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.md },
-  body: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xl, gap: Spacing.lg },
+  topTitle: { flex: 1, color: Colors.textSub },
+  outlineBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+  },
+  outlineBtnOn: { backgroundColor: Colors.primary },
+  row: { flex: 1, flexDirection: 'row' },
+  contentCol: { flex: 1, minWidth: 0 },
+  outlineCol: { width: OUTLINE_W, borderLeftWidth: 1, borderLeftColor: Colors.stroke },
+  stepperWrap: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.md, paddingBottom: Spacing.md },
+  scroll: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xl,
+    gap: Spacing.lg,
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
+  },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.md, padding: Spacing.xl },
-  footer: { flexDirection: 'row', gap: Spacing.md, paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm },
+  footer: { flexDirection: 'row', gap: Spacing.md, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm },
+  fill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   hero: { width: '100%', height: 190, borderRadius: Radius.md, backgroundColor: Colors.soft, overflow: 'hidden' },
   introMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   poster: {
@@ -241,7 +371,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  posterImg: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   posterPlay: {
     width: 52,
     height: 52,
@@ -280,9 +409,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: Spacing.md,
   },
-  summaryCard: {
-    backgroundColor: Colors.screen,
-    borderRadius: Radius.md,
-    padding: Spacing.lg,
+  summaryCard: { backgroundColor: Colors.screen, borderRadius: Radius.md, padding: Spacing.lg },
+  backdrop: { flex: 1, backgroundColor: Colors.overlay },
+  drawer: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    width: '82%',
+    maxWidth: 360,
+    backgroundColor: Colors.white,
   },
+  drawerHandle: { alignItems: 'flex-end', padding: Spacing.sm },
+  drawerClose: { padding: Spacing.xs },
 });

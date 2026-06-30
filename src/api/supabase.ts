@@ -97,6 +97,12 @@ export const supabaseContent: ContentApi = {
       (r) => ({ id: String(r.id), programId: String(r.program_id), title: r.title, order: r.order }) satisfies Module,
     );
   },
+  async module(id) {
+    const rows = await rest<ModuleRow[]>('mobile_modules', { id: `eq.${id}`, limit: '1' });
+    return rows.length
+      ? { id: String(rows[0].id), programId: String(rows[0].program_id), title: rows[0].title, order: rows[0].order }
+      : null;
+  },
   async moduleLessons(moduleId) {
     const rows = await rest<LessonRow[]>('mobile_lessons', {
       portion_id: `eq.${moduleId}`,
