@@ -119,6 +119,7 @@ export type AuthUser = {
   id: string;
   email: string;
   name: string | null;
+  avatarUrl: string | null;
   appUserId: string | null;
 };
 
@@ -128,6 +129,8 @@ export type AuthSession = {
   refreshToken: string;
 };
 
+export type OAuthProvider = 'google' | 'apple' | 'facebook';
+
 export type AuthApi = {
   signIn(email: string, password: string): Promise<AuthSession>;
   signUp(email: string, password: string): Promise<AuthSession>;
@@ -136,6 +139,13 @@ export type AuthApi = {
   refresh(refreshToken: string): Promise<AuthSession>;
   /** Resolve the production user that owns this email's data (mobile_me view). */
   me(email: string): Promise<{ appUserId: string; name: string | null } | null>;
+  /** Hosted-provider sign-in URL to redirect to (web). Empty string if the
+   *  backend can't do OAuth (e.g. the mock). */
+  oauthUrl(provider: OAuthProvider, redirectTo: string): string;
+  /** Build a session from tokens handed back by an OAuth redirect. */
+  sessionFromTokens(accessToken: string, refreshToken: string): Promise<AuthSession>;
+  /** Persist a new avatar (uploads when a backend exists) and return its URL. */
+  updateAvatar(dataUrl: string, userId: string): Promise<string>;
 };
 
 export type Api = {

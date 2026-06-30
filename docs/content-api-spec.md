@@ -131,12 +131,53 @@ The app calls `api.auth.me(email)` after sign-in and stores `app_user_id` on the
 session, so every per-user query (below) can scope to it. Until `mobile_me`
 exists the app still works — it just can't resolve the production id yet.
 
-**To let an existing user (e.g. `adijaffe+1@gmail.com`) sign in:** create a
-Supabase Auth user with that same email (Dashboard → Authentication → Users →
-Add user, or let them tap "Create one" in the app), and make sure the email
-matches their `users.email`. Email matching is what links the auth account to
-their production data — no Rails password migration needed. For frictionless dev
-testing, turn **off** "Confirm email" in Authentication → Providers → Email.
+### Bring your existing users across (no manual adding, keep their passwords)
+Rails (Devise) stores passwords as **bcrypt**, and Supabase Auth uses bcrypt too,
+so existing users can be imported **with their current password** — they sign in
+exactly as before. One-time bulk import (adjust column names to your `users`
+schema — confirm with `select column_name from information_schema.columns where
+table_name='users'`):
+
+```sql
+-- Copy every production user into Supabase Auth, preserving the bcrypt hash.
+insert into auth.users
+  (instance_id, id, aud, role, email, encrypted_password,
+   email_confirmed_at, created_at, updated_at,
+   raw_app_meta_data, raw_user_meta_data)
+select '00000000-0000-0000-0000-000000000000',
+       gen_random_uuid(), 'authenticated', 'authenticated',
+       lower(u.email),
+       u.encrypted_password,          -- Devise column; rename if yours differs
+       now(), now(), now(),
+       '{"provider":"email","providers":["email"]}'::jsonb,
+       jsonb_build_object('name', u.first_name)   -- shows as their display name
+from users u
+where u.email is not null
+  and not exists (select 1 from auth.users a where lower(a.email) = lower(u.email));
+```
+After this, `adijaffe+1@gmail.com` signs in with the password already on file —
+nobody is added by hand. (If your bcrypt prefix is `$2y$`, rewrite it to `$2a$`
+in the select; GoTrue accepts `$2a$`/`$2b$`.)
+
+**Social sign-in (Google / Apple / Facebook):** enable each under Authentication
+→ Providers (add the provider's OAuth client id/secret), and add your app URL to
+Authentication → URL Configuration → Redirect URLs. A social sign-in whose email
+matches a `users.email` lands on that same person's data via `mobile_me`. The app
+redirects to the provider and reads the returned tokens from the URL on return —
+no extra client config.
+
+**Avatars:** create a **public** Storage bucket named `avatars`
+(Storage → New bucket → Public). "Change Image" uploads to `avatars/<uid>/avatar.*`
+and saves the URL to the user's `user_metadata.avatar_url`; the header + profile
+read it from there. A row-level policy lets a user write only their own folder:
+```sql
+create policy "avatars are public read" on storage.objects
+  for select using (bucket_id = 'avatars');
+create policy "users manage their avatar" on storage.objects
+  for all to authenticated
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text)
+  with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+```
 
 ## Step 2 — per-user enrichment + RLS (after auth lands)
 Once Supabase Auth maps to the production `users` row (store `users.id` in the
