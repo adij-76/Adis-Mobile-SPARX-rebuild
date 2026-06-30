@@ -43,7 +43,8 @@ export const mockContent: ContentApi = {
       recommendedVideos.map((v) => ({
         id: v.id,
         lessonId: null,
-        description: v.title,
+        title: v.title,
+        description: null,
         lengthSeconds: null,
         vimeoUrl: v.vimeoUrl ?? null,
         vimeoId: null,
