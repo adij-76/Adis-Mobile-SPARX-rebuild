@@ -27,19 +27,31 @@ create or replace view mobile_programs as
 create or replace view mobile_modules as
   select id, program_id, title, "order" from portions;
 
-create or replace view mobile_lessons as
+-- Each lesson/workshop's Vimeo video lives in the polymorphic `vimeos` table
+-- (vimeoable_type='Lesson', vimeoable_id=lessons.id) — NOT on `lessons`
+-- directly — so we join it in. Drop+create (not replace) so column types can
+-- change; re-grant after.
+drop view if exists mobile_lessons;
+create view mobile_lessons as
   select l.id,
          l.portion_id,
          l.title,
          l.nav_title,
          l.position,
          l.description,
-         l.vimeo_url,
-         l.vimeo_id,
+         coalesce(v.url, l.vimeo_url)                 as vimeo_url,
+         coalesce(v.vimeo_id::text, l.vimeo_id::text) as vimeo_id,
          case l.lesson_type when 1 then 'workshop' else 'lesson' end as lesson_type,
          l.worksheet_explanation_url as worksheet_url,
-         l.thumbnail_url as thumbnail       -- populated by the thumbnails backfill (see note)
-  from lessons l;
+         null::text as thumbnail            -- client derives it from Vimeo oEmbed
+  from lessons l
+  left join lateral (
+    select url, vimeo_id
+    from vimeos
+    where vimeoable_type = 'Lesson' and vimeoable_id = l.id
+    order by updated_at desc nulls last
+    limit 1
+  ) v on true;
 
 -- NOTE: CREATE OR REPLACE VIEW can only append columns, never rename/reorder
 -- existing ones (column order is irrelevant to the adapter, which reads by name).
@@ -82,22 +94,19 @@ Grant read to the API role and expose to PostgREST:
 grant select on mobile_programs, mobile_modules, mobile_lessons, mobile_snippets, mobile_quotes to anon, authenticated;
 ```
 
-> **thumbnail / presigned video**: `lessons` has no thumbnail column natively.
-> Add one and backfill it from the Vimeo API:
-> ```sql
-> alter table lessons add column if not exists thumbnail_url text;
-> -- the view already selects `l.thumbnail_url as thumbnail` (above)
-> ```
-> then run the **Backfill lesson thumbnails** Action (needs `VIMEO_ACCESS_TOKEN`)
-> — it fills `thumbnail_url` from each video's Vimeo pictures, which works even
-> for private/domain-restricted videos that the client-side oEmbed can't read.
-> Until then the client falls back to Vimeo oEmbed, then to a branded gradient.
-> S3 worksheet/video files still need a presign **Edge Function** (port the Rails
-> `presigned_video_url`).
+> **thumbnails**: once `mobile_lessons` surfaces a `vimeo_url`/`vimeo_id` (via
+> the `vimeos` join above), the client derives the thumbnail from Vimeo oEmbed —
+> the same path snippets use — and falls back to a branded gradient. No DB
+> thumbnail column is required for this to work.
 >
-> If workshop rows don't have a `vimeo_id`/`vimeo_url` at all (the reference lives
-> in a separate `vimeos` table), the view needs to join that table to surface
-> `vimeo_url`/`vimeo_id`/`thumbnail_url` before the backfill can find the videos.
+> *Optional upgrade* for private/domain-restricted videos that oEmbed can't read:
+> `alter table lessons add column if not exists thumbnail_url text;`, select it
+> as `thumbnail` in the view, and run the **Backfill lesson thumbnails** Action
+> (needs `VIMEO_ACCESS_TOKEN`) to fill it from the authenticated Vimeo API.
+>
+> **presigned video (S3)**: rows whose only source is `vimeos.aws_s3_url` (no
+> Vimeo id) need a presign **Edge Function** (port the Rails `presigned_video_url`)
+> and a player that accepts an MP4 URL — the current player is Vimeo-only.
 
 ## Step 2 — per-user enrichment + RLS (after auth lands)
 Once Supabase Auth maps to the production `users` row (store `users.id` in the
