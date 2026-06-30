@@ -15,8 +15,10 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { Platform } from 'react-native';
 
 import { api, setSupabaseToken, type AuthSession, type AuthUser } from '@/api';
+import type { OAuthProvider } from '@/api/types';
 
 const KEY = 'sparx.auth.v1';
 
@@ -27,7 +29,9 @@ type AuthValue = {
   user: AuthUser | null;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
+  signInWithProvider: (provider: OAuthProvider) => void;
   signOut: () => Promise<void>;
+  updateAvatar: (dataUrl: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -53,10 +57,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus('authed');
   }, []);
 
-  // Restore a persisted session on launch.
+  // On launch: first complete any OAuth redirect (tokens in the URL hash on web),
+  // otherwise restore a persisted session.
   useEffect(() => {
     let active = true;
     (async () => {
+      if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location.hash.includes('access_token')) {
+        const params = new URLSearchParams(window.location.hash.slice(1));
+        const at = params.get('access_token');
+        const rt = params.get('refresh_token') ?? '';
+        // Strip the hash so a reload doesn't re-process it.
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        if (at) {
+          try {
+            const s = await api.auth.sessionFromTokens(at, rt);
+            if (active) await apply(s);
+            return;
+          } catch {
+            /* fall through to restore */
+          }
+        }
+      }
       try {
         const raw = await AsyncStorage.getItem(KEY);
         if (!raw) {
@@ -76,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       active = false;
     };
-  }, []);
+  }, [apply]);
 
   const signIn = useCallback(
     async (email: string, password: string) => {
@@ -92,6 +113,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [apply],
   );
 
+  const signInWithProvider = useCallback((provider: OAuthProvider) => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') {
+      throw new Error('Social sign-in is available on the web app.');
+    }
+    const redirectTo = window.location.origin + window.location.pathname;
+    const url = api.auth.oauthUrl(provider, redirectTo);
+    if (!url) throw new Error('Social sign-in needs Supabase + this provider enabled.');
+    window.location.href = url;
+  }, []);
+
+  const updateAvatar = useCallback(
+    async (dataUrl: string) => {
+      if (!session) return;
+      const url = await api.auth.updateAvatar(dataUrl, session.user.id);
+      const next: AuthSession = { ...session, user: { ...session.user, avatarUrl: url } };
+      await persist(next);
+      setSession(next);
+    },
+    [session],
+  );
+
   const signOut = useCallback(async () => {
     await api.auth.signOut(session?.accessToken ?? null).catch(() => {});
     setSupabaseToken(null);
@@ -101,8 +143,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [session]);
 
   const value = useMemo<AuthValue>(
-    () => ({ status, user: session?.user ?? null, signIn, signUp, signOut }),
-    [status, session, signIn, signUp, signOut],
+    () => ({ status, user: session?.user ?? null, signIn, signUp, signInWithProvider, signOut, updateAvatar }),
+    [status, session, signIn, signUp, signInWithProvider, signOut, updateAvatar],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

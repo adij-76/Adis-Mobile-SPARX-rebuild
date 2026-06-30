@@ -30,7 +30,7 @@ export function AppHeader({ hasNotifications = true }: AppHeaderProps) {
           onPress={() => router.push('/profile')}
           accessibilityRole="button"
           accessibilityLabel="Open profile">
-          <Image source={{ uri: user.avatar }} style={styles.avatar} />
+          <Image source={{ uri: authUser?.avatarUrl ?? user.avatar }} style={styles.avatar} />
           <Txt variant="titleSm" color={Colors.white}>
             Hello {firstName} 👋
           </Txt>

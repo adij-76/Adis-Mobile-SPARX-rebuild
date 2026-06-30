@@ -25,11 +25,12 @@ const STATS: { label: string; value: string; route: string }[] = [
 export default function ProfileScreen() {
   const router = useRouter();
   const { clearAll } = useStore();
-  const { user: authUser, signOut } = useAuth();
+  const { user: authUser, signOut, updateAvatar } = useAuth();
   const [confirm, setConfirm] = useState<null | 'logout' | 'delete'>(null);
-  const [avatar, setAvatar] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const displayName = authUser?.name?.trim() || authUser?.email?.split('@')[0] || 'there';
+  const avatarUri = authUser?.avatarUrl ?? user.avatar;
 
   const pickImage = () => {
     if (Platform.OS === 'web') {
@@ -40,7 +41,21 @@ export default function ProfileScreen() {
       input.accept = 'image/*';
       input.onchange = () => {
         const file = input.files?.[0];
-        if (file) setAvatar(URL.createObjectURL(file));
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async () => {
+          const dataUrl = typeof reader.result === 'string' ? reader.result : null;
+          if (!dataUrl) return;
+          setUploading(true);
+          try {
+            await updateAvatar(dataUrl);
+          } catch {
+            /* surfaced below via no-change */
+          } finally {
+            setUploading(false);
+          }
+        };
+        reader.readAsDataURL(file);
       };
       input.click();
     }
@@ -67,15 +82,15 @@ export default function ProfileScreen() {
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.profileCard}>
-          <Image source={{ uri: avatar ?? user.avatar }} style={styles.avatar} />
+          <Image source={{ uri: avatarUri }} style={styles.avatar} />
           <Txt variant="title">{displayName}</Txt>
           <Txt variant="bodySm" color={Colors.textSub}>
             {authUser?.email ?? ''}
           </Txt>
-          <Pressable style={styles.editBtn} onPress={pickImage}>
+          <Pressable style={styles.editBtn} onPress={pickImage} disabled={uploading}>
             <Ionicons name="image-outline" size={16} color={Colors.white} />
             <Txt variant="bodySmMedium" color={Colors.white}>
-              Change Image
+              {uploading ? 'Uploading…' : 'Change Image'}
             </Txt>
           </Pressable>
         </View>

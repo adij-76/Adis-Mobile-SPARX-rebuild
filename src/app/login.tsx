@@ -11,14 +11,29 @@ import { useAuth } from '@/lib/auth';
 
 type Mode = 'signin' | 'signup';
 
+const PROVIDERS: { key: 'google' | 'apple' | 'facebook'; label: string; icon: 'logo-google' | 'logo-apple' | 'logo-facebook' }[] = [
+  { key: 'google', label: 'Google', icon: 'logo-google' },
+  { key: 'apple', label: 'Apple', icon: 'logo-apple' },
+  { key: 'facebook', label: 'Facebook', icon: 'logo-facebook' },
+];
+
 export default function LoginScreen() {
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, signInWithProvider } = useAuth();
   const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const onProvider = (provider: 'google' | 'apple' | 'facebook') => {
+    setError(null);
+    try {
+      signInWithProvider(provider);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Social sign-in is unavailable.');
+    }
+  };
 
   const submit = async () => {
     if (busy) return;
@@ -112,6 +127,27 @@ export default function LoginScreen() {
               onPress={submit}
             />
 
+            <View style={styles.divider}>
+              <View style={styles.line} />
+              <Txt variant="caption" color={Colors.textSub}>
+                or continue with
+              </Txt>
+              <View style={styles.line} />
+            </View>
+
+            <View style={styles.providers}>
+              {PROVIDERS.map((p) => (
+                <Pressable
+                  key={p.key}
+                  style={({ pressed }) => [styles.provider, pressed && { opacity: 0.7 }]}
+                  onPress={() => onProvider(p.key)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Continue with ${p.label}`}>
+                  <Ionicons name={p.icon} size={22} color={Colors.textMain} />
+                </Pressable>
+              ))}
+            </View>
+
             <Pressable
               onPress={() => {
                 setMode((m) => (m === 'signin' ? 'signup' : 'signin'));
@@ -167,4 +203,17 @@ const styles = StyleSheet.create({
   input: { flex: 1, paddingVertical: Spacing.md, color: Colors.textMain, fontSize: 15 },
   error: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   toggle: { alignItems: 'center', paddingVertical: Spacing.xs },
+  divider: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginVertical: Spacing.xs },
+  line: { flex: 1, height: 1, backgroundColor: Colors.stroke },
+  providers: { flexDirection: 'row', justifyContent: 'center', gap: Spacing.md },
+  provider: {
+    width: 56,
+    height: 48,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.stroke,
+    backgroundColor: Colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

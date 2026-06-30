@@ -256,7 +256,7 @@ export const supabaseInsights: InsightsApi = {
 type GoTrueUser = {
   id: string;
   email: string;
-  user_metadata?: { name?: string; full_name?: string } | null;
+  user_metadata?: { name?: string; full_name?: string; avatar_url?: string } | null;
 };
 type GoTrueSession = {
   access_token: string;
@@ -271,8 +271,19 @@ function toAuthUser(u: GoTrueUser): AuthUser {
     id: u.id,
     email: u.email,
     name: u.user_metadata?.name ?? u.user_metadata?.full_name ?? null,
+    avatarUrl: u.user_metadata?.avatar_url ?? null,
     appUserId: null, // resolved separately via me()
   };
+}
+
+/** data:image/...;base64,xxxx → a Blob the Storage API can take. */
+function dataUrlToBlob(dataUrl: string): { blob: Blob; contentType: string } {
+  const [meta, b64] = dataUrl.split(',');
+  const contentType = meta.match(/data:(.*?);base64/)?.[1] ?? 'image/png';
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return { blob: new Blob([bytes], { type: contentType }), contentType };
 }
 
 async function goTrue(path: string, body: unknown): Promise<GoTrueSession> {
@@ -327,5 +338,40 @@ export const supabaseAuth: AuthApi = {
     } catch {
       return null;
     }
+  },
+  oauthUrl(provider, redirectTo) {
+    return `${BASE}/auth/v1/authorize?provider=${provider}&redirect_to=${encodeURIComponent(redirectTo)}`;
+  },
+  async sessionFromTokens(accessToken, refreshToken) {
+    const res = await fetch(`${BASE}/auth/v1/user`, {
+      headers: { apikey: ANON, Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) throw new Error(`Couldn't complete sign-in (${res.status}).`);
+    const user = (await res.json()) as GoTrueUser;
+    return { user: toAuthUser(user), accessToken, refreshToken };
+  },
+  async updateAvatar(dataUrl, userId) {
+    // Upload to the public `avatars` bucket, then record the URL on the user.
+    const { blob, contentType } = dataUrlToBlob(dataUrl);
+    const path = `${userId}/avatar.${contentType.split('/')[1] || 'png'}`;
+    const up = await fetch(`${BASE}/storage/v1/object/avatars/${path}`, {
+      method: 'POST',
+      headers: {
+        apikey: ANON,
+        Authorization: `Bearer ${authToken ?? ANON}`,
+        'Content-Type': contentType,
+        'x-upsert': 'true',
+      },
+      body: blob,
+    });
+    if (!up.ok) throw new Error(`Avatar upload failed (${up.status}).`);
+    // Cache-bust so a re-upload to the same path shows immediately.
+    const publicUrl = `${BASE}/storage/v1/object/public/avatars/${path}?t=${Date.now()}`;
+    await fetch(`${BASE}/auth/v1/user`, {
+      method: 'PUT',
+      headers: { apikey: ANON, Authorization: `Bearer ${authToken ?? ANON}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: { avatar_url: publicUrl } }),
+    }).catch(() => {});
+    return publicUrl;
   },
 };
