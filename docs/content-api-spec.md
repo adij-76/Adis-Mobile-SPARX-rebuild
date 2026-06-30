@@ -54,15 +54,32 @@ create or replace view mobile_snippets as
          ai_summary as summary                -- generated long description
   from snippets
   where classified = true;                  -- only real, classified snippets
+
+-- Daily quotes. `mood` lets the app recommend a quote from the user's latest
+-- check-in: one of 'struggling' | 'craving' | 'low' | 'steady' | 'growth'.
+-- (Default 'steady' if you don't tag them.) Adjust the source table/columns to
+-- match your schema — the adapter reads id, text, author, mood by name.
+create or replace view mobile_quotes as
+  select id,
+         body            as text,
+         author,
+         coalesce(mood, 'steady') as mood
+  from quotes
+  where active = true;
 ```
 > `snippets` also has `transcript` (source for AI summaries) and `ai_summary`.
 > The adapter uses `description` as the title and `summary` (ai_summary) as the
 > shown description; backfill `ai_summary` from `transcript` with the
 > backfill-summaries Action. Thumbnails come from Vimeo oEmbed client-side.
+>
+> **mobile_quotes** is optional — the adapter falls back to the bundled seed
+> quotes if the view is absent or empty, so the app never breaks. Create it when
+> the `quotes` table is ready. The app picks a background per quote and rotates
+> through the bundled `assets/images/quote-bg/*` images.
 
 Grant read to the API role and expose to PostgREST:
 ```sql
-grant select on mobile_programs, mobile_modules, mobile_lessons, mobile_snippets to anon, authenticated;
+grant select on mobile_programs, mobile_modules, mobile_lessons, mobile_snippets, mobile_quotes to anon, authenticated;
 ```
 
 > **thumbnail / presigned video**: `lessons` has no thumbnail column — Rails derives

@@ -15,6 +15,7 @@ import type {
   MeetingsApi,
   Module,
   Program,
+  Quote,
   Snippet,
   WheelPoint,
   Workshop,
@@ -34,6 +35,8 @@ import {
   reports,
   wheelAreas,
 } from '@/data/content';
+
+type QuoteRow = { id: number | string; text: string; author: string | null; mood: string | null };
 
 const BASE = (process.env.EXPO_PUBLIC_SUPABASE_URL ?? '').replace(/\/$/, '');
 const ANON = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
@@ -172,7 +175,23 @@ export const supabaseContent: ContentApi = {
     return recommendedVideos;
   },
   async quotes() {
-    return quotes;
+    // Read the DB quotes when the view exists; fall back to seed quotes so the
+    // app keeps working until `mobile_quotes` is created.
+    try {
+      const rows = await rest<QuoteRow[]>('mobile_quotes', { order: 'id' });
+      if (!rows.length) return quotes;
+      return rows.map(
+        (r) =>
+          ({
+            id: String(r.id),
+            text: r.text,
+            author: r.author || 'Unknown',
+            mood: (r.mood as Quote['mood']) || 'steady',
+          }) satisfies Quote,
+      );
+    } catch {
+      return quotes;
+    }
   },
   async challenges() {
     return challenges;

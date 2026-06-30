@@ -218,28 +218,33 @@ export const recommendedVideos: VideoItem[] = [
   },
 ];
 
+/** Mood buckets used to recommend a quote from the user's latest check-in. */
+export type QuoteMood = 'struggling' | 'craving' | 'low' | 'steady' | 'growth';
+
 export type Quote = {
   id: string;
   text: string;
   author: string;
+  /** Which check-in state this quote speaks to (drives recommendations). */
+  mood: QuoteMood;
 };
 
 export const quotes: Quote[] = [
-  { id: 'q1', text: 'Success is not final, failure is not fatal: It is the courage to continue that counts.', author: 'Winston Churchill' },
-  { id: 'q2', text: 'The wound is the place where the Light enters you.', author: 'Rumi' },
-  { id: 'q3', text: 'You don’t have to control your thoughts. You just have to stop letting them control you.', author: 'Dan Millman' },
-  { id: 'q4', text: 'Recovery is not a race. You don’t have to feel guilty for taking your time.', author: 'Unknown' },
-  { id: 'q5', text: 'Almost everything will work again if you unplug it for a few minutes — including you.', author: 'Anne Lamott' },
-  { id: 'q6', text: 'You are not your mistakes. You are not your struggles. You are here now with the power to shape your day.', author: 'Steve Maraboli' },
-  { id: 'q7', text: 'Healing is not linear.', author: 'Unknown' },
-  { id: 'q8', text: 'The only way out is through.', author: 'Robert Frost' },
-  { id: 'q9', text: 'What you stay focused on will grow.', author: 'Roy T. Bennett' },
-  { id: 'q10', text: 'Be patient with yourself. Nothing in nature blooms all year.', author: 'Unknown' },
-  { id: 'q11', text: 'Rock bottom became the solid foundation on which I rebuilt my life.', author: 'J.K. Rowling' },
-  { id: 'q12', text: 'Courage doesn’t always roar. Sometimes it’s the quiet voice at the end of the day saying, “I will try again tomorrow.”', author: 'Mary Anne Radmacher' },
-  { id: 'q13', text: 'You don’t have to see the whole staircase, just take the first step.', author: 'Martin Luther King Jr.' },
-  { id: 'q14', text: 'Self-care is how you take your power back.', author: 'Lalah Delia' },
-  { id: 'q15', text: 'Every moment is a fresh beginning.', author: 'T.S. Eliot' },
+  { id: 'q1', mood: 'struggling', text: 'Success is not final, failure is not fatal: It is the courage to continue that counts.', author: 'Winston Churchill' },
+  { id: 'q2', mood: 'low', text: 'The wound is the place where the Light enters you.', author: 'Rumi' },
+  { id: 'q3', mood: 'craving', text: 'You don’t have to control your thoughts. You just have to stop letting them control you.', author: 'Dan Millman' },
+  { id: 'q4', mood: 'low', text: 'Recovery is not a race. You don’t have to feel guilty for taking your time.', author: 'Unknown' },
+  { id: 'q5', mood: 'craving', text: 'Almost everything will work again if you unplug it for a few minutes — including you.', author: 'Anne Lamott' },
+  { id: 'q6', mood: 'growth', text: 'You are not your mistakes. You are not your struggles. You are here now with the power to shape your day.', author: 'Steve Maraboli' },
+  { id: 'q7', mood: 'low', text: 'Healing is not linear.', author: 'Unknown' },
+  { id: 'q8', mood: 'struggling', text: 'The only way out is through.', author: 'Robert Frost' },
+  { id: 'q9', mood: 'growth', text: 'What you stay focused on will grow.', author: 'Roy T. Bennett' },
+  { id: 'q10', mood: 'low', text: 'Be patient with yourself. Nothing in nature blooms all year.', author: 'Unknown' },
+  { id: 'q11', mood: 'struggling', text: 'Rock bottom became the solid foundation on which I rebuilt my life.', author: 'J.K. Rowling' },
+  { id: 'q12', mood: 'struggling', text: 'Courage doesn’t always roar. Sometimes it’s the quiet voice at the end of the day saying, “I will try again tomorrow.”', author: 'Mary Anne Radmacher' },
+  { id: 'q13', mood: 'craving', text: 'You don’t have to see the whole staircase, just take the first step.', author: 'Martin Luther King Jr.' },
+  { id: 'q14', mood: 'steady', text: 'Self-care is how you take your power back.', author: 'Lalah Delia' },
+  { id: 'q15', mood: 'growth', text: 'Every moment is a fresh beginning.', author: 'T.S. Eliot' },
 ];
 
 export type WorkshopSummary = {

@@ -5,8 +5,10 @@ import { Txt } from '@/components/ui/text';
 import { Colors, Spacing } from '@/constants/theme';
 
 /** "● Live · Supabase" / "● Sample data" indicator showing which backend is
- *  serving the current screen. Shared by every data-backed list. */
+ *  serving the current screen. A development aid only — hidden in production
+ *  builds (the shipped app), so users never see backend wording. */
 export function SourceBadge({ style }: { style?: StyleProp<ViewStyle> }) {
+  if (!__DEV__) return null;
   const live = api.backend === 'supabase';
   return (
     <View style={[styles.row, style]}>
