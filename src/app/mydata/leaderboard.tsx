@@ -4,12 +4,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
+import { api } from '@/api';
 import { Colors, Radius, Spacing } from '@/constants/theme';
-import { leaderboard } from '@/data/content';
+import { useAsync } from '@/hooks/use-async';
 
 const MEDAL = ['#E8B923', '#9AA4B2', '#CD7F32'];
 
 export default function Leaderboard() {
+  const leaderboard = useAsync(() => api.insights.leaderboard(), []).data ?? [];
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScreenHeader title="Back" largeTitle="Leaderboard" />

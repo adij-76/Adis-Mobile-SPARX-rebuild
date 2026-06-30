@@ -5,8 +5,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card } from '@/components/ui/card';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
+import { api } from '@/api';
 import { Colors, Spacing } from '@/constants/theme';
-import { reports } from '@/data/content';
+import { useAsync } from '@/hooks/use-async';
 import { useStore, type CheckinEntry } from '@/lib/store';
 
 type ReportCard = { id: string; title: string; date: string; summary: string };
@@ -52,6 +53,7 @@ function buildReports(checkins: CheckinEntry[]): ReportCard[] {
 export default function Reports() {
   const { checkins } = useStore();
   const generated = buildReports(checkins);
+  const reports = useAsync(() => api.insights.reports(), []).data ?? [];
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>

@@ -9,8 +9,9 @@ import { Image } from 'expo-image';
 import { Button } from '@/components/ui/button';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
+import { api } from '@/api';
 import { Colors, Radius, Spacing } from '@/constants/theme';
-import { communities } from '@/data/content';
+import { useAsync } from '@/hooks/use-async';
 import { useStore } from '@/lib/store';
 
 // Sample images used by "Add photo" until a real image picker is wired in.
@@ -33,12 +34,14 @@ export default function NewPost() {
   const { text: prefill } = useLocalSearchParams<{ text?: string }>();
   // Coming from a shared quote → skip the rules gate and prefill the text.
   const [agreed, setAgreed] = useState(!!prefill);
-  const [community, setCommunity] = useState(communities[0].id);
+  const communities = useAsync(() => api.community.communities(), []).data ?? [];
+  const [community, setCommunity] = useState<string | null>(null);
+  const selectedCommunity = community ?? communities[0]?.id ?? null;
   const [text, setText] = useState(prefill ?? '');
   const [photo, setPhoto] = useState<string | null>(null);
 
   const submit = () => {
-    const name = communities.find((c) => c.id === community)?.name ?? 'Community';
+    const name = communities.find((c) => c.id === selectedCommunity)?.name ?? 'Community';
     addPost({ community: name, text: text.trim(), image: photo ?? undefined });
     router.back();
   };
@@ -83,7 +86,7 @@ export default function NewPost() {
         <Txt variant="bodySmMedium">Post to</Txt>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: Spacing.sm }}>
           {communities.map((c) => {
-            const active = c.id === community;
+            const active = c.id === selectedCommunity;
             return (
               <Pressable
                 key={c.id}

@@ -6,7 +6,34 @@
  * Activated when EXPO_PUBLIC_SUPABASE_URL + EXPO_PUBLIC_SUPABASE_ANON_KEY are set.
  * A logged-in user's JWT (once auth lands) replaces the anon key in Authorization.
  */
-import type { ContentApi, InsightsApi, Lesson, LessonType, Module, Program, Snippet, WheelPoint, Workshop } from '@/api/types';
+import type {
+  CommunityApi,
+  ContentApi,
+  InsightsApi,
+  Lesson,
+  LessonType,
+  MeetingsApi,
+  Module,
+  Program,
+  Snippet,
+  WheelPoint,
+  Workshop,
+} from '@/api/types';
+// Auxiliary surfaces (recommended-video rail, quotes, challenges, meetings,
+// community, wheel areas, reports, leaderboard) don't have Supabase views yet,
+// so the live backend serves the same seed data the mock does. When a view
+// lands, swap the individual method here — screens already call through `api`.
+import {
+  challenges,
+  coachAdi,
+  communities,
+  leaderboard,
+  meetings,
+  quotes,
+  recommendedVideos,
+  reports,
+  wheelAreas,
+} from '@/data/content';
 
 const BASE = (process.env.EXPO_PUBLIC_SUPABASE_URL ?? '').replace(/\/$/, '');
 const ANON = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
@@ -140,6 +167,39 @@ export const supabaseContent: ContentApi = {
         }) satisfies Snippet,
     );
   },
+  // No dedicated views yet — serve the seed data (see header note).
+  async recommendedVideos() {
+    return recommendedVideos;
+  },
+  async quotes() {
+    return quotes;
+  },
+  async challenges() {
+    return challenges;
+  },
+};
+
+export const supabaseMeetings: MeetingsApi = {
+  // TODO: back with mobile_meetings / mobile_coach views.
+  async all() {
+    return meetings;
+  },
+  async upcoming() {
+    return meetings.filter((m) => m.status === 'upcoming');
+  },
+  async get(id) {
+    return meetings.find((m) => m.id === id) ?? null;
+  },
+  async coach() {
+    return coachAdi;
+  },
+};
+
+export const supabaseCommunity: CommunityApi = {
+  // TODO: back with a mobile_communities view.
+  async communities() {
+    return communities;
+  },
 };
 
 type WheelScoreRow = { month_key: string; label: string; year: number; score: number };
@@ -156,5 +216,15 @@ export const supabaseInsights: InsightsApi = {
     return rows
       .map((r) => ({ key: r.month_key, label: r.label, year: r.year, score: r.score }) satisfies WheelPoint)
       .reverse();
+  },
+  // No dedicated views yet — serve the seed data (see header note).
+  async wheelAreas() {
+    return wheelAreas;
+  },
+  async reports() {
+    return reports;
+  },
+  async leaderboard() {
+    return leaderboard;
   },
 };

@@ -5,24 +5,37 @@ import { useState } from 'react';
 import { Platform, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { api } from '@/api';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { VideoPlayerModal } from '@/components/video-player-modal';
+import { ActivityIndicator } from 'react-native';
 import { Colors, Radius, Spacing } from '@/constants/theme';
-import { DEMO_VIDEO_URL, recommendedVideos } from '@/data/content';
+import { DEMO_VIDEO_URL } from '@/data/content';
+import { useAsync } from '@/hooks/use-async';
 import { useStore } from '@/lib/store';
 
 export default function VideoDetail() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const recommendedVideos = useAsync(() => api.content.recommendedVideos(), []).data ?? [];
   const video = recommendedVideos.find((v) => v.id === id) ?? recommendedVideos[0];
-  const more = recommendedVideos.filter((v) => v.id !== video.id);
-  const playUrl = video.vimeoUrl ?? DEMO_VIDEO_URL;
 
   const { isFav, toggleFav } = useStore();
-  const saved = isFav('video', video.id);
   const [liked, setLiked] = useState(false);
   const [playing, setPlaying] = useState(false);
+
+  if (!video) {
+    return (
+      <SafeAreaView style={[styles.safe, { alignItems: 'center', justifyContent: 'center' }]} edges={['top']}>
+        <ActivityIndicator color={Colors.primary} />
+      </SafeAreaView>
+    );
+  }
+
+  const more = recommendedVideos.filter((v) => v.id !== video.id);
+  const playUrl = video.vimeoUrl ?? DEMO_VIDEO_URL;
+  const saved = isFav('video', video.id);
 
   const onShare = async () => {
     const message = `${video.title} — a video from IGNTD`;

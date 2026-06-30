@@ -6,13 +6,15 @@ import { AppHeader } from '@/components/app-header';
 import { Screen } from '@/components/layout/screen';
 import { PostCard } from '@/components/ui/post-card';
 import { Txt } from '@/components/ui/text';
+import { api } from '@/api';
 import { Colors, Radius, Shadow, Spacing } from '@/constants/theme';
-import { communities } from '@/data/content';
+import { useAsync } from '@/hooks/use-async';
 import { useStore } from '@/lib/store';
 
 export default function CommunityScreen() {
   const router = useRouter();
   const { allPosts } = useStore();
+  const communities = useAsync(() => api.community.communities(), []).data ?? [];
 
   return (
     <Screen style={styles.root}>

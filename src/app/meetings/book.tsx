@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
-import { coachAdi } from '@/data/content';
+import { api } from '@/api';
+import { useAsync } from '@/hooks/use-async';
 import { useStore } from '@/lib/store';
 
 const DAYS = [
@@ -28,8 +29,10 @@ export default function BookMeeting() {
   const [day, setDay] = useState('wed');
   const [slot, setSlot] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const coach = useAsync(() => api.meetings.coach(), []).data;
 
   const confirm = () => {
+    if (!coach) return;
     const d = DAYS.find((x) => x.key === day);
     addBooking({
       id: `b${Date.now()}`,
@@ -41,7 +44,7 @@ export default function BookMeeting() {
       description:
         "Your booked session. You'll get a Zoom link and a reminder before it starts.",
       via: 'Video Meeting via Zoom call',
-      coach: coachAdi,
+      coach,
     });
     setDone(true);
   };

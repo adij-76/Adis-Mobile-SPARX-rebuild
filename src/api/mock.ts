@@ -2,8 +2,31 @@
  * Mock adapter — serves the existing local content so the app fully works with
  * no backend configured. Default until EXPO_PUBLIC_SUPABASE_URL is set.
  */
-import { recommendedVideos, wheelHistory, workshops, type WorkshopSummary } from '@/data/content';
-import type { ContentApi, InsightsApi, Lesson, Module, Program, Snippet, Workshop } from '@/api/types';
+import {
+  challenges,
+  coachAdi,
+  communities,
+  leaderboard,
+  meetings,
+  quotes,
+  recommendedVideos,
+  reports,
+  wheelAreas,
+  wheelHistory,
+  workshops,
+  type WorkshopSummary,
+} from '@/data/content';
+import type {
+  CommunityApi,
+  ContentApi,
+  InsightsApi,
+  Lesson,
+  MeetingsApi,
+  Module,
+  Program,
+  Snippet,
+  Workshop,
+} from '@/api/types';
 
 const HERO: Program = { id: 'hero-code', name: 'The Hero Code', active: true };
 
@@ -46,15 +69,32 @@ export const mockContent: ContentApi = {
         id: v.id,
         lessonId: null,
         title: v.title,
-        description: null,
+        description: v.description ?? null,
         lengthSeconds: null,
         vimeoUrl: v.vimeoUrl ?? null,
         vimeoId: null,
         aiGenerated: false,
       })),
     ),
+  recommendedVideos: () => delay(recommendedVideos),
+  quotes: () => delay(quotes),
+  challenges: () => delay(challenges),
 };
 
 export const mockInsights: InsightsApi = {
   wheelHistory: (anchor) => delay(wheelHistory(anchor?.current ?? 71, anchor?.last ?? 67)),
+  wheelAreas: () => delay(wheelAreas),
+  reports: () => delay(reports),
+  leaderboard: () => delay(leaderboard),
+};
+
+export const mockMeetings: MeetingsApi = {
+  all: () => delay(meetings),
+  upcoming: () => delay(meetings.filter((m) => m.status === 'upcoming')),
+  get: (id) => delay(meetings.find((m) => m.id === id) ?? null),
+  coach: () => delay(coachAdi),
+};
+
+export const mockCommunity: CommunityApi = {
+  communities: () => delay(communities),
 };

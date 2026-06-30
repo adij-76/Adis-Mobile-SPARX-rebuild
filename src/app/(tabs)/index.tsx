@@ -17,14 +17,12 @@ import { ProgressBar } from '@/components/ui/progress-bar';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Shadow, Spacing } from '@/constants/theme';
 import {
-  challenges,
   dailyChecklist,
   dailyQuote,
   heroProgram,
-  recommendedVideos,
   socials,
-  upcomingMeetings,
   type Challenge,
+  type Meeting,
 } from '@/data/content';
 import { isDoneToday } from '@/lib/checkin';
 import { useStore } from '@/lib/store';
@@ -59,6 +57,9 @@ export default function HomeScreen() {
   // Live workshops for the Workshop tab (top few; "See all" opens the full list).
   const workshopsQ = useAsync(() => api.content.workshops(), []);
   const workshops = workshopsQ.data ?? [];
+  const challenges = useAsync(() => api.content.challenges(), []).data ?? [];
+  const recommendedVideos = useAsync(() => api.content.recommendedVideos(), []).data ?? [];
+  const upcomingMeetings = useAsync(() => api.meetings.upcoming(), []).data ?? [];
 
   // Auto-present the daily check-in once per day when the app opens.
   const prompted = useRef(false);
@@ -449,7 +450,7 @@ function MeetingStack({
   meetings,
   onOpen,
 }: {
-  meetings: typeof upcomingMeetings;
+  meetings: Meeting[];
   onOpen: (id: string) => void;
 }) {
   const [i, setI] = useState(0);

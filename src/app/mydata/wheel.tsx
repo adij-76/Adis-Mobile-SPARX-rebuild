@@ -1,16 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { api } from '@/api';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { WheelChart } from '@/components/ui/wheel-chart';
 import { Colors, Radius, Spacing } from '@/constants/theme';
-import { wheelAreas, wheelHistory, type WheelMonth } from '@/data/content';
+import { type WheelMonth } from '@/data/content';
+import { useAsync } from '@/hooks/use-async';
 import { useStore } from '@/lib/store';
 
 type Period = 'recent' | 'monthly' | 'annual';
@@ -26,18 +28,31 @@ export default function WheelOfLife() {
   const [period, setPeriod] = useState<Period>('recent');
   const [menuOpen, setMenuOpen] = useState(false);
 
+  const wheelAreas = useAsync(() => api.insights.wheelAreas(), []).data ?? [];
   const scored = wheelAreas.map((a) => {
     const current = wheelScores[a.id] ?? a.current;
     return { ...a, current, value: current };
   });
+
+  const overall = scored.length ? Math.round(scored.reduce((s, c) => s + c.value, 0) / scored.length) : 0;
+  const lastOverall = scored.length ? Math.round(scored.reduce((s, c) => s + c.last, 0) / scored.length) : 0;
+  const history = useAsync(
+    () => api.insights.wheelHistory({ current: overall, last: lastOverall }),
+    [overall, lastOverall],
+  ).data ?? [];
+  const periodLabel = PERIODS.find((p) => p.key === period)!.label;
+
+  if (scored.length === 0) {
+    return (
+      <SafeAreaView style={[styles.safe, { alignItems: 'center', justifyContent: 'center' }]} edges={['top']}>
+        <ActivityIndicator color={Colors.primary} />
+      </SafeAreaView>
+    );
+  }
+
   const best = scored.reduce((a, b) => (b.value > a.value ? b : a));
   const worst = scored.reduce((a, b) => (b.value < a.value ? b : a));
   const improved = scored.reduce((a, b) => (b.current - b.last > a.current - a.last ? b : a));
-
-  const overall = Math.round(scored.reduce((s, c) => s + c.value, 0) / scored.length);
-  const lastOverall = Math.round(scored.reduce((s, c) => s + c.last, 0) / scored.length);
-  const history = wheelHistory(overall, lastOverall);
-  const periodLabel = PERIODS.find((p) => p.key === period)!.label;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -129,8 +144,12 @@ export default function WheelOfLife() {
             </View>
           )}
 
-          {period === 'monthly' && <TrendView months={history.slice(-6)} span="6 months" rows />}
-          {period === 'annual' && <TrendView months={history} span="12 months" />}
+          {period === 'monthly' && history.length > 0 && (
+            <TrendView months={history.slice(-6)} span="6 months" rows />
+          )}
+          {period === 'annual' && history.length > 0 && (
+            <TrendView months={history} span="12 months" />
+          )}
 
           <Button
             title="Contact my coach"

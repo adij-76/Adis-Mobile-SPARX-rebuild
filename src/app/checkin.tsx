@@ -23,11 +23,12 @@ import { Colors, Radius, Spacing } from '@/constants/theme';
 import {
   negativeEmotions,
   positiveEmotions,
-  recommendedVideos,
   user,
   type VideoItem,
 } from '@/data/content';
+import { api } from '@/api';
 import { recordCheckin, type CheckinResult } from '@/lib/checkin';
+import { useAsync } from '@/hooks/use-async';
 import { useStore } from '@/lib/store';
 
 const TOTAL = 5;
@@ -480,6 +481,7 @@ function CheckinSummary({
   onDone: () => void;
 }) {
   const { headline, focus, question } = buildSummary({ mood, positive, negative, behavior });
+  const recommendedVideos = useAsync(() => api.content.recommendedVideos(), []).data ?? [];
   return (
     <Screen variant="modal" style={styles.gutter}>
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>

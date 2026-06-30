@@ -5,34 +5,25 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { api } from '@/api';
 import { Screen } from '@/components/layout/screen';
 import { Segmented } from '@/components/ui/segmented';
 import { Txt } from '@/components/ui/text';
+import { VideoThumb } from '@/components/ui/video-thumb';
 import { Colors, Radius, Spacing } from '@/constants/theme';
-import { recommendedVideos, workshop, workshops } from '@/data/content';
+import { useAsync } from '@/hooks/use-async';
 import { useStore } from '@/lib/store';
 
 type Tab = 'lessons' | 'videos';
-
-// All lessons that can be favorited: the browse list + the featured workshop.
-const ALL_LESSONS = [
-  ...workshops,
-  {
-    id: workshop.id,
-    title: workshop.title,
-    author: 'IGNTD',
-    description: workshop.intro,
-    rating: workshop.rating,
-    image: workshop.hero,
-  },
-];
 
 export default function Favorites() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('lessons');
   const { favoriteIds, toggleFav } = useStore();
+  const workshops = useAsync(() => api.content.workshops(), []).data ?? [];
+  const recommendedVideos = useAsync(() => api.content.recommendedVideos(), []).data ?? [];
 
-  const savedLessons = ALL_LESSONS.filter((w) => favoriteIds('lesson').includes(w.id));
+  const savedLessons = workshops.filter((w) => favoriteIds('lesson').includes(w.id));
   const savedVideos = recommendedVideos.filter((v) => favoriteIds('video').includes(v.id));
 
   return (
@@ -68,14 +59,15 @@ export default function Favorites() {
               <Pressable
                 key={w.id}
                 style={styles.lessonRow}
-                onPress={() => router.push('/workshop/intro')}>
-                <Image source={{ uri: w.image }} style={styles.lessonThumb} />
+                onPress={() => router.push(`/lesson/${w.id}`)}>
+                {w.thumbnail ? (
+                  <Image source={{ uri: w.thumbnail }} style={styles.lessonThumb} />
+                ) : (
+                  <VideoThumb url={w.vimeoUrl} width={96} height={64} />
+                )}
                 <View style={{ flex: 1, gap: 2 }}>
                   <Txt variant="bodySmBold" numberOfLines={2}>
-                    {w.title}
-                  </Txt>
-                  <Txt variant="caption" color={Colors.textSub}>
-                    {w.author}
+                    {w.title || w.navTitle}
                   </Txt>
                 </View>
                 <Pressable onPress={() => toggleFav('lesson', w.id)} hitSlop={10}>

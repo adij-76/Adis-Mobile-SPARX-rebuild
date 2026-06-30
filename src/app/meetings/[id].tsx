@@ -5,10 +5,12 @@ import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { api } from '@/api';
+import { ActivityIndicator } from 'react-native';
 import { Button } from '@/components/ui/button';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
-import { meetings } from '@/data/content';
+import { useAsync } from '@/hooks/use-async';
 import { useStore } from '@/lib/store';
 
 export default function MeetingDetail() {
@@ -16,8 +18,18 @@ export default function MeetingDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { bookings, isBooked, bookMeeting } = useStore();
   const [showConfirm, setShowConfirm] = useState(false);
+  const meetings = useAsync(() => api.meetings.all(), []).data ?? [];
 
   const meeting = [...bookings, ...meetings].find((m) => m.id === id) ?? meetings[0];
+
+  if (!meeting) {
+    return (
+      <SafeAreaView style={[styles.safe, { alignItems: 'center', justifyContent: 'center' }]} edges={['top']}>
+        <ActivityIndicator color={Colors.primary} />
+      </SafeAreaView>
+    );
+  }
+
   const booked = isBooked(meeting.id) || meeting.id.startsWith('b');
 
   return (
