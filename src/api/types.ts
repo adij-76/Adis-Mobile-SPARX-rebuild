@@ -113,13 +113,39 @@ export type InsightsApi = {
   leaderboard(): Promise<LeaderboardEntry[]>;
 };
 
+/** The signed-in user. `id` is the auth user id; `appUserId` (when resolved via
+ *  the mobile_me view) is the production users.id that owns their real data. */
+export type AuthUser = {
+  id: string;
+  email: string;
+  name: string | null;
+  appUserId: string | null;
+};
+
+export type AuthSession = {
+  user: AuthUser;
+  accessToken: string;
+  refreshToken: string;
+};
+
+export type AuthApi = {
+  signIn(email: string, password: string): Promise<AuthSession>;
+  signUp(email: string, password: string): Promise<AuthSession>;
+  signOut(accessToken: string | null): Promise<void>;
+  /** Exchange a refresh token for a fresh session (expired access tokens). */
+  refresh(refreshToken: string): Promise<AuthSession>;
+  /** Resolve the production user that owns this email's data (mobile_me view). */
+  me(email: string): Promise<{ appUserId: string; name: string | null } | null>;
+};
+
 export type Api = {
   /** Which backend is serving requests — handy for debugging. */
   backend: 'mock' | 'supabase';
+  auth: AuthApi;
   content: ContentApi;
   insights: InsightsApi;
   meetings: MeetingsApi;
   community: CommunityApi;
   // Future seams (kept here so adapters grow uniformly):
-  // auth: AuthApi; checkins: CheckinApi;
+  // checkins: CheckinApi;
 };

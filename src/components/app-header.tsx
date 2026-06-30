@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Txt } from '@/components/ui/text';
 import { Colors, Spacing } from '@/constants/theme';
 import { user } from '@/data/content';
+import { useAuth } from '@/lib/auth';
 
 export type AppHeaderProps = {
   /** Show the unread dot on the bell. */
@@ -19,6 +20,8 @@ export type AppHeaderProps = {
  */
 export function AppHeader({ hasNotifications = true }: AppHeaderProps) {
   const router = useRouter();
+  const { user: authUser } = useAuth();
+  const firstName = (authUser?.name?.trim() || authUser?.email?.split('@')[0] || 'there').split(' ')[0];
   return (
     <SafeAreaView edges={['top']} style={styles.safe}>
       <View style={styles.row}>
@@ -29,7 +32,7 @@ export function AppHeader({ hasNotifications = true }: AppHeaderProps) {
           accessibilityLabel="Open profile">
           <Image source={{ uri: user.avatar }} style={styles.avatar} />
           <Txt variant="titleSm" color={Colors.white}>
-            Hello {user.name} 👋
+            Hello {firstName} 👋
           </Txt>
         </Pressable>
         <View style={styles.icons}>

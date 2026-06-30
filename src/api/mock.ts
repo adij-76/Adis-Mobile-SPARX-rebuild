@@ -17,6 +17,8 @@ import {
   type WorkshopSummary,
 } from '@/data/content';
 import type {
+  AuthApi,
+  AuthSession,
   CommunityApi,
   ContentApi,
   InsightsApi,
@@ -79,6 +81,31 @@ export const mockContent: ContentApi = {
   recommendedVideos: () => delay(recommendedVideos),
   quotes: () => delay(quotes),
   challenges: () => delay(challenges),
+};
+
+const nameFromEmail = (email: string) =>
+  email
+    .split('@')[0]
+    .replace(/[._+].*$/, '')
+    .replace(/^\w/, (c) => c.toUpperCase());
+
+function mockSession(email: string): AuthSession {
+  return {
+    user: { id: `mock-${email}`, email, name: nameFromEmail(email), appUserId: `mock-${email}` },
+    accessToken: 'mock-access-token',
+    refreshToken: 'mock-refresh-token',
+  };
+}
+
+export const mockAuth: AuthApi = {
+  // Any non-empty email/password works against the mock — it's offline sample data.
+  signIn: (email, password) =>
+    password ? delay(mockSession(email)) : Promise.reject(new Error('Enter your password')),
+  signUp: (email, password) =>
+    password ? delay(mockSession(email)) : Promise.reject(new Error('Enter a password')),
+  refresh: (_refreshToken) => delay(mockSession('okeijoseph@sparx.app')),
+  signOut: () => delay(undefined),
+  me: (email) => delay({ appUserId: `mock-${email}`, name: nameFromEmail(email) }),
 };
 
 export const mockInsights: InsightsApi = {

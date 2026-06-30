@@ -108,6 +108,36 @@ grant select on mobile_programs, mobile_modules, mobile_lessons, mobile_snippets
 > Vimeo id) need a presign **Edge Function** (port the Rails `presigned_video_url`)
 > and a player that accepts an MP4 URL — the current player is Vimeo-only.
 
+## Auth — sign-in + mapping the auth user to the production user
+The app signs in through **Supabase Auth** (`api.auth` → GoTrue). The signed-in
+identity is a Supabase `auth.users` row keyed by **email**; the user's real data
+lives on the production `users` row. Map them by email with a `mobile_me` view:
+
+```sql
+-- One row for the signed-in user; RLS limits it to their own email.
+create or replace view mobile_me as
+  select id as app_user_id, name, email
+  from users;
+
+alter view mobile_me set (security_invoker = on);   -- run as the caller
+alter table users enable row level security;
+create policy users_self on users for select to authenticated
+  using (lower(email) = lower(auth.jwt() ->> 'email'));
+
+grant select on mobile_me to authenticated;
+```
+
+The app calls `api.auth.me(email)` after sign-in and stores `app_user_id` on the
+session, so every per-user query (below) can scope to it. Until `mobile_me`
+exists the app still works — it just can't resolve the production id yet.
+
+**To let an existing user (e.g. `adijaffe+1@gmail.com`) sign in:** create a
+Supabase Auth user with that same email (Dashboard → Authentication → Users →
+Add user, or let them tap "Create one" in the app), and make sure the email
+matches their `users.email`. Email matching is what links the auth account to
+their production data — no Rails password migration needed. For frictionless dev
+testing, turn **off** "Confirm email" in Authentication → Providers → Email.
+
 ## Step 2 — per-user enrichment + RLS (after auth lands)
 Once Supabase Auth maps to the production `users` row (store `users.id` in the
 JWT, e.g. `auth.jwt() ->> 'app_user_id'`), enrich `mobile_lessons`:
