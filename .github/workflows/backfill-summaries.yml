@@ -1,7 +1,8 @@
 name: Backfill snippet summaries
 
-# Generates snippets.ai_summary from snippets.transcript with Claude.
-# Run it from the Actions tab → "Run workflow". No terminal needed.
+# Generates snippet titles + descriptions (ai_summary) from snippets.transcript
+# with Claude, filling whichever is missing. Run from the Actions tab →
+# "Run workflow". No terminal needed. Re-running fills any remaining gaps.
 #
 # Requires (Settings → Secrets and variables → Actions):
 #   Variables tab: SUPABASE_URL        (already set)
