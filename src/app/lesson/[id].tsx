@@ -89,9 +89,14 @@ export default function LessonScreen() {
   }
 
   const title = lesson.title || lesson.navTitle || 'Lesson';
-  const context = courseModule
-    ? `Module ${courseModule.order} · Lesson ${lesson.position}`
-    : `Lesson ${lesson.position}`;
+  // Workshops are standalone (browsed on their own), so they get no course
+  // outline and a simpler header than program lessons.
+  const isWorkshop = lesson.lessonType === 'workshop';
+  const context = isWorkshop
+    ? 'Workshop'
+    : courseModule
+      ? `Module ${courseModule.order} · Lesson ${lesson.position}`
+      : `Lesson ${lesson.position}`;
   const saved = isFav('lesson', lesson.id);
   const last = WORKSHOP_STEPS.length - 1;
 
@@ -217,19 +222,19 @@ export default function LessonScreen() {
         title={`${context} · ${title}`}
         onBack={() => router.back()}
         outlineOpen={outlineOpen}
-        onToggleOutline={() => setOutlineOpen((o) => !o)}
+        onToggleOutline={isWorkshop ? undefined : () => setOutlineOpen((o) => !o)}
       />
 
       {isDesktop ? (
         <View style={styles.row}>
           <View style={styles.contentCol}>{body}</View>
-          {outlineOpen && <View style={styles.outlineCol}>{outline}</View>}
+          {!isWorkshop && outlineOpen && <View style={styles.outlineCol}>{outline}</View>}
         </View>
       ) : (
         <View style={{ flex: 1 }}>{body}</View>
       )}
 
-      {!isDesktop && (
+      {!isWorkshop && !isDesktop && (
         <Modal visible={outlineOpen} animationType="slide" transparent onRequestClose={() => setOutlineOpen(false)}>
           <Pressable style={styles.backdrop} onPress={() => setOutlineOpen(false)} />
           <View style={styles.drawer}>

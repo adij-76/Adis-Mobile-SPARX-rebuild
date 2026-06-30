@@ -4,11 +4,23 @@ import { Pressable, StyleSheet, View, type GestureResponderEvent } from 'react-n
 
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Shadow, Spacing } from '@/constants/theme';
-import type { WorkshopSummary } from '@/data/content';
+import { useVimeoMeta } from '@/hooks/use-vimeo-meta';
 import { useStore } from '@/lib/store';
 
+/** Minimal shape the card needs — satisfied by both the static `WorkshopSummary`
+ *  and a live `Workshop` (Lesson) mapped in the list. */
+export type WorkshopCardItem = {
+  id: string;
+  title: string;
+  description: string;
+  rating?: number;
+  image?: string | null;
+  /** Used to derive a thumbnail when `image` is absent. */
+  vimeoUrl?: string | null;
+};
+
 export type WorkshopCardProps = {
-  item: WorkshopSummary;
+  item: WorkshopCardItem;
   onPress?: () => void;
 };
 
@@ -16,6 +28,10 @@ export type WorkshopCardProps = {
 export function WorkshopCard({ item, onPress }: WorkshopCardProps) {
   const { isFav, toggleFav } = useStore();
   const saved = isFav('lesson', item.id);
+  // Fall back to the Vimeo thumbnail when the row has no stored image.
+  const meta = useVimeoMeta(item.image ? null : item.vimeoUrl ?? null);
+  const image = item.image || meta?.thumbnail || null;
+  const rating = item.rating ?? 5;
   const onBookmark = (e: GestureResponderEvent) => {
     (e as unknown as { stopPropagation?: () => void }).stopPropagation?.();
     toggleFav('lesson', item.id);
@@ -24,14 +40,20 @@ export function WorkshopCard({ item, onPress }: WorkshopCardProps) {
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && { opacity: 0.9 }]}>
-      <Image source={{ uri: item.image }} style={styles.image} />
+      <View style={styles.image}>
+        {image ? (
+          <Image source={{ uri: image }} style={styles.fill} contentFit="cover" />
+        ) : (
+          <Ionicons name="easel-outline" size={34} color={Colors.strokeStrong} />
+        )}
+      </View>
       <View style={styles.body}>
         <View style={styles.metaRow}>
           <View style={styles.stars}>
             {Array.from({ length: 5 }).map((_, i) => (
               <Ionicons
                 key={i}
-                name={i < item.rating ? 'star' : 'star-outline'}
+                name={i < rating ? 'star' : 'star-outline'}
                 size={15}
                 color={Colors.orange}
               />
@@ -45,10 +67,12 @@ export function WorkshopCard({ item, onPress }: WorkshopCardProps) {
             />
           </Pressable>
         </View>
-        <Txt variant="titleSm">{item.title}</Txt>
-        <Txt variant="bodySm" color={Colors.textSub} numberOfLines={2}>
-          {item.description}
-        </Txt>
+        <Txt variant="titleSm" numberOfLines={2}>{item.title}</Txt>
+        {item.description ? (
+          <Txt variant="bodySm" color={Colors.textSub} numberOfLines={2}>
+            {item.description}
+          </Txt>
+        ) : null}
       </View>
     </Pressable>
   );
@@ -63,7 +87,14 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...Shadow.card,
   },
-  image: { width: '100%', height: 170, backgroundColor: Colors.soft },
+  image: {
+    width: '100%',
+    height: 170,
+    backgroundColor: Colors.soft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   body: { padding: Spacing.lg, gap: Spacing.sm },
   metaRow: {
     flexDirection: 'row',
