@@ -42,7 +42,6 @@ function Shell() {
         options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }}
       />
       <Stack.Screen name="mydata" options={{ presentation: 'card' }} />
-      <Stack.Screen name="module" options={{ presentation: 'card' }} />
       <Stack.Screen name="lesson" options={{ presentation: 'card' }} />
       <Stack.Screen name="feed" options={{ presentation: 'card' }} />
       <Stack.Screen name="settings" options={{ presentation: 'card' }} />
@@ -52,14 +51,14 @@ function Shell() {
     </Stack>
   );
 
-  if (!isDesktop) return stack;
-
-  // Keep the row + content wrappers stable so the navigator never remounts;
-  // only the sidebar is toggled, so nav-locked routes (check-in) hide it.
+  // Always render the row + content wrappers (on every breakpoint) so the
+  // navigator never remounts when resizing across the desktop threshold — only
+  // the sidebar's presence is toggled. It shows on desktop, except on nav-locked
+  // routes (the daily check-in), and is never present on phone/tablet.
   const navLocked = NAV_LOCKED.some((r) => pathname.startsWith(r));
   return (
     <View style={{ flex: 1, flexDirection: 'row' }}>
-      {!navLocked && <DesktopSidebar />}
+      {isDesktop && !navLocked && <DesktopSidebar />}
       <View style={{ flex: 1 }}>{stack}</View>
     </View>
   );

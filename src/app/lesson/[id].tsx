@@ -15,6 +15,7 @@ import { Txt } from '@/components/ui/text';
 import { VideoPlayerModal } from '@/components/video-player-modal';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { WORKSHOP_STEPS } from '@/data/content';
+import { lessonTitle } from '@/lib/content-format';
 import { useAsync } from '@/hooks/use-async';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
 import { useVimeoMeta } from '@/hooks/use-vimeo-meta';
@@ -88,7 +89,7 @@ export default function LessonScreen() {
     );
   }
 
-  const title = lesson.title || lesson.navTitle || 'Lesson';
+  const title = lessonTitle(lesson);
   // Workshops are standalone (browsed on their own), so they get no course
   // outline and a simpler header than program lessons.
   const isWorkshop = lesson.lessonType === 'workshop';

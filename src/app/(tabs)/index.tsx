@@ -65,9 +65,11 @@ export default function HomeScreen() {
   useEffect(() => {
     if (prompted.current) return;
     prompted.current = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     isDoneToday().then((done) => {
-      if (!done) setTimeout(() => router.push('/checkin'), 400);
+      if (!done) timer = setTimeout(() => router.push('/checkin'), 400);
     });
+    return () => clearTimeout(timer);
   }, [router]);
 
   const banner = (

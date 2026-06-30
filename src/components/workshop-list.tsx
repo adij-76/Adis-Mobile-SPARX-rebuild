@@ -1,5 +1,4 @@
 import { useRouter } from 'expo-router';
-import type { ReactElement } from 'react';
 import { ActivityIndicator, FlatList, View } from 'react-native';
 
 import { api } from '@/api';
@@ -9,14 +8,9 @@ import { WorkshopCard } from '@/components/ui/workshop-card';
 import { Colors, Spacing } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
 
-export type WorkshopListProps = {
-  ListHeaderComponent?: ReactElement;
-};
-
 /** Scrollable list of workshop cards, served from the live content API.
- *  Tapping a card opens that workshop in the lesson player.
- *  Shared by the "See all" route and the My Lessons tab. */
-export function WorkshopList({ ListHeaderComponent }: WorkshopListProps) {
+ *  Tapping a card opens that workshop in the lesson player. */
+export function WorkshopList() {
   const router = useRouter();
   const { data, loading, error, reload } = useAsync(() => api.content.workshops(), []);
   const workshops = data ?? [];
@@ -41,7 +35,6 @@ export function WorkshopList({ ListHeaderComponent }: WorkshopListProps) {
     <FlatList
       data={workshops}
       keyExtractor={(item) => item.id}
-      ListHeaderComponent={ListHeaderComponent}
       ListEmptyComponent={
         <Txt variant="bodySm" color={Colors.textSub} center style={{ marginTop: Spacing.xl }}>
           No workshops available yet.
