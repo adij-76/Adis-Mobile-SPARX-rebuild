@@ -7,6 +7,9 @@
  * A logged-in user's JWT (once auth lands) replaces the anon key in Authorization.
  */
 import type {
+  AuthApi,
+  AuthSession,
+  AuthUser,
   CommunityApi,
   ContentApi,
   InsightsApi,
@@ -245,5 +248,84 @@ export const supabaseInsights: InsightsApi = {
   },
   async leaderboard() {
     return leaderboard;
+  },
+};
+
+// --- Auth (Supabase GoTrue over REST; no SDK, same as the data layer) ---
+
+type GoTrueUser = {
+  id: string;
+  email: string;
+  user_metadata?: { name?: string; full_name?: string } | null;
+};
+type GoTrueSession = {
+  access_token: string;
+  refresh_token: string;
+  user: GoTrueUser;
+};
+
+const authHeaders = { apikey: ANON, 'Content-Type': 'application/json' };
+
+function toAuthUser(u: GoTrueUser): AuthUser {
+  return {
+    id: u.id,
+    email: u.email,
+    name: u.user_metadata?.name ?? u.user_metadata?.full_name ?? null,
+    appUserId: null, // resolved separately via me()
+  };
+}
+
+async function goTrue(path: string, body: unknown): Promise<GoTrueSession> {
+  const res = await fetch(`${BASE}/auth/v1/${path}`, {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data?.error_description || data?.msg || data?.error || `Auth failed (${res.status})`);
+  }
+  if (!data?.access_token) {
+    // signup with email-confirmation on returns a user but no session.
+    throw new Error('Check your email to confirm your account, then sign in.');
+  }
+  return data as GoTrueSession;
+}
+
+const toSession = (s: GoTrueSession): AuthSession => ({
+  user: toAuthUser(s.user),
+  accessToken: s.access_token,
+  refreshToken: s.refresh_token,
+});
+
+export const supabaseAuth: AuthApi = {
+  async signIn(email, password) {
+    return toSession(await goTrue('token?grant_type=password', { email, password }));
+  },
+  async signUp(email, password) {
+    return toSession(await goTrue('signup', { email, password }));
+  },
+  async refresh(refreshToken) {
+    return toSession(await goTrue('token?grant_type=refresh_token', { refresh_token: refreshToken }));
+  },
+  async signOut(accessToken) {
+    if (!accessToken) return;
+    await fetch(`${BASE}/auth/v1/logout`, {
+      method: 'POST',
+      headers: { ...authHeaders, Authorization: `Bearer ${accessToken}` },
+    }).catch(() => {});
+  },
+  async me(email) {
+    // mobile_me maps the auth email → the production users row that owns the
+    // user's real data. Optional: falls back to null until the view exists.
+    try {
+      const rows = await rest<{ app_user_id: string | number; name: string | null }[]>('mobile_me', {
+        email: `eq.${email}`,
+        limit: '1',
+      });
+      return rows.length ? { appUserId: String(rows[0].app_user_id), name: rows[0].name } : null;
+    } catch {
+      return null;
+    }
   },
 };

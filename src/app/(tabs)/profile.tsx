@@ -13,6 +13,7 @@ import { ListRow } from '@/components/ui/list-row';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { user } from '@/data/content';
+import { useAuth } from '@/lib/auth';
 import { useStore } from '@/lib/store';
 
 const STATS: { label: string; value: string; route: string }[] = [
@@ -24,8 +25,11 @@ const STATS: { label: string; value: string; route: string }[] = [
 export default function ProfileScreen() {
   const router = useRouter();
   const { clearAll } = useStore();
+  const { user: authUser, signOut } = useAuth();
   const [confirm, setConfirm] = useState<null | 'logout' | 'delete'>(null);
   const [avatar, setAvatar] = useState<string | null>(null);
+
+  const displayName = authUser?.name?.trim() || authUser?.email?.split('@')[0] || 'there';
 
   const pickImage = () => {
     if (Platform.OS === 'web') {
@@ -43,15 +47,18 @@ export default function ProfileScreen() {
     // native: wire expo-image-picker when we ship native builds
   };
 
-  const resetLocal = async () => {
-    clearAll();
-    try {
-      await AsyncStorage.removeItem('igntd.checkin.v1');
-    } catch {
-      /* best effort */
+  const onConfirm = async () => {
+    if (confirm === 'delete') {
+      clearAll();
+      try {
+        await AsyncStorage.removeItem('igntd.checkin.v1');
+      } catch {
+        /* best effort */
+      }
     }
     setConfirm(null);
-    router.replace('/');
+    // Both log out and delete end the session → the auth gate routes to login.
+    await signOut();
   };
 
   return (
@@ -61,9 +68,9 @@ export default function ProfileScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.profileCard}>
           <Image source={{ uri: avatar ?? user.avatar }} style={styles.avatar} />
-          <Txt variant="title">{user.name} Joseph</Txt>
+          <Txt variant="title">{displayName}</Txt>
           <Txt variant="bodySm" color={Colors.textSub}>
-            okeijoseph@sparx.app
+            {authUser?.email ?? ''}
           </Txt>
           <Pressable style={styles.editBtn} onPress={pickImage}>
             <Ionicons name="image-outline" size={16} color={Colors.white} />
@@ -154,7 +161,7 @@ export default function ProfileScreen() {
               <Button
                 title={confirm === 'delete' ? 'Delete' : 'Log out'}
                 variant="primary"
-                onPress={resetLocal}
+                onPress={onConfirm}
               />
             </View>
           </View>
