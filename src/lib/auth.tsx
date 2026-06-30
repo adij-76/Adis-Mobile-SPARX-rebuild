@@ -105,10 +105,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
         const saved = JSON.parse(raw) as AuthSession;
-        setSupabaseToken(saved.accessToken);
-        if (active) {
-          setSession(saved);
-          setStatus('authed');
+        // Try to refresh first so the access token stays valid. On network
+        // error fall back to the cached session (user stays logged in).
+        try {
+          const fresh = await api.auth.refresh(saved.refreshToken);
+          if (active) await apply(fresh);
+        } catch {
+          setSupabaseToken(saved.accessToken);
+          if (active) {
+            setSession(saved);
+            setStatus('authed');
+          }
         }
       } catch {
         if (active) setStatus('guest');
