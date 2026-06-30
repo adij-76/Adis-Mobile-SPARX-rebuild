@@ -36,9 +36,8 @@ function SnippetCard({ snippet, onPlay }: { snippet: Snippet; onPlay: (v: Sparky
   }, [snippet.vimeoUrl]);
 
   const dur = formatLength(snippet.lengthSeconds);
-  const title =
-    meta?.title ??
-    (hasRealDescription(snippet.description) ? snippet.description : 'Untitled video');
+  const description = hasRealDescription(snippet.description) ? snippet.description : null;
+  const title = meta?.title ?? description ?? 'Untitled video';
 
   return (
     <Pressable
@@ -61,14 +60,18 @@ function SnippetCard({ snippet, onPlay }: { snippet: Snippet; onPlay: (v: Sparky
         )}
       </View>
       <View style={{ flex: 1, gap: 2 }}>
-        <Txt variant="bodySmBold" numberOfLines={3}>
+        <Txt variant="bodySmBold" numberOfLines={2}>
           {title}
         </Txt>
-        {snippet.aiGenerated && (
+        {description ? (
+          <Txt variant="caption" color={Colors.textSub} numberOfLines={2}>
+            {description}
+          </Txt>
+        ) : snippet.aiGenerated ? (
           <Txt variant="caption" color={Colors.textSub}>
             ✨ AI-generated
           </Txt>
-        )}
+        ) : null}
       </View>
     </Pressable>
   );
