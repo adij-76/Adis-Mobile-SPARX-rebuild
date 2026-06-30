@@ -29,7 +29,8 @@ import {
 import { api } from '@/api';
 import { recordCheckin, type CheckinResult } from '@/lib/checkin';
 import { useAsync } from '@/hooks/use-async';
-import { useFirstName } from '@/lib/auth';
+import { useAuth, useFirstName } from '@/lib/auth';
+import { addictionStruggle } from '@/lib/addiction';
 import { useStore } from '@/lib/store';
 
 const TOTAL = 5;
@@ -37,6 +38,8 @@ const TOTAL = 5;
 export default function CheckinScreen() {
   const router = useRouter();
   const { addCheckin } = useStore();
+  const { user: authUser } = useAuth();
+  const struggle = addictionStruggle(authUser?.addictionLabel);
   const [step, setStep] = useState(0);
   const [result, setResult] = useState<CheckinResult | null>(null);
   const [showSummary, setShowSummary] = useState(false);
@@ -166,7 +169,7 @@ export default function CheckinScreen() {
           {step === 3 && (
             <>
               <Question
-                text={`Over the past day, did you ${user.struggle.verb} or engage in your compulsive behavior?`}
+                text={`Over the past day, did you ${struggle.verb}?`}
               />
               <View style={{ gap: Spacing.md }}>
                 {(['no', 'yes'] as const).map((v) => {

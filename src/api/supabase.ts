@@ -15,6 +15,7 @@ import type {
   InsightsApi,
   Lesson,
   LessonType,
+  MeResult,
   MeetingsApi,
   Module,
   Program,
@@ -272,7 +273,19 @@ function toAuthUser(u: GoTrueUser): AuthUser {
     email: u.email,
     name: u.user_metadata?.name ?? u.user_metadata?.full_name ?? null,
     avatarUrl: u.user_metadata?.avatar_url ?? null,
-    appUserId: null, // resolved separately via me()
+    appUserId: null,
+    // Rich fields are null/false until enriched by apply() → me()
+    programId: null,
+    subscribed: false,
+    stripeActive: false,
+    advancedCoaching: false,
+    addictionLabel: null,
+    daysCount: null,
+    daysUpdatedAt: null,
+    userHandle: null,
+    timeZone: null,
+    teamId: null,
+    zoomEmail: null,
   };
 }
 
@@ -326,15 +339,45 @@ export const supabaseAuth: AuthApi = {
       headers: { ...authHeaders, Authorization: `Bearer ${accessToken}` },
     }).catch(() => {});
   },
-  async me(email) {
-    // mobile_me maps the auth email → the production users row that owns the
-    // user's real data. Optional: falls back to null until the view exists.
+  async me(email): Promise<MeResult | null> {
+    // mobile_me maps the auth email → the production users row (and rich
+    // personalisation fields). Falls back to null until the view exists.
+    type MeRow = {
+      app_user_id: string | number;
+      name: string | null;
+      avatar: string | null;
+      program_id: string | number | null;
+      subscribed: boolean | null;
+      stripe_active: boolean | null;
+      advanced_coaching: boolean | null;
+      addiction: string | null;
+      days_count: number | null;
+      days_counter_updated_at: string | null;
+      user_handle: string | null;
+      time_zone: string | null;
+      team_id: string | number | null;
+      zoom_email: string | null;
+    };
     try {
-      const rows = await rest<{ app_user_id: string | number; name: string | null }[]>('mobile_me', {
-        email: `eq.${email}`,
-        limit: '1',
-      });
-      return rows.length ? { appUserId: String(rows[0].app_user_id), name: rows[0].name } : null;
+      const rows = await rest<MeRow[]>('mobile_me', { email: `eq.${email}`, limit: '1' });
+      if (!rows.length) return null;
+      const r = rows[0];
+      return {
+        appUserId: String(r.app_user_id),
+        name: r.name,
+        avatar: r.avatar,
+        programId: r.program_id != null ? String(r.program_id) : null,
+        subscribed: r.subscribed ?? false,
+        stripeActive: r.stripe_active ?? false,
+        advancedCoaching: r.advanced_coaching ?? false,
+        addictionLabel: r.addiction,
+        daysCount: r.days_count,
+        daysUpdatedAt: r.days_counter_updated_at,
+        userHandle: r.user_handle,
+        timeZone: r.time_zone,
+        teamId: r.team_id != null ? String(r.team_id) : null,
+        zoomEmail: r.zoom_email,
+      } satisfies MeResult;
     } catch {
       return null;
     }

@@ -16,21 +16,46 @@ import { user } from '@/data/content';
 import { useAuth } from '@/lib/auth';
 import { useStore } from '@/lib/store';
 
-const STATS: { label: string; value: string; route: string }[] = [
-  { label: 'Workshops', value: '12', route: '/workshop/list' },
-  { label: 'Day streak', value: '6', route: '/checkin' },
-  { label: 'Points', value: '1,480', route: '/mydata/leaderboard' },
-];
+
+/** Compute a simple streak from local check-in history (days in a row ending today). */
+function computeStreak(dates: string[]): number {
+  if (!dates.length) return 0;
+  const sorted = [...new Set(dates)].sort().reverse();
+  const today = new Date().toISOString().slice(0, 10);
+  let streak = 0;
+  let expected = today;
+  for (const d of sorted) {
+    if (d === expected) {
+      streak++;
+      const prev = new Date(expected);
+      prev.setDate(prev.getDate() - 1);
+      expected = prev.toISOString().slice(0, 10);
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { clearAll } = useStore();
+  const { clearAll, checkins, completedLessonIds } = useStore();
   const { user: authUser, signOut, updateAvatar } = useAuth();
   const [confirm, setConfirm] = useState<null | 'logout' | 'delete'>(null);
   const [uploading, setUploading] = useState(false);
 
   const displayName = authUser?.name?.trim() || authUser?.email?.split('@')[0] || 'there';
   const avatarUri = authUser?.avatarUrl ?? user.avatar;
+
+  const isPremium = authUser?.subscribed || authUser?.stripeActive || false;
+  // Days count: prefer the server-side sobriety counter, fall back to local streak.
+  const daysCount = authUser?.daysCount ?? computeStreak(checkins.map((c) => c.date));
+
+  const STATS: { label: string; value: string; route: string }[] = [
+    { label: 'Lessons done', value: String(completedLessonIds.length), route: '/lessons' },
+    { label: 'Day streak',   value: String(computeStreak(checkins.map((c) => c.date))), route: '/checkin' },
+    { label: 'Days count',   value: daysCount != null ? String(daysCount) : '—', route: '/checkin' },
+  ];
 
   const pickImage = () => {
     if (Platform.OS === 'web') {
@@ -84,6 +109,9 @@ export default function ProfileScreen() {
         <View style={styles.profileCard}>
           <Image source={{ uri: avatarUri }} style={styles.avatar} />
           <Txt variant="title">{displayName}</Txt>
+          {authUser?.userHandle ? (
+            <Txt variant="bodySm" color={Colors.primary}>@{authUser.userHandle}</Txt>
+          ) : null}
           <Txt variant="bodySm" color={Colors.textSub}>
             {authUser?.email ?? ''}
           </Txt>
@@ -112,17 +140,19 @@ export default function ProfileScreen() {
         </Card>
 
         <Pressable onPress={() => router.push('/settings/premium')}>
-          <View style={styles.premium}>
+          <View style={[styles.premium, isPremium && styles.premiumActive]}>
             <Ionicons name="diamond" size={24} color={Colors.white} />
             <View style={{ flex: 1 }}>
               <Txt variant="bodySmBold" color={Colors.white}>
-                Get SPARx Premium
+                {isPremium ? 'SPARx Premium — Active' : 'Get SPARx Premium'}
               </Txt>
               <Txt variant="caption" color="rgba(255,255,255,0.85)">
-                Unlock every workshop, report and 1:1 session
+                {isPremium
+                  ? authUser?.advancedCoaching ? 'Advanced coaching included' : 'All workshops and reports unlocked'
+                  : 'Unlock every workshop, report and 1:1 session'}
               </Txt>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={Colors.white} />
+            <Ionicons name={isPremium ? 'checkmark-circle' : 'chevron-forward'} size={20} color={Colors.white} />
           </View>
         </Pressable>
 
@@ -196,6 +226,7 @@ const styles = StyleSheet.create({
   stat: { flex: 1, alignItems: 'center', gap: 2 },
   statDivider: { borderRightWidth: 1, borderRightColor: Colors.stroke },
   premium: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, backgroundColor: Colors.orange, borderRadius: Radius.lg, padding: Spacing.lg },
+  premiumActive: { backgroundColor: Colors.primary },
   group: { marginTop: Spacing.md, marginLeft: Spacing.xs, letterSpacing: 1 },
   list: { overflow: 'hidden' },
   backdrop: { flex: 1, backgroundColor: Colors.overlay },

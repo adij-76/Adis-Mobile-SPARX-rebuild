@@ -46,11 +46,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<AuthSession | null>(null);
 
   /** Apply a session: point the data layer at its token, enrich the user with
-   *  their production id, persist, and flip to authed. */
+   *  their production id + all personalisation fields, persist, flip to authed. */
   const apply = useCallback(async (s: AuthSession) => {
     setSupabaseToken(s.accessToken);
     const me = await api.auth.me(s.user.email).catch(() => null);
-    const user: AuthUser = me ? { ...s.user, appUserId: me.appUserId, name: s.user.name ?? me.name } : s.user;
+    const user: AuthUser = me
+      ? {
+          ...s.user,
+          appUserId: me.appUserId,
+          // GoTrue user_metadata has precedence for name/avatar (most recently
+          // updated by the user); fall back to what the production DB row has.
+          name: s.user.name ?? me.name,
+          avatarUrl: s.user.avatarUrl ?? me.avatar,
+          programId: me.programId,
+          subscribed: me.subscribed,
+          stripeActive: me.stripeActive,
+          advancedCoaching: me.advancedCoaching,
+          addictionLabel: me.addictionLabel,
+          daysCount: me.daysCount,
+          daysUpdatedAt: me.daysUpdatedAt,
+          userHandle: me.userHandle,
+          timeZone: me.timeZone,
+          teamId: me.teamId,
+          zoomEmail: me.zoomEmail,
+        }
+      : s.user;
     const enriched: AuthSession = { ...s, user };
     await persist(enriched);
     setSession(enriched);

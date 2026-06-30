@@ -23,6 +23,7 @@ import type {
   ContentApi,
   InsightsApi,
   Lesson,
+  MeResult,
   MeetingsApi,
   Module,
   Program,
@@ -91,7 +92,24 @@ const nameFromEmail = (email: string) =>
 
 function mockSession(email: string): AuthSession {
   return {
-    user: { id: `mock-${email}`, email, name: nameFromEmail(email), avatarUrl: null, appUserId: `mock-${email}` },
+    user: {
+      id: `mock-${email}`,
+      email,
+      name: nameFromEmail(email),
+      avatarUrl: null,
+      appUserId: `mock-${email}`,
+      programId: null,
+      subscribed: false,
+      stripeActive: false,
+      advancedCoaching: false,
+      addictionLabel: null,
+      daysCount: null,
+      daysUpdatedAt: null,
+      userHandle: null,
+      timeZone: null,
+      teamId: null,
+      zoomEmail: null,
+    },
     accessToken: 'mock-access-token',
     refreshToken: 'mock-refresh-token',
   };
@@ -105,7 +123,23 @@ export const mockAuth: AuthApi = {
     password ? delay(mockSession(email)) : Promise.reject(new Error('Enter a password')),
   refresh: (_refreshToken) => delay(mockSession('okeijoseph@sparx.app')),
   signOut: () => delay(undefined),
-  me: (email) => delay({ appUserId: `mock-${email}`, name: nameFromEmail(email) }),
+  me: (email): Promise<MeResult> =>
+    delay({
+      appUserId: `mock-${email}`,
+      name: nameFromEmail(email),
+      avatar: null,
+      programId: null,
+      subscribed: false,
+      stripeActive: false,
+      advancedCoaching: false,
+      addictionLabel: null,
+      daysCount: null,
+      daysUpdatedAt: null,
+      userHandle: null,
+      timeZone: null,
+      teamId: null,
+      zoomEmail: null,
+    }),
   // OAuth + Storage need a real backend; the mock just keeps the picked image locally.
   oauthUrl: () => '',
   sessionFromTokens: (accessToken, refreshToken) =>
