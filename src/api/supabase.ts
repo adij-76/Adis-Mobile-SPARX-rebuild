@@ -61,6 +61,11 @@ type SnippetRow = {
   ai_generated: boolean;
 };
 
+/** Fall back to constructing a Vimeo watch URL from the numeric id when the
+ *  url column is empty, so videos with only a vimeo_id still play. */
+const vimeoUrlFrom = (url: string | null, id: number | null): string | null =>
+  url || (id != null ? `https://vimeo.com/${id}` : null);
+
 const toLesson = (r: LessonRow): Lesson => ({
   id: String(r.id),
   moduleId: String(r.portion_id),
@@ -68,7 +73,7 @@ const toLesson = (r: LessonRow): Lesson => ({
   navTitle: r.nav_title,
   position: r.position,
   description: r.description,
-  vimeoUrl: r.vimeo_url,
+  vimeoUrl: vimeoUrlFrom(r.vimeo_url, r.vimeo_id),
   vimeoId: r.vimeo_id,
   lessonType: r.lesson_type,
   worksheetUrl: r.worksheet_url,
@@ -123,7 +128,7 @@ export const supabaseContent: ContentApi = {
           // The shown description is the AI summary.
           description: r.summary,
           lengthSeconds: r.length_seconds,
-          vimeoUrl: r.vimeo_url,
+          vimeoUrl: vimeoUrlFrom(r.vimeo_url, r.vimeo_id),
           vimeoId: r.vimeo_id,
           aiGenerated: r.ai_generated,
         }) satisfies Snippet,

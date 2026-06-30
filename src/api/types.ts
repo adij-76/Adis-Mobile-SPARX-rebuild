@@ -22,7 +22,7 @@ export type Lesson = {
   navTitle: string;
   position: number;
   description: string;
-  vimeoUrl: string;
+  vimeoUrl: string | null;
   vimeoId: number | null;
   lessonType: LessonType;
   worksheetUrl: string | null;
