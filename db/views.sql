@@ -124,7 +124,9 @@ create view mobile_me as
          u.team_id,
          u.zoom_email
   from public.users u
-  left join public.addictions a on a.id = u.addiction
+  -- users.addiction stores the addictions ENUM_ID (0=Alcohol, 1=Cannabis, …),
+  -- NOT the primary key, so we join on enum_id to resolve the title.
+  left join public.addictions a on a.enum_id = u.addiction
   where lower(u.email) = lower(auth.jwt() ->> 'email');   -- self-scope, no RLS needed
 
 grant select on mobile_me to authenticated;

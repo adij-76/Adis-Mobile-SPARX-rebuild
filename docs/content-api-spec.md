@@ -117,9 +117,9 @@ lives on the production `users` row. Map them by email with a `mobile_me` view:
 -- One row for the signed-in user; RLS limits it to their own email.
 -- Exposes identity, avatar, subscription state, addiction label, days counter,
 -- and scheduling / coaching fields used for UX personalisation.
--- NOTE: public.users.addiction is an integer FK to public.addictions.id.
---       We JOIN to return the human-readable title (e.g. "Alcohol") so the
---       app can personalise the check-in question without extra lookups.
+-- NOTE: public.users.addiction stores the addictions ENUM_ID (0=Alcohol,
+--       1=Cannabis, …) — NOT the primary key — so we JOIN on enum_id to return
+--       the human-readable title (e.g. "Alcohol") for check-in personalisation.
 create or replace view mobile_me as
   select u.id                                                        as app_user_id,
          u.first_name                                                as name,
@@ -138,7 +138,7 @@ create or replace view mobile_me as
          u.team_id,
          u.zoom_email
   from public.users u
-  left join public.addictions a on a.id = u.addiction;
+  left join public.addictions a on a.enum_id = u.addiction;
 
 alter view mobile_me set (security_invoker = on);   -- run as the caller
 alter table public.users enable row level security;
