@@ -223,32 +223,32 @@ create policy "users manage their avatar" on storage.objects
 ```
 
 ## Step 2 — per-user enrichment + RLS (after auth lands)
-Once Supabase Auth maps to the production `users` row (store `users.id` in the
-JWT, e.g. `auth.jwt() ->> 'app_user_id'`), enrich `mobile_lessons`:
+The GoTrue JWT carries only `email` (no production `users.id`), so per-user views
+resolve the caller by **email→users.id** rather than relying on a custom
+`app_user_id` claim — no auth hook to configure. This is already wired in
+`db/mobile-layer.sql` for `mobile_lessons` (progress / rating / favorite) and
+`mobile_wheel_scores`. Pattern:
 ```sql
--- progress, rating, favorite for the current user
-left join completed_lessons cl
-  on cl.lesson_id = l.id and cl.user_id = (auth.jwt() ->> 'app_user_id')::int
-left join lesson_ratings lr
-  on lr.lesson_id = l.id and lr.user_id = (auth.jwt() ->> 'app_user_id')::int
--- favorite via favorites (favoritable_type='Lesson')
+-- progress, rating, favorite for the current user, keyed off their JWT email.
+left join lateral (
+  select id from public.users
+  where lower(email) = lower(auth.jwt() ->> 'email') limit 1
+) me on true
+left join completed_lessons cl on cl.lesson_id = l.id and cl.user_id = me.id
+left join lesson_ratings   lr on lr.lesson_id = l.id and lr.user_id = me.id
+left join favorites       fav on fav.favoritable_type = 'Lesson'
+                              and fav.favoritable_id = l.id and fav.user_id = me.id
+-- progress = cl.progress_value, rating = lr.rating, favorite = fav.id is not null
 ```
-And gate the catalog to the user's program/subscription role (mirrors Rails
-`program_links` + `subscription_role_workshops`):
-```sql
-alter table lessons enable row level security;
-create policy mobile_lessons_access on lessons for select to authenticated
-using (
-  exists (
-    select 1 from program_links pl
-    join users u on u.program = pl.program_id
-    where pl.lesson_id = lessons.id
-      and u.id = (auth.jwt() ->> 'app_user_id')::int
-  )
-);
-```
-*(Audit gating parity against the Rails controllers before exposing — this is the
-one area to get exactly right.)*
+For anon browse the email is null → `me` is empty → personal columns are NULL.
+A user can only ever match their own rows (the join is keyed off their JWT email),
+so these stay security-definer views with no per-table RLS needed.
+
+Catalog **gating** to the user's program / subscription role (mirrors Rails
+`program_links` + `subscription_role_lessons` / `subscription_role_workshops`) is
+the next batch — pull those tables' columns before writing the policy, and audit
+parity against the Rails controllers before exposing (this is the one area to get
+exactly right).
 
 ## Wheel of Life history (Monthly / Annual trend views)
 The wheel screen's Monthly + Annual selectors read the trailing 12 months of the
@@ -256,28 +256,27 @@ user's **overall** wheel score. Until this view exists the app synthesises the
 older months from the live `current`/`last` averages; once it's live the adapter
 (`supabaseInsights.wheelHistory`) reads real history.
 
-This is per-user data, so it ships **with auth/RLS** (Step 2), not in the anon
+This is per-user data, so it ships **with auth** (Step 2), not in the anon
 catalog. Shape returned: `WheelPoint {key,label,year,score}` (see `src/api/types.ts`).
+Real source table: **`wheel_of_life_scores`** (`user_id, life_area_id, score,
+created_at`) — one overall score per month = average across the user's life areas,
+email-scoped (see `db/mobile-layer.sql §3`):
 
 ```sql
--- One row per month: the user's average score across all wheel areas.
--- Assumes a wheel_scores table (user_id, area, score, recorded_at). Adjust the
--- source table/columns to match the imported schema.
 create or replace view mobile_wheel_scores as
-  select to_char(date_trunc('month', ws.recorded_at), 'YYYY-MM') as month_key,
-         to_char(date_trunc('month', ws.recorded_at), 'Mon')     as label,
-         extract(year from ws.recorded_at)::int                  as year,
-         round(avg(ws.score))::int                               as score,
-         ws.user_id
-  from wheel_scores ws
-  group by 1, 2, 3, ws.user_id;
-
-alter table wheel_scores enable row level security;
-create policy mobile_wheel_scores_self on wheel_scores for select to authenticated
-using (user_id = (auth.jwt() ->> 'app_user_id')::int);
+  select to_char(date_trunc('month', ws.created_at), 'YYYY-MM') as month_key,
+         to_char(date_trunc('month', ws.created_at), 'Mon')     as label,
+         extract(year from ws.created_at)::int                  as year,
+         round(avg(ws.score))::int                              as score
+  from public.wheel_of_life_scores ws
+  join public.users u on u.id = ws.user_id
+  where lower(u.email) = lower(auth.jwt() ->> 'email')
+  group by 1, 2, 3;
 ```
-The adapter requests `?order=month_key.asc&limit=12`, so RLS returns only the
-signed-in user's last 12 months.
+The adapter requests `?order=month_key.desc&limit=12` then reverses, so it gets
+the signed-in user's last 12 months oldest→newest. **Scale check** before trusting
+the chart: `select min(score), max(score) from public.wheel_of_life_scores;` — if
+1-10, wrap `avg(ws.score)` with `* 10` (the app chart is 0-100).
 
 > If production has no per-month wheel history yet, populate `wheel_scores` from a
 > monthly snapshot job (or backfill from existing assessment submissions). The app

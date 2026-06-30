@@ -41,6 +41,13 @@ create or replace view mobile_modules as
 
 -- Each lesson/workshop's Vimeo video lives in the polymorphic `vimeos` table
 -- (vimeoable_type='Lesson'), not on `lessons`, so we lateral-join the newest one.
+--
+-- PER-USER ENRICHMENT (progress / rating / favorite): the GoTrue JWT carries
+-- only `email`, not the production users.id, so we resolve the caller to their
+-- users row by email (same pattern as mobile_me) and LEFT JOIN their personal
+-- rows. For anon browse auth.jwt()->>'email' is null → `me` is empty → the
+-- joins yield NULL (catalog with no personal data). A signed-in user can only
+-- ever match their own rows because the join is keyed off their JWT email.
 drop view if exists mobile_lessons;
 create view mobile_lessons as
   select l.id,
@@ -53,7 +60,10 @@ create view mobile_lessons as
          coalesce(v.vimeo_id::text, l.vimeo_id::text) as vimeo_id,
          case l.lesson_type when 1 then 'workshop' else 'lesson' end as lesson_type,
          l.worksheet_explanation_url as worksheet_url,
-         null::text as thumbnail            -- client derives it from Vimeo oEmbed
+         null::text     as thumbnail,       -- client derives it from Vimeo oEmbed
+         cl.progress_value as progress,     -- 0-100 watch progress (completed_lessons)
+         lr.rating         as rating,       -- the user's star rating (lesson_ratings)
+         (fav.id is not null) as favorite   -- favorited by this user (favorites)
   from lessons l
   left join lateral (
     select url, vimeo_id
@@ -61,7 +71,17 @@ create view mobile_lessons as
     where vimeoable_type = 'Lesson' and vimeoable_id = l.id
     order by updated_at desc nulls last
     limit 1
-  ) v on true;
+  ) v on true
+  left join lateral (
+    select id from public.users
+    where lower(email) = lower(auth.jwt() ->> 'email')
+    limit 1
+  ) me on true
+  left join completed_lessons cl on cl.lesson_id = l.id and cl.user_id = me.id
+  left join lesson_ratings   lr on lr.lesson_id = l.id and lr.user_id = me.id
+  left join favorites       fav on fav.favoritable_type = 'Lesson'
+                                and fav.favoritable_id = l.id
+                                and fav.user_id = me.id;
 
 create or replace view mobile_snippets as
   select id,
@@ -121,29 +141,31 @@ create policy users_self on public.users for select to authenticated
 
 -- -----------------------------------------------------------------------------
 -- 3. mobile_wheel_scores — trailing monthly wheel-of-life averages (per user).
---    Guarded: only created if a wheel_scores table exists in this import.
+--    Source: public.wheel_of_life_scores (user_id, life_area_id, score, created_at).
+--    One overall score per month = average across the user's life areas. Scoped
+--    by email→users.id (same as mobile_lessons), so it returns only the caller's
+--    months — no app_user_id JWT claim and no per-table RLS required.
+--
+--    SCALE NOTE: the app's wheel chart is 0-100. This averages the raw `score`.
+--    If raw scores are 1-10, wrap avg() with `* 10`. Confirm with:
+--        select min(score), max(score) from public.wheel_of_life_scores;
 -- -----------------------------------------------------------------------------
 
 do $$
 begin
-  if to_regclass('public.wheel_scores') is not null then
+  if to_regclass('public.wheel_of_life_scores') is not null then
     execute $v$
       create or replace view mobile_wheel_scores as
-        select to_char(date_trunc('month', ws.recorded_at), 'YYYY-MM') as month_key,
-               to_char(date_trunc('month', ws.recorded_at), 'Mon')     as label,
-               extract(year from ws.recorded_at)::int                  as year,
-               round(avg(ws.score))::int                               as score,
-               ws.user_id
-        from wheel_scores ws
-        group by 1, 2, 3, ws.user_id
+        select to_char(date_trunc('month', ws.created_at), 'YYYY-MM') as month_key,
+               to_char(date_trunc('month', ws.created_at), 'Mon')     as label,
+               extract(year from ws.created_at)::int                  as year,
+               round(avg(ws.score))::int                              as score
+        from public.wheel_of_life_scores ws
+        join public.users u on u.id = ws.user_id
+        where lower(u.email) = lower(auth.jwt() ->> 'email')
+        group by 1, 2, 3
     $v$;
     execute 'grant select on mobile_wheel_scores to authenticated';
-    execute 'alter table wheel_scores enable row level security';
-    execute 'drop policy if exists mobile_wheel_scores_self on wheel_scores';
-    execute $p$
-      create policy mobile_wheel_scores_self on wheel_scores for select to authenticated
-        using (user_id = (auth.jwt() ->> 'app_user_id')::int)
-    $p$;
   end if;
 end $$;
 
