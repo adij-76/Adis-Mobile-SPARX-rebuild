@@ -381,8 +381,11 @@ function Acknowledgement({ result, onDone }: { result: CheckinResult; onDone: ()
               You&apos;re maxing your streak bonus. Incredible consistency. 🌟
             </Txt>
           )}
+
+          <View style={styles.ackButtonWrap}>
+            <Button title="Continue" variant="white" onPress={onDone} />
+          </View>
         </View>
-        <Button title="Continue" variant="white" onPress={onDone} />
       </SafeAreaView>
     </View>
   );
@@ -656,6 +659,7 @@ const styles = StyleSheet.create({
   },
   reward: { alignItems: 'center' },
   rewardDivider: { width: 1, height: 40, backgroundColor: 'rgba(255,255,255,0.2)' },
+  ackButtonWrap: { marginTop: Spacing.xxl, width: '100%', maxWidth: 280, alignSelf: 'center' },
   // check-in summary
   summaryBody: { padding: Spacing.lg, gap: Spacing.lg },
   summaryCard: {
