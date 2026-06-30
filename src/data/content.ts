@@ -1,5 +1,5 @@
 /**
- * Mock content for the IGNTD app screens. In a real build this would come
+ * Mock content for the SPARx app screens. In a real build this would come
  * from an API; it's centralized here so screens stay declarative.
  */
 
@@ -175,11 +175,11 @@ export type VideoItem = {
   presenter: string;
   views: string;
   description: string;
-  /** Vimeo URL the player opens. Placeholder IDs — swap for real IGNTD videos. */
+  /** Vimeo URL the player opens. Placeholder IDs — swap for real SPARx videos. */
   vimeoUrl?: string;
 };
 
-/** Demo Vimeo video used by mock players until real IGNTD video IDs are wired in. */
+/** Demo Vimeo video used by mock players until real SPARx video IDs are wired in. */
 export const DEMO_VIDEO_URL = 'https://vimeo.com/76979871';
 
 export const recommendedVideos: VideoItem[] = [
@@ -340,7 +340,7 @@ export const challenges: Challenge[] = [
 /* My Data — Wheel of Life, Daily Assessment, Leaderboard             */
 /* ------------------------------------------------------------------ */
 
-/** Wheel of Life categories (from the IGNTD design). Each has two
+/** Wheel of Life categories (from the SPARx design). Each has two
  *  sub-dimensions scored 0–100; the category score is their average. */
 export type WheelArea = {
   id: string;
@@ -353,7 +353,7 @@ export type WheelArea = {
   current: number; // current month's score (0-100)
 };
 
-/** The 10 IGNTD Wheel of Life areas (matches the v_wol data in the n8n flow). */
+/** The 10 SPARx Wheel of Life areas (matches the v_wol data in the n8n flow). */
 export const wheelAreas: WheelArea[] = [
   { id: 'purpose', label: 'Purpose', short: 'Purpose', icon: 'compass', color: '#7A5AF8',
     prompt: 'How aligned do you feel with what matters to you?', last: 55, current: 68 },

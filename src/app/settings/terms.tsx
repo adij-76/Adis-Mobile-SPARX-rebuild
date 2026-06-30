@@ -8,11 +8,11 @@ export default function Terms() {
       sections={[
         {
           heading: 'Acceptance',
-          body: 'By using IGNTD you agree to these terms. If you do not agree, please discontinue use of the app.',
+          body: 'By using SPARx you agree to these terms. If you do not agree, please discontinue use of the app.',
         },
         {
           heading: 'Not medical advice',
-          body: 'IGNTD provides educational and coaching content for wellbeing. It is not a substitute for professional medical or mental-health treatment. If you are in crisis, contact your local emergency services.',
+          body: 'SPARx provides educational and coaching content for wellbeing. It is not a substitute for professional medical or mental-health treatment. If you are in crisis, contact your local emergency services.',
         },
         {
           heading: 'Your account',

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "IGNTD",
+    "name": "SPARx",
     "slug": "igntd-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -31,7 +31,7 @@
       [
         "expo-media-library",
         {
-          "savePhotosPermission": "Allow IGNTD to save quote cards to your photos.",
+          "savePhotosPermission": "Allow SPARx to save quote cards to your photos.",
           "isAccessMediaLocationEnabled": false
         }
       ],

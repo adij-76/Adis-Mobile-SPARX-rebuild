@@ -56,7 +56,7 @@ export default function WheelOfLife() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScreenHeader title="Back" largeTitle="IGNTD Wheel of Life" />
+      <ScreenHeader title="Back" largeTitle="SPARx Wheel of Life" />
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         <Card style={{ alignItems: 'center', paddingVertical: Spacing.xl }}>
           <WheelChart data={scored} size={320} />
@@ -97,7 +97,7 @@ export default function WheelOfLife() {
           ))}
         </Card>
 
-        <Txt variant="titleSm">IGNTD Life scores</Txt>
+        <Txt variant="titleSm">SPARx Life scores</Txt>
         <InsightCard title="Best Performing" item={best.label} color={best.color} />
         <InsightCard title="Most support needed" item={worst.label} color={worst.color} />
         <InsightCard title="Most Improved" item={improved.label} color={improved.color} />

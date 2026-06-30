@@ -34,7 +34,7 @@ export default function Premium() {
           <LinearGradient colors={['#FF9D4B', '#FFB879']} style={styles.hero}>
             <Ionicons name="diamond" size={40} color={Colors.white} />
             <Txt variant="titleLg" color={Colors.white} center>
-              IGNTD Premium
+              SPARx Premium
             </Txt>
             <Txt variant="bodySm" color="rgba(255,255,255,0.9)" center>
               Everything you need for your recovery journey, in one place.

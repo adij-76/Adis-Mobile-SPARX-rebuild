@@ -14,12 +14,12 @@ const STEPS: Record<OS, { icon: keyof typeof Ionicons.glyphMap; text: string }[]
   ios: [
     { icon: 'share-outline', text: 'Open this app in Safari, then tap the Share button at the bottom.' },
     { icon: 'add-circle-outline', text: 'Scroll down and tap “Add to Home Screen”.' },
-    { icon: 'checkmark-circle-outline', text: 'Tap “Add”. The IGNTD icon will appear on your home screen.' },
+    { icon: 'checkmark-circle-outline', text: 'Tap “Add”. The SPARx icon will appear on your home screen.' },
   ],
   android: [
     { icon: 'ellipsis-vertical', text: 'Open this app in Chrome, then tap the ⋮ menu.' },
     { icon: 'add-circle-outline', text: 'Tap “Install app” or “Add to Home screen”.' },
-    { icon: 'checkmark-circle-outline', text: 'Confirm. IGNTD installs like a native app.' },
+    { icon: 'checkmark-circle-outline', text: 'Confirm. SPARx installs like a native app.' },
   ],
 };
 
@@ -36,7 +36,7 @@ export default function PwaInstall() {
             </Txt>
           </View>
           <Txt variant="body" color={Colors.textSub} center>
-            Install IGNTD to your home screen for faster access, offline support and a full-screen
+            Install SPARx to your home screen for faster access, offline support and a full-screen
             experience.
           </Txt>
         </View>

@@ -39,7 +39,7 @@ export default function BookMeeting() {
       time: `${d?.d} ${d?.n} July · ${slot}`,
       date: `${d?.d} ${d?.n} July, 2024`,
       title: isPaid ? '1:1 Coaching session' : 'Group coaching session',
-      host: 'IGNTD Coach',
+      host: 'SPARx Coach',
       status: 'upcoming',
       description:
         "Your booked session. You'll get a Zoom link and a reminder before it starts.",

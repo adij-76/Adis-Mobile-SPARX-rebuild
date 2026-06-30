@@ -9,7 +9,7 @@ import { Colors, Spacing } from '@/constants/theme';
 
 const FAQS = [
   {
-    q: 'What is the IGNTD Hero Program?',
+    q: 'What is the SPARx Hero Program?',
     a: 'It is our flagship guided program that combines workshops, daily check-ins, and coaching to help you build a healthier relationship with yourself and others.',
   },
   {
