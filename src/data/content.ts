@@ -242,33 +242,6 @@ export const quotes: Quote[] = [
   { id: 'q15', text: 'Every moment is a fresh beginning.', author: 'T.S. Eliot' },
 ];
 
-/**
- * Full-bleed backgrounds for the shareable quote cards. The first four echo
- * the design's dusk/nature palette; the rest are additional on-theme variants.
- * Cards cycle through these.
- */
-export const quoteBackgrounds: string[] = [
-  'https://images.unsplash.com/photo-1495616811223-4d98c6e9c869?w=900&q=70', // dusk palms
-  'https://images.unsplash.com/photo-1470770841072-f978cf4d019e?w=900&q=70', // misty lake
-  'https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?w=900&q=70', // purple sky
-  'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=900&q=70', // beach calm
-  'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=900&q=70', // forest
-  'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=900&q=70', // mountains sun
-  'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=900&q=70', // foggy peak
-  'https://images.unsplash.com/photo-1426604966848-d7adac402bff?w=900&q=70', // green valley
-  'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=900&q=70', // sunlit field
-  'https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?w=900&q=70', // forest path
-  'https://images.unsplash.com/photo-1500534623283-312aade485b7?w=900&q=70', // lake mountains
-  'https://images.unsplash.com/photo-1444465693019-aa0b6392460d?w=900&q=70', // ocean rocks
-  'https://images.unsplash.com/photo-1490750967868-88aa4486c946?w=900&q=70', // flowers field
-  'https://images.unsplash.com/photo-1454372182658-c712e4c5a1db?w=900&q=70', // starry mountain
-  'https://images.unsplash.com/photo-1475924156734-496f6c5e1fc1?w=900&q=70', // beach dusk
-  'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=900&q=70', // lake sunset
-  'https://images.unsplash.com/photo-1418065460487-3e41a6c84dc5?w=900&q=70', // golden hills
-  'https://images.unsplash.com/photo-1505765050516-f72dcac9c60e?w=900&q=70', // forest light
-  'https://images.unsplash.com/photo-1439066615861-d1af74d74000?w=900&q=70', // moody sea
-];
-
 export type WorkshopSummary = {
   id: string;
   title: string;
@@ -450,40 +423,6 @@ export function wheelHistory(current: number, last: number): WheelMonth[] {
   }
   return out;
 }
-
-export type AssessmentQuestion = {
-  id: string;
-  prompt: string;
-  options: string[];
-};
-
-export const dailyAssessment: AssessmentQuestion[] = [
-  {
-    id: 'mood',
-    prompt: 'How would you rate your overall mood today?',
-    options: ['Great', 'Good', 'Okay', 'Low', 'Struggling'],
-  },
-  {
-    id: 'cravings',
-    prompt: 'Did you experience any cravings or urges today?',
-    options: ['None at all', 'Mild', 'Moderate', 'Strong', 'Overwhelming'],
-  },
-  {
-    id: 'sleep',
-    prompt: 'How well did you sleep last night?',
-    options: ['Very well', 'Well', 'Average', 'Poorly', 'Barely slept'],
-  },
-  {
-    id: 'connection',
-    prompt: 'Did you connect with someone supportive today?',
-    options: ['Yes, meaningfully', 'Briefly', 'Not yet', 'I felt isolated'],
-  },
-  {
-    id: 'gratitude',
-    prompt: 'Were you able to notice something you’re grateful for?',
-    options: ['Several things', 'One thing', 'Not really', 'It was a hard day'],
-  },
-];
 
 export type LeaderboardEntry = {
   id: string;
