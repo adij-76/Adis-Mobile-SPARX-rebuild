@@ -37,7 +37,8 @@ function SnippetCard({ snippet, onPlay }: { snippet: Snippet; onPlay: (v: Sparky
 
   const dur = formatLength(snippet.lengthSeconds);
   const description = hasRealDescription(snippet.description) ? snippet.description : null;
-  const title = meta?.title ?? description ?? 'Untitled video';
+  // Prefer the real DB title; fall back to the Vimeo oEmbed title, then description.
+  const title = snippet.title ?? meta?.title ?? description ?? 'Untitled video';
 
   return (
     <Pressable

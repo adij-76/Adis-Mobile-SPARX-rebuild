@@ -39,7 +39,8 @@ export type Workshop = Lesson;
 export type Snippet = {
   id: string;
   lessonId: string | null;
-  description: string;
+  title: string | null;
+  description: string | null;
   lengthSeconds: number | null;
   vimeoUrl: string | null;
   vimeoId: number | null;

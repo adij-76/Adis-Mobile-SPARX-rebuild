@@ -52,7 +52,8 @@ type LessonRow = {
 type SnippetRow = {
   id: number | string;
   lesson_id: number | string | null;
-  description: string;
+  title: string | null;
+  description: string | null;
   length_seconds: number | null;
   vimeo_url: string | null;
   vimeo_id: number | null;
@@ -112,6 +113,7 @@ export const supabaseContent: ContentApi = {
         ({
           id: String(r.id),
           lessonId: r.lesson_id != null ? String(r.lesson_id) : null,
+          title: r.title,
           description: r.description,
           lengthSeconds: r.length_seconds,
           vimeoUrl: r.vimeo_url,
