@@ -10,6 +10,8 @@ import { api } from '@/api';
 import { Txt } from '@/components/ui/text';
 import { Colors, FontFamily, Spacing } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
+import { backgroundIndexFor, recommendQuote } from '@/lib/quote-pick';
+import { useStore } from '@/lib/store';
 
 // Bundled backgrounds (from the design) — guaranteed to load, no network.
 const LOCAL_BACKGROUNDS = [
@@ -22,11 +24,13 @@ const LOCAL_BACKGROUNDS = [
 export default function QuoteCardScreen() {
   const router = useRouter();
   const shotRef = useRef<View>(null);
+  const { checkins } = useStore();
 
-  // Today's quote (the one featured on the dashboard).
+  // Recommend a quote from the user's most recent check-in, and pick a
+  // matching background so different quotes get different scenery.
   const quotes = useAsync(() => api.content.quotes(), []).data ?? [];
-  const quote = quotes[0];
-  const bg = LOCAL_BACKGROUNDS[0];
+  const quote = recommendQuote(quotes, checkins[0]);
+  const bg = LOCAL_BACKGROUNDS[quote ? backgroundIndexFor(quote.id, LOCAL_BACKGROUNDS.length) : 0];
 
   const quoteText = quote ? `“${quote.text}” — ${quote.author}` : '';
 

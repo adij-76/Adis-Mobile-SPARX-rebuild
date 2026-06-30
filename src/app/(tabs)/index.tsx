@@ -26,13 +26,14 @@ import {
 } from '@/data/content';
 import { isDoneToday } from '@/lib/checkin';
 import { gradientFor } from '@/lib/gradient';
+import { recommendQuote } from '@/lib/quote-pick';
 import { useStore } from '@/lib/store';
 
 const TABS = ['Programs', 'Workshop', 'Challenges'] as const;
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { isFav, toggleFav, completedLessonIds } = useStore();
+  const { isFav, toggleFav, completedLessonIds, checkins } = useStore();
   const { isDesktop } = useBreakpoint();
   const [tab, setTab] = useState<(typeof TABS)[number]>('Programs');
   const [checklistOpen, setChecklistOpen] = useState(true);
@@ -61,6 +62,9 @@ export default function HomeScreen() {
   const challenges = useAsync(() => api.content.challenges(), []).data ?? [];
   const recommendedVideos = useAsync(() => api.content.recommendedVideos(), []).data ?? [];
   const upcomingMeetings = useAsync(() => api.meetings.upcoming(), []).data ?? [];
+  // Featured quote, recommended from the latest check-in (falls back to a default).
+  const quotes = useAsync(() => api.content.quotes(), []).data ?? [];
+  const featuredQuote = recommendQuote(quotes, checkins[0]) ?? dailyQuote;
 
   // Auto-present the daily check-in once per day when the app opens.
   const prompted = useRef(false);
@@ -92,10 +96,10 @@ export default function HomeScreen() {
         style={styles.quote}>
         <View style={{ flex: 1 }}>
           <Txt variant="bodySmMedium" color={Colors.white}>
-            “{dailyQuote.text}”
+            “{featuredQuote.text}”
           </Txt>
           <Txt variant="caption" color={Colors.textMutedOnDark} style={{ marginTop: Spacing.sm }}>
-            - {dailyQuote.author}
+            - {featuredQuote.author}
           </Txt>
         </View>
         <Ionicons name="chevron-forward" size={20} color={Colors.white} />
