@@ -1,0 +1,40 @@
+name: Backfill snippet summaries
+
+# Generates snippets.ai_summary from snippets.transcript with Claude.
+# Run it from the Actions tab → "Run workflow". No terminal needed.
+#
+# Requires (Settings → Secrets and variables → Actions):
+#   Variables tab: SUPABASE_URL        (already set)
+#   Secrets tab:   SUPABASE_SERVICE_KEY (the service_role / secret key)
+#                  ANTHROPIC_API_KEY    (your Anthropic key)
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'How many to process — 5 to test a few, "all" for everything'
+        required: true
+        default: '5'
+      concurrency:
+        description: 'Parallel LLM calls'
+        required: false
+        default: '5'
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Backfill ai_summary from transcripts
+        run: node scripts/backfill-snippet-summaries.mjs
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          LIMIT: ${{ inputs.limit }}
+          CONCURRENCY: ${{ inputs.concurrency }}
