@@ -101,9 +101,12 @@ grant select on mobile_programs, mobile_modules, mobile_lessons, mobile_snippets
 --    the personalisation fields the app reads after login. Filters internally on
 --    the caller's email, so it returns ONLY their row WITHOUT any base-table RLS.
 --    addiction is an integer FK → public.addictions; we JOIN to return its title.
+--    DROP+CREATE (not REPLACE): an earlier mobile_me exposed `addiction` as an
+--    integer, and CREATE OR REPLACE can't change a column's type or drop one.
 -- -----------------------------------------------------------------------------
 
-create or replace view mobile_me as
+drop view if exists mobile_me;
+create view mobile_me as
   select u.id                                          as app_user_id,
          u.first_name                                  as name,
          u.email,
@@ -140,8 +143,11 @@ grant select on mobile_me to authenticated;
 do $$
 begin
   if to_regclass('public.wheel_of_life_scores') is not null then
+    -- DROP+CREATE: an earlier mobile_wheel_scores had a user_id column we no
+    -- longer expose, and CREATE OR REPLACE can't drop a column.
+    execute 'drop view if exists mobile_wheel_scores';
     execute $v$
-      create or replace view mobile_wheel_scores as
+      create view mobile_wheel_scores as
         select to_char(date_trunc('month', ws.created_at), 'YYYY-MM') as month_key,
                to_char(date_trunc('month', ws.created_at), 'Mon')     as label,
                extract(year from ws.created_at)::int                  as year,
