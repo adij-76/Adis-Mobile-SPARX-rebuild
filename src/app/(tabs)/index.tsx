@@ -3,13 +3,14 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { api } from '@/api';
 import { AppHeader } from '@/components/app-header';
 import { Screen } from '@/components/layout/screen';
 import { useAsync } from '@/hooks/use-async';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
+import { useVimeoMeta } from '@/hooks/use-vimeo-meta';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ProgressBar } from '@/components/ui/progress-bar';
@@ -23,9 +24,7 @@ import {
   recommendedVideos,
   socials,
   upcomingMeetings,
-  workshops,
   type Challenge,
-  type WorkshopSummary,
 } from '@/data/content';
 import { isDoneToday } from '@/lib/checkin';
 import { useStore } from '@/lib/store';
@@ -56,6 +55,10 @@ export default function HomeScreen() {
     }
     return firstLesson ? { program: program.name, lessonId: firstLesson.id } : null;
   }, [completedLessonIds.length]);
+
+  // Live workshops for the Workshop tab (top few; "See all" opens the full list).
+  const workshopsQ = useAsync(() => api.content.workshops(), []);
+  const workshops = workshopsQ.data ?? [];
 
   // Auto-present the daily check-in once per day when the app opens.
   const prompted = useRef(false);
@@ -181,9 +184,27 @@ export default function HomeScreen() {
       {tab === 'Workshop' && (
         <>
           <SeeAllRow onPress={() => router.push('/workshop/list')} />
-          {workshops.map((w) => (
-            <WorkshopRow key={w.id} workshop={w} onPress={() => router.push('/workshop/intro')} />
-          ))}
+          {workshopsQ.loading ? (
+            <ActivityIndicator color={Colors.primary} style={{ marginVertical: Spacing.lg }} />
+          ) : workshops.length === 0 ? (
+            <Txt variant="bodySm" color={Colors.textSub} center style={{ marginVertical: Spacing.lg }}>
+              No workshops available yet.
+            </Txt>
+          ) : (
+            workshops.slice(0, 4).map((w) => (
+              <WorkshopRow
+                key={w.id}
+                workshop={{
+                  id: w.id,
+                  title: w.title || w.navTitle,
+                  image: w.thumbnail,
+                  rating: w.rating,
+                  vimeoUrl: w.vimeoUrl,
+                }}
+                onPress={() => router.push(`/lesson/${w.id}`)}
+              />
+            ))
+          )}
         </>
       )}
 
@@ -325,22 +346,36 @@ function SeeAllRow({ onPress }: { onPress: () => void }) {
   );
 }
 
-function WorkshopRow({ workshop, onPress }: { workshop: WorkshopSummary; onPress: () => void }) {
+type WorkshopRowItem = {
+  id: string;
+  title: string;
+  image?: string | null;
+  rating?: number;
+  vimeoUrl?: string | null;
+};
+
+function WorkshopRow({ workshop, onPress }: { workshop: WorkshopRowItem; onPress: () => void }) {
+  const meta = useVimeoMeta(workshop.image ? null : workshop.vimeoUrl ?? null);
+  const image = workshop.image || meta?.thumbnail || null;
+  const rating = workshop.rating ?? 5;
   return (
     <Pressable style={styles.wRow} onPress={onPress}>
-      <Image source={{ uri: workshop.image }} style={styles.wThumb} />
+      {image ? (
+        <Image source={{ uri: image }} style={styles.wThumb} />
+      ) : (
+        <View style={[styles.wThumb, styles.wThumbEmpty]}>
+          <Ionicons name="easel-outline" size={22} color={Colors.strokeStrong} />
+        </View>
+      )}
       <View style={{ flex: 1, gap: 2 }}>
         <Txt variant="bodySmBold" numberOfLines={2}>
           {workshop.title}
-        </Txt>
-        <Txt variant="caption" color={Colors.textSub}>
-          {workshop.author}
         </Txt>
         <View style={styles.stars}>
           {[0, 1, 2, 3, 4].map((i) => (
             <Ionicons
               key={i}
-              name={i < workshop.rating ? 'star' : 'star-outline'}
+              name={i < rating ? 'star' : 'star-outline'}
               size={12}
               color={Colors.orange}
             />
@@ -620,6 +655,7 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
   },
   wThumb: { width: 84, height: 64, borderRadius: Radius.sm, backgroundColor: Colors.soft },
+  wThumbEmpty: { alignItems: 'center', justifyContent: 'center' },
   stars: { flexDirection: 'row', gap: 1, marginTop: 2 },
   challengeHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   challengeIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
