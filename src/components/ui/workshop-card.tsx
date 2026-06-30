@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, View, type GestureResponderEvent } from 'react-native';
 
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useVimeoMeta } from '@/hooks/use-vimeo-meta';
+import { gradientFor } from '@/lib/gradient';
 import { useStore } from '@/lib/store';
 
 /** Minimal shape the card needs — satisfied by both the static `WorkshopSummary`
@@ -44,7 +46,15 @@ export function WorkshopCard({ item, onPress }: WorkshopCardProps) {
         {image ? (
           <Image source={{ uri: image }} style={styles.fill} contentFit="cover" />
         ) : (
-          <Ionicons name="easel-outline" size={34} color={Colors.strokeStrong} />
+          <>
+            <LinearGradient
+              colors={gradientFor(item.id)}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.fill}
+            />
+            <Ionicons name="easel" size={36} color="rgba(255,255,255,0.92)" />
+          </>
         )}
       </View>
       <View style={styles.body}>

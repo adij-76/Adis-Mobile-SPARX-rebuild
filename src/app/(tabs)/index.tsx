@@ -25,6 +25,7 @@ import {
   type Meeting,
 } from '@/data/content';
 import { isDoneToday } from '@/lib/checkin';
+import { gradientFor } from '@/lib/gradient';
 import { useStore } from '@/lib/store';
 
 const TABS = ['Programs', 'Workshop', 'Challenges'] as const;
@@ -367,7 +368,13 @@ function WorkshopRow({ workshop, onPress }: { workshop: WorkshopRowItem; onPress
         <Image source={{ uri: image }} style={styles.wThumb} />
       ) : (
         <View style={[styles.wThumb, styles.wThumbEmpty]}>
-          <Ionicons name="easel-outline" size={22} color={Colors.strokeStrong} />
+          <LinearGradient
+            colors={gradientFor(workshop.id)}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          <Ionicons name="easel" size={22} color="rgba(255,255,255,0.92)" />
         </View>
       )}
       <View style={{ flex: 1, gap: 2 }}>
@@ -658,7 +665,7 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
   },
   wThumb: { width: 84, height: 64, borderRadius: Radius.sm, backgroundColor: Colors.soft },
-  wThumbEmpty: { alignItems: 'center', justifyContent: 'center' },
+  wThumbEmpty: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   stars: { flexDirection: 'row', gap: 1, marginTop: 2 },
   challengeHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   challengeIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
