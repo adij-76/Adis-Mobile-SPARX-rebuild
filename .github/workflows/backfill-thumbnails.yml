@@ -1,0 +1,51 @@
+name: Backfill lesson thumbnails
+
+# Populates lessons.thumbnail_url from the Vimeo API so workshops/lessons get
+# real thumbnails (the app falls back to a gradient when there's none). Run from
+# the Actions tab → "Run workflow". Re-running fills any remaining gaps.
+#
+# One-time DB prep (Supabase SQL editor):
+#   alter table lessons add column if not exists thumbnail_url text;
+#   -- then expose it in mobile_lessons: replace `null::text as thumbnail`
+#   -- with `thumbnail_url as thumbnail`.
+#
+# Requires (Settings → Secrets and variables → Actions):
+#   Variables tab: SUPABASE_URL        (already set)
+#   Secrets tab:   SUPABASE_SERVICE_KEY (the service_role / secret key)
+#                  VIMEO_ACCESS_TOKEN   (a Vimeo token with read scope)
+
+on:
+  workflow_dispatch:
+    inputs:
+      table:
+        description: 'Table to backfill (lessons or snippets)'
+        required: true
+        default: 'lessons'
+      limit:
+        description: 'How many to process — 5 to test a few, "all" for everything'
+        required: true
+        default: '5'
+      concurrency:
+        description: 'Parallel Vimeo calls'
+        required: false
+        default: '5'
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Backfill thumbnail_url from Vimeo
+        run: node scripts/backfill-lesson-thumbnails.mjs
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          VIMEO_ACCESS_TOKEN: ${{ secrets.VIMEO_ACCESS_TOKEN }}
+          TABLE: ${{ inputs.table }}
+          LIMIT: ${{ inputs.limit }}
+          CONCURRENCY: ${{ inputs.concurrency }}

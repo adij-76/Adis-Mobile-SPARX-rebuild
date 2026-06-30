@@ -38,7 +38,7 @@ create or replace view mobile_lessons as
          l.vimeo_id,
          case l.lesson_type when 1 then 'workshop' else 'lesson' end as lesson_type,
          l.worksheet_explanation_url as worksheet_url,
-         null::text as thumbnail            -- see note: derive from vimeos/ActiveStorage
+         l.thumbnail_url as thumbnail       -- populated by the thumbnails backfill (see note)
   from lessons l;
 
 -- NOTE: CREATE OR REPLACE VIEW can only append columns, never rename/reorder
@@ -82,11 +82,22 @@ Grant read to the API role and expose to PostgREST:
 grant select on mobile_programs, mobile_modules, mobile_lessons, mobile_snippets, mobile_quotes to anon, authenticated;
 ```
 
-> **thumbnail / presigned video**: `lessons` has no thumbnail column — Rails derives
-> it from `vimeos`/ActiveStorage. Either add a `thumbnail_url` column populated by a
-> job, or compute it in a later view join. Vimeo playback works now from
-> `vimeo_url`; S3 worksheet/video files need a presign **Edge Function** (port the
-> Rails `presigned_video_url`).
+> **thumbnail / presigned video**: `lessons` has no thumbnail column natively.
+> Add one and backfill it from the Vimeo API:
+> ```sql
+> alter table lessons add column if not exists thumbnail_url text;
+> -- the view already selects `l.thumbnail_url as thumbnail` (above)
+> ```
+> then run the **Backfill lesson thumbnails** Action (needs `VIMEO_ACCESS_TOKEN`)
+> — it fills `thumbnail_url` from each video's Vimeo pictures, which works even
+> for private/domain-restricted videos that the client-side oEmbed can't read.
+> Until then the client falls back to Vimeo oEmbed, then to a branded gradient.
+> S3 worksheet/video files still need a presign **Edge Function** (port the Rails
+> `presigned_video_url`).
+>
+> If workshop rows don't have a `vimeo_id`/`vimeo_url` at all (the reference lives
+> in a separate `vimeos` table), the view needs to join that table to surface
+> `vimeo_url`/`vimeo_id`/`thumbnail_url` before the backfill can find the videos.
 
 ## Step 2 — per-user enrichment + RLS (after auth lands)
 Once Supabase Auth maps to the production `users` row (store `users.id` in the
