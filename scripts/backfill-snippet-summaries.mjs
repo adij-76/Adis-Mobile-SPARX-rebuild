@@ -27,7 +27,9 @@ const BASE = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
 const SERVICE = process.env.SUPABASE_SERVICE_KEY || '';
 const ANTHROPIC = process.env.ANTHROPIC_API_KEY || '';
 const MODEL = process.env.MODEL || 'claude-haiku-4-5-20251001';
-const LIMIT = process.env.LIMIT ? parseInt(process.env.LIMIT, 10) : Infinity;
+// LIMIT: a number to cap how many to process; "0", "all", or empty means everything.
+const rawLimit = (process.env.LIMIT || '').trim().toLowerCase();
+const LIMIT = !rawLimit || rawLimit === '0' || rawLimit === 'all' ? Infinity : parseInt(rawLimit, 10);
 const CONCURRENCY = process.env.CONCURRENCY ? parseInt(process.env.CONCURRENCY, 10) : 5;
 const PAGE = 200;
 const MAX_TRANSCRIPT_CHARS = 6000;
