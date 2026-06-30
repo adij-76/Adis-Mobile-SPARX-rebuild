@@ -155,3 +155,9 @@ export function useAuth(): AuthValue {
   if (!ctx) throw new Error('useAuth must be used within an AuthProvider');
   return ctx;
 }
+
+/** The signed-in user's first name (or a friendly fallback) for greetings. */
+export function useFirstName(): string {
+  const { user } = useAuth();
+  return (user?.name?.trim() || user?.email?.split('@')[0] || 'there').split(' ')[0];
+}

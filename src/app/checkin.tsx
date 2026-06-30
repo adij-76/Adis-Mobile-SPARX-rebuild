@@ -29,6 +29,7 @@ import {
 import { api } from '@/api';
 import { recordCheckin, type CheckinResult } from '@/lib/checkin';
 import { useAsync } from '@/hooks/use-async';
+import { useFirstName } from '@/lib/auth';
 import { useStore } from '@/lib/store';
 
 const TOTAL = 5;
@@ -278,11 +279,12 @@ export default function CheckinScreen() {
 }
 
 function Question({ text }: { text: string }) {
+  const firstName = useFirstName();
   return (
     <View style={styles.questionWrap}>
       <View style={styles.helloPill}>
         <Txt variant="caption" color={Colors.white}>
-          Hello {user.name}
+          Hello {firstName}
         </Txt>
       </View>
       <View style={styles.questionCard}>
@@ -481,6 +483,7 @@ function CheckinSummary({
   onDone: () => void;
 }) {
   const { headline, focus, question } = buildSummary({ mood, positive, negative, behavior });
+  const firstName = useFirstName();
   const recommendedVideos = useAsync(() => api.content.recommendedVideos(), []).data ?? [];
   return (
     <Screen variant="modal" style={styles.gutter}>
@@ -497,7 +500,7 @@ function CheckinSummary({
       </View>
 
       <ScrollView contentContainerStyle={styles.summaryBody} showsVerticalScrollIndicator={false}>
-        <Txt variant="titleLg">Nice work, {user.name} 🌱</Txt>
+        <Txt variant="titleLg">Nice work, {firstName} 🌱</Txt>
         <View style={styles.summaryCard}>
           <Txt variant="body" color={Colors.textMain}>
             {headline}

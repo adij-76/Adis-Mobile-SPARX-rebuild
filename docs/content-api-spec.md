@@ -116,12 +116,15 @@ lives on the production `users` row. Map them by email with a `mobile_me` view:
 ```sql
 -- One row for the signed-in user; RLS limits it to their own email.
 create or replace view mobile_me as
-  select id as app_user_id, name, email
-  from users;
+  select id as app_user_id,
+         first_name as name,
+         email,
+         avatar_link as avatar
+  from public.users;
 
 alter view mobile_me set (security_invoker = on);   -- run as the caller
-alter table users enable row level security;
-create policy users_self on users for select to authenticated
+alter table public.users enable row level security;
+create policy users_self on public.users for select to authenticated
   using (lower(email) = lower(auth.jwt() ->> 'email'));
 
 grant select on mobile_me to authenticated;
@@ -133,31 +136,53 @@ exists the app still works — it just can't resolve the production id yet.
 
 ### Bring your existing users across (no manual adding, keep their passwords)
 Rails (Devise) stores passwords as **bcrypt**, and Supabase Auth uses bcrypt too,
-so existing users can be imported **with their current password** — they sign in
-exactly as before. One-time bulk import (adjust column names to your `users`
-schema — confirm with `select column_name from information_schema.columns where
-table_name='users'`):
+so existing users import **with their current password** — they sign in exactly as
+before. Confirmed `public.users` columns: `email`, `encrypted_password`,
+`first_name`, `last_name`, `avatar_link`.
+
+**Test with your own account first** (add the `and lower(u.email) = …` filter),
+verify you can sign in, then remove the filter and run for everyone.
 
 ```sql
--- Copy every production user into Supabase Auth, preserving the bcrypt hash.
+-- 1) Copy users into Supabase Auth, preserving the bcrypt hash + name/avatar.
 insert into auth.users
   (instance_id, id, aud, role, email, encrypted_password,
    email_confirmed_at, created_at, updated_at,
+   confirmation_token, email_change, email_change_token_new, recovery_token,
    raw_app_meta_data, raw_user_meta_data)
 select '00000000-0000-0000-0000-000000000000',
        gen_random_uuid(), 'authenticated', 'authenticated',
        lower(u.email),
-       u.encrypted_password,          -- Devise column; rename if yours differs
+       u.encrypted_password,
        now(), now(), now(),
+       '', '', '', '',                              -- GoTrue wants '' not NULL here
        '{"provider":"email","providers":["email"]}'::jsonb,
-       jsonb_build_object('name', u.first_name)   -- shows as their display name
-from users u
+       jsonb_strip_nulls(jsonb_build_object(
+         'name', u.first_name,
+         'full_name', nullif(trim(concat_ws(' ', u.first_name, u.last_name)), ''),
+         'avatar_url', u.avatar_link))
+from public.users u
 where u.email is not null
+  and u.encrypted_password is not null and u.encrypted_password <> ''
+  -- and lower(u.email) = 'adijaffe+1@gmail.com'   -- <- uncomment to test one user first
   and not exists (select 1 from auth.users a where lower(a.email) = lower(u.email));
+
+-- 2) Give each imported user an email identity (required by recent GoTrue).
+insert into auth.identities
+  (provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+select a.email, a.id,
+       jsonb_build_object('sub', a.id::text, 'email', a.email, 'email_verified', true),
+       'email', now(), now(), now()
+from auth.users a
+where a.email_confirmed_at is not null
+  and not exists (
+    select 1 from auth.identities i where i.user_id = a.id and i.provider = 'email');
 ```
 After this, `adijaffe+1@gmail.com` signs in with the password already on file —
-nobody is added by hand. (If your bcrypt prefix is `$2y$`, rewrite it to `$2a$`
-in the select; GoTrue accepts `$2a$`/`$2b$`.)
+nobody is added by hand, and their first name + avatar show up immediately
+(seeded into `user_metadata`). (If a hash starts with `$2y$`, rewrite it to `$2a$`
+in step 1; GoTrue accepts `$2a$`/`$2b$`. If your GoTrue's `auth.identities` lacks
+`provider_id`, drop that column from step 2.)
 
 **Social sign-in (Google / Apple / Facebook):** enable each under Authentication
 → Providers (add the provider's OAuth client id/secret), and add your app URL to
