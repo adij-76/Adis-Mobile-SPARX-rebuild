@@ -17,7 +17,6 @@ import { ProgressBar } from '@/components/ui/progress-bar';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Shadow, Spacing } from '@/constants/theme';
 import {
-  dailyChecklist,
   dailyQuote,
   heroProgram,
   socials,
@@ -33,7 +32,7 @@ const TABS = ['Programs', 'Workshop', 'Challenges'] as const;
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { isFav, toggleFav, completedLessonIds, checkins } = useStore();
+  const { isFav, toggleFav, completedLessonIds, checkins, isVideoWatched, isLessonComplete } = useStore();
   const { isDesktop } = useBreakpoint();
   const [tab, setTab] = useState<(typeof TABS)[number]>('Programs');
   const [checklistOpen, setChecklistOpen] = useState(true);
@@ -65,6 +64,28 @@ export default function HomeScreen() {
   // Featured quote, recommended from the latest check-in (falls back to a default).
   const quotes = useAsync(() => api.content.quotes(), []).data ?? [];
   const featuredQuote = recommendQuote(quotes, checkins[0]) ?? dailyQuote;
+
+  // Daily checklist — real targets + real completion state. Each item routes to
+  // its actual destination and ticks off when the underlying action is done:
+  // check-in saved today, the day's video watched, the day's workshop completed.
+  const today = new Date().toISOString().slice(0, 10);
+  const todayVideo = recommendedVideos[0];
+  const todayWorkshop = workshops[0];
+  const checklistItems = [
+    { id: 'checkin', label: 'Your daily check-in', route: '/checkin', done: checkins.some((c) => c.date === today) },
+    todayVideo && {
+      id: 'video',
+      label: `Video: ${todayVideo.title}`,
+      route: `/videos/${todayVideo.id}`,
+      done: isVideoWatched(todayVideo.id),
+    },
+    todayWorkshop && {
+      id: 'workshop',
+      label: `Workshop: ${todayWorkshop.title || todayWorkshop.navTitle}`,
+      route: `/lesson/${todayWorkshop.id}`,
+      done: isLessonComplete(todayWorkshop.id),
+    },
+  ].filter(Boolean) as { id: string; label: string; route: string; done: boolean }[];
 
   // Auto-present the daily check-in once per day when the app opens.
   const prompted = useRef(false);
@@ -118,17 +139,21 @@ export default function HomeScreen() {
         />
       </Pressable>
       {checklistOpen &&
-        dailyChecklist.map((item, i) => (
+        checklistItems.map((item) => (
           <Pressable
             key={item.id}
             onPress={() => router.push(item.route as never)}
-            style={[styles.checkRow, i === 0 && item.done && styles.checkRowDone]}>
+            style={[styles.checkRow, item.done && styles.checkRowDone]}>
             <Ionicons
               name={item.done ? 'checkmark-circle' : 'ellipse-outline'}
               size={22}
               color={item.done ? Colors.success : Colors.orange}
             />
-            <Txt variant="bodySm" style={{ flex: 1 }}>
+            <Txt
+              variant="bodySm"
+              style={{ flex: 1 }}
+              color={item.done ? Colors.textSub : Colors.textMain}
+              numberOfLines={2}>
               {item.label}
             </Txt>
             {!item.done && <Ionicons name="chevron-forward" size={18} color={Colors.textSub} />}

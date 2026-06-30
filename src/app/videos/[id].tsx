@@ -21,9 +21,16 @@ export default function VideoDetail() {
   const recommendedVideos = useAsync(() => api.content.recommendedVideos(), []).data ?? [];
   const video = recommendedVideos.find((v) => v.id === id) ?? recommendedVideos[0];
 
-  const { isFav, toggleFav } = useStore();
+  const { isFav, toggleFav, markVideoWatched } = useStore();
   const [liked, setLiked] = useState(false);
   const [playing, setPlaying] = useState(false);
+
+  // Opening the player counts as watching it (checks off the daily-checklist
+  // video item). True end-of-video detection needs the Vimeo Player SDK.
+  const play = () => {
+    if (video) markVideoWatched(video.id);
+    setPlaying(true);
+  };
 
   if (!video) {
     return (
@@ -61,7 +68,7 @@ export default function VideoDetail() {
       <ScreenHeader title="Back" />
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         {/* Player */}
-        <Pressable style={styles.player} onPress={() => setPlaying(true)}>
+        <Pressable style={styles.player} onPress={play}>
           <Image source={{ uri: video.image }} style={styles.poster} />
           <View style={styles.playBig}>
             <Ionicons name="play" size={28} color={Colors.primaryDark} />
