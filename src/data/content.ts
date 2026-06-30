@@ -60,7 +60,7 @@ export type Program = {
 
 export const heroProgram: Program = {
   id: 'hero',
-  badge: 'IGNTD Hero Program',
+  badge: 'SPARx Hero Program',
   title: 'Setting the scene for success',
   progress: 0.24,
 };

@@ -52,7 +52,7 @@ export default function LessonScreen() {
   );
   const courseModule = moduleQ.data;
 
-  const { isFav, toggleFav } = useStore();
+  const { isFav, toggleFav, markLessonComplete } = useStore();
   const [step, setStep] = useState(0);
   const [playing, setPlaying] = useState<SparkyVideo | null>(null);
   const [outlineOpen, setOutlineOpen] = useState(false);
@@ -197,7 +197,14 @@ export default function LessonScreen() {
             title={step === last ? 'Complete' : 'Next'}
             variant={step === last ? 'primary' : 'secondary'}
             iconRight={step === last ? undefined : 'chevron-forward'}
-            onPress={() => (step === last ? router.back() : setStep((s) => s + 1))}
+            onPress={() => {
+              if (step === last) {
+                markLessonComplete(lesson.id);
+                router.back();
+              } else {
+                setStep((s) => s + 1);
+              }
+            }}
           />
         </View>
       </View>

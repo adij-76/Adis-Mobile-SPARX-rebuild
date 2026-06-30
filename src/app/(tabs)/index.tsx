@@ -5,8 +5,10 @@ import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { api } from '@/api';
 import { AppHeader } from '@/components/app-header';
 import { Screen } from '@/components/layout/screen';
+import { useAsync } from '@/hooks/use-async';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -32,10 +34,28 @@ const TABS = ['Programs', 'Workshop', 'Challenges'] as const;
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { isFav, toggleFav } = useStore();
+  const { isFav, toggleFav, completedLessonIds } = useStore();
   const { isDesktop } = useBreakpoint();
   const [tab, setTab] = useState<(typeof TABS)[number]>('Programs');
   const [checklistOpen, setChecklistOpen] = useState(true);
+
+  // Resolve where "Continue to Lesson" goes: the program's first lesson the user
+  // hasn't completed (so they pick up their journey). Recomputes as lessons are
+  // completed. Walks modules in order and stops at the first incomplete lesson.
+  const continueQ = useAsync(async () => {
+    const programs = await api.content.programs();
+    const program = programs[0];
+    if (!program) return null;
+    const modules = await api.content.modules(program.id);
+    let firstLesson: { id: string } | null = null;
+    for (const m of modules) {
+      const lessons = await api.content.moduleLessons(m.id);
+      if (!firstLesson && lessons.length) firstLesson = lessons[0];
+      const next = lessons.find((l) => !completedLessonIds.includes(l.id));
+      if (next) return { program: program.name, lessonId: next.id };
+    }
+    return firstLesson ? { program: program.name, lessonId: firstLesson.id } : null;
+  }, [completedLessonIds.length]);
 
   // Auto-present the daily check-in once per day when the app opens.
   const prompted = useRef(false);
@@ -126,16 +146,20 @@ export default function HomeScreen() {
 
       {tab === 'Programs' && (
         <>
-          <SeeAllRow onPress={() => router.push('/workshop/list')} />
+          <SeeAllRow onPress={() => router.push('/lessons')} />
           <LinearGradient
             colors={['#10243A', '#1C3B55', '#3A2A5A']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.program}>
+            <View pointerEvents="none" style={styles.programDecor}>
+              <View style={styles.decorRing1} />
+              <View style={styles.decorRing2} />
+            </View>
             <Txt variant="caption" color={Colors.orangePale} style={{ letterSpacing: 1 }}>
-              {heroProgram.badge.toUpperCase()}
+              {(continueQ.data?.program ?? heroProgram.badge).toUpperCase()}
             </Txt>
-            <Txt variant="title" color={Colors.white} center style={{ marginTop: Spacing.sm }}>
+            <Txt variant="titleSm" color={Colors.white} center style={{ marginTop: Spacing.xs }}>
               {heroProgram.title}
             </Txt>
             <View style={styles.programProgress}>
@@ -147,7 +171,8 @@ export default function HomeScreen() {
             <Button
               title="Continue to Lesson"
               variant="white"
-              onPress={() => router.push('/workshop/intro')}
+              disabled={!continueQ.data}
+              onPress={() => continueQ.data && router.push(`/lesson/${continueQ.data.lessonId}`)}
             />
           </LinearGradient>
         </>
@@ -185,28 +210,7 @@ export default function HomeScreen() {
           />
         </View>
       </View>
-      {upcomingMeetings.map((m) => (
-        <Pressable key={m.id} onPress={() => router.push(`/meetings/${m.id}`)}>
-          <Card style={styles.meeting}>
-            <View style={styles.meetingTop}>
-              <Txt variant="bodySmBold" color={Colors.primary}>
-                {m.time}
-              </Txt>
-              {m.startsIn && (
-                <Txt variant="caption" color={Colors.orange}>
-                  ● {m.startsIn}
-                </Txt>
-              )}
-            </View>
-            <Txt variant="bodyMedium" style={{ marginTop: Spacing.sm }}>
-              {m.title}
-            </Txt>
-            <Txt variant="caption" color={Colors.textSub} style={{ marginTop: Spacing.xs }}>
-              Meeting with {m.host}
-            </Txt>
-          </Card>
-        </Pressable>
-      ))}
+      <MeetingStack meetings={upcomingMeetings} onOpen={(id) => router.push(`/meetings/${id}`)} />
     </>
   );
 
@@ -403,6 +407,68 @@ function SectionHeader({
   );
 }
 
+/** Upcoming meetings as a stacked deck you flip through, with peeking cards behind. */
+function MeetingStack({
+  meetings,
+  onOpen,
+}: {
+  meetings: typeof upcomingMeetings;
+  onOpen: (id: string) => void;
+}) {
+  const [i, setI] = useState(0);
+  if (!meetings.length) return null;
+  const count = meetings.length;
+  const m = meetings[i % count];
+
+  return (
+    <View style={{ gap: Spacing.lg }}>
+      <View style={styles.stack}>
+        {count > 2 && <View style={[styles.stackCard, styles.stackBack2]} />}
+        {count > 1 && <View style={[styles.stackCard, styles.stackBack1]} />}
+        <Pressable onPress={() => onOpen(m.id)}>
+          <Card style={styles.meeting}>
+            <View style={styles.meetingTop}>
+              <Txt variant="bodySmBold" color={Colors.primary}>
+                {m.time}
+              </Txt>
+              {m.startsIn && (
+                <Txt variant="caption" color={Colors.orange}>
+                  ● {m.startsIn}
+                </Txt>
+              )}
+            </View>
+            <Txt variant="bodyMedium" style={{ marginTop: Spacing.sm }} numberOfLines={2}>
+              {m.title}
+            </Txt>
+            <Txt variant="caption" color={Colors.textSub} style={{ marginTop: Spacing.xs }}>
+              Meeting with {m.host}
+            </Txt>
+          </Card>
+        </Pressable>
+      </View>
+      {count > 1 && (
+        <View style={styles.stackControls}>
+          <Pressable
+            onPress={() => setI((v) => (v - 1 + count) % count)}
+            hitSlop={8}
+            style={styles.stackArrow}>
+            <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+          </Pressable>
+          <Txt variant="caption" color={Colors.textSub}>
+            {(i % count) + 1} / {count}
+          </Txt>
+          <Pressable
+            onPress={() => setI((v) => (v + 1) % count)}
+            hitSlop={8}
+            style={styles.stackArrow}>
+            <Ionicons name="chevron-forward" size={18} color={Colors.primary} />
+          </Pressable>
+        </View>
+      )}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.screen },
   scroll: { flex: 1 },
@@ -492,12 +558,56 @@ const styles = StyleSheet.create({
   },
   program: {
     borderRadius: Radius.lg,
-    padding: Spacing.xl,
+    padding: Spacing.lg,
     alignItems: 'center',
-    gap: Spacing.lg,
+    gap: Spacing.sm,
+    overflow: 'hidden',
     ...Shadow.card,
   },
-  programProgress: { alignSelf: 'stretch', alignItems: 'center' },
+  programDecor: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  decorRing1: {
+    position: 'absolute',
+    right: -56,
+    bottom: -64,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    borderWidth: 36,
+    borderColor: 'rgba(91,141,239,0.18)',
+  },
+  decorRing2: {
+    position: 'absolute',
+    right: -8,
+    bottom: -16,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    borderWidth: 22,
+    borderColor: 'rgba(122,90,248,0.20)',
+  },
+  programProgress: { alignSelf: 'stretch', alignItems: 'center', marginVertical: Spacing.xs },
+  stack: { position: 'relative' },
+  stackCard: {
+    position: 'absolute',
+    borderRadius: Radius.lg,
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.stroke,
+    ...Shadow.card,
+  },
+  stackBack1: { left: 10, right: 10, top: 8, bottom: -8 },
+  stackBack2: { left: 20, right: 20, top: 16, bottom: -16 },
+  stackControls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.lg },
+  stackArrow: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.stroke,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.white,
+  },
   seeAllRow: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: -Spacing.sm },
   wRow: {
     flexDirection: 'row',
