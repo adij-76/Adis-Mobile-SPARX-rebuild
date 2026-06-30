@@ -34,7 +34,7 @@ create or replace view mobile_modules as
 drop view if exists mobile_lessons;
 create view mobile_lessons as
   select l.id,
-         l.portion_id,
+         l.portion_id as module_id,   -- Rails "portion" → app "module"
          l.title,
          l.nav_title,
          l.position,
@@ -124,15 +124,15 @@ create or replace view mobile_me as
   select u.id                                                        as app_user_id,
          u.first_name                                                as name,
          u.email,
-         u.avatar_link                                               as avatar,
+         u.avatar_link                                               as avatar_url,
          u.program_id,
          coalesce(u.subscribed, false)                               as subscribed,
          -- Note: column has a typo in the production schema ("subsctiption")
          coalesce(u.stripe_subsctiption_active, false)               as stripe_active,
          coalesce(u.advanced_coaching, false)                        as advanced_coaching,
-         a.title                                                     as addiction,
+         a.title                                                     as addiction_label,
          u.days_counter_amount                                       as days_count,
-         u.days_counter_updated_at,
+         u.days_counter_updated_at                                   as days_updated_at,
          u.user_handle,
          u.time_zone,
          u.team_id,
@@ -284,7 +284,7 @@ the chart: `select min(score), max(score) from public.wheel_of_life_scores;` —
 
 ## Endpoints the adapter calls (PostgREST)
 `GET /rest/v1/mobile_programs` · `…/mobile_modules?program_id=eq.<id>&order=order` ·
-`…/mobile_lessons?portion_id=eq.<id>&lesson_type=eq.lesson&order=position` ·
+`…/mobile_lessons?module_id=eq.<id>&lesson_type=eq.lesson&order=position` ·
 `…/mobile_lessons?lesson_type=eq.workshop` · `…/mobile_snippets?order=created_at.desc` ·
 `…/mobile_wheel_scores?order=month_key.asc&limit=12` (per-user, RLS)
 Headers: `apikey: <anon>`, `Authorization: Bearer <user-jwt | anon>`.

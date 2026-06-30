@@ -69,7 +69,7 @@ type ProgramRow = { id: number | string; name: string; active: boolean };
 type ModuleRow = { id: number | string; program_id: number | string; title: string; order: number };
 type LessonRow = {
   id: number | string;
-  portion_id: number | string;
+  module_id: number | string;
   title: string;
   nav_title: string;
   position: number;
@@ -103,7 +103,7 @@ const vimeoUrlFrom = (url: string | null, id: number | null): string | null =>
 
 const toLesson = (r: LessonRow): Lesson => ({
   id: String(r.id),
-  moduleId: String(r.portion_id),
+  moduleId: String(r.module_id),
   title: r.title,
   navTitle: r.nav_title,
   position: r.position,
@@ -141,7 +141,7 @@ export const supabaseContent: ContentApi = {
   },
   async moduleLessons(moduleId) {
     const rows = await rest<LessonRow[]>('mobile_lessons', {
-      portion_id: `eq.${moduleId}`,
+      module_id: `eq.${moduleId}`,
       lesson_type: 'eq.lesson',
       order: 'position',
     });
@@ -344,17 +344,19 @@ export const supabaseAuth: AuthApi = {
   async me(email): Promise<MeResult | null> {
     // mobile_me maps the auth email → the production users row (and rich
     // personalisation fields). Falls back to null until the view exists.
+    // MeRow column names mirror the mobile_me view (canonical snake_case); each
+    // maps mechanically to the camelCase MeResult field. See db/field-dictionary.md.
     type MeRow = {
       app_user_id: string | number;
       name: string | null;
-      avatar: string | null;
+      avatar_url: string | null;
       program_id: string | number | null;
       subscribed: boolean | null;
       stripe_active: boolean | null;
       advanced_coaching: boolean | null;
-      addiction: string | null;
+      addiction_label: string | null;
       days_count: number | null;
-      days_counter_updated_at: string | null;
+      days_updated_at: string | null;
       user_handle: string | null;
       time_zone: string | null;
       team_id: string | number | null;
@@ -367,14 +369,14 @@ export const supabaseAuth: AuthApi = {
       return {
         appUserId: String(r.app_user_id),
         name: r.name,
-        avatar: r.avatar,
+        avatarUrl: r.avatar_url,
         programId: r.program_id != null ? String(r.program_id) : null,
         subscribed: r.subscribed ?? false,
         stripeActive: r.stripe_active ?? false,
         advancedCoaching: r.advanced_coaching ?? false,
-        addictionLabel: r.addiction,
+        addictionLabel: r.addiction_label,
         daysCount: r.days_count,
-        daysUpdatedAt: r.days_counter_updated_at,
+        daysUpdatedAt: r.days_updated_at,
         userHandle: r.user_handle,
         timeZone: r.time_zone,
         teamId: r.team_id != null ? String(r.team_id) : null,

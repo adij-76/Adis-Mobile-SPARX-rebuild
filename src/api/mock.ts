@@ -127,7 +127,7 @@ export const mockAuth: AuthApi = {
     delay({
       appUserId: `mock-${email}`,
       name: nameFromEmail(email),
-      avatar: null,
+      avatarUrl: null,
       programId: null,
       subscribed: false,
       stripeActive: false,

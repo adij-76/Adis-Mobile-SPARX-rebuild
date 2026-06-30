@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // GoTrue user_metadata has precedence for name/avatar (most recently
           // updated by the user); fall back to what the production DB row has.
           name: s.user.name ?? me.name,
-          avatarUrl: s.user.avatarUrl ?? me.avatar,
+          avatarUrl: s.user.avatarUrl ?? me.avatarUrl,
           programId: me.programId,
           subscribed: me.subscribed,
           stripeActive: me.stripeActive,

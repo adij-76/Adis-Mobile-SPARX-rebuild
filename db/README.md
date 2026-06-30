@@ -40,6 +40,8 @@ user's email instead, so no base table is altered at all.)
 |------|--------------|---------|
 | `views.sql` | All `mobile_*` views the app reads (catalog + per-user progress/rating/favorite + `mobile_me` + wheel history). | Creates only our own views. **Zero** writes to any table. |
 | `auth-and-storage.sql` | Imports existing users into Supabase Auth (keeping their passwords), re-syncs name/avatar, creates the `avatars` bucket. | Supabase `auth` schema + storage. Reads `public.users`, writes nothing back to it. |
+| `field-dictionary.md` | The canonical name map: production column → `mobile_*` view column → app field. The one vocabulary the app **and** the future admin backend should share. | Reference only. |
+| `introspect.sql` | One-shot schema dump (paste-back substitute for direct DB access). | Read-only. |
 
 Run `views.sql` anytime — it's pure read-layer. Run `auth-and-storage.sql` when
 you're doing the sign-in cutover. Both are **idempotent**: re-run them as often as

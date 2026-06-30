@@ -165,7 +165,7 @@ export type OAuthProvider = 'google' | 'apple' | 'facebook';
 export type MeResult = {
   appUserId: string;
   name: string | null;
-  avatar: string | null;
+  avatarUrl: string | null;
   programId: string | null;
   subscribed: boolean;
   stripeActive: boolean;

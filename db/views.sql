@@ -46,7 +46,7 @@ create or replace view mobile_modules as
 drop view if exists mobile_lessons;
 create view mobile_lessons as
   select l.id,
-         l.portion_id,
+         l.portion_id as module_id,        -- Rails calls modules "portions"; app domain = module
          l.title,
          l.nav_title,
          l.position,
@@ -125,18 +125,21 @@ grant select on mobile_programs, mobile_modules, mobile_lessons, mobile_snippets
 
 drop view if exists mobile_me;
 create view mobile_me as
+  -- Column aliases are the canonical clean contract: each is the snake_case of
+  -- the app's camelCase field, so the adapter is a mechanical transform and the
+  -- admin backend can speak the same vocabulary. (See db/field-dictionary.md.)
   select u.id                                          as app_user_id,
          u.first_name                                  as name,
          u.email,
-         u.avatar_link                                 as avatar,
+         u.avatar_link                                 as avatar_url,
          u.program_id,
          coalesce(u.subscribed, false)                 as subscribed,
-         -- production schema has the typo "subsctiption" — keep it verbatim.
+         -- production column has the typo "subsctiption"; the clean name hides it.
          coalesce(u.stripe_subsctiption_active, false) as stripe_active,
          coalesce(u.advanced_coaching, false)          as advanced_coaching,
-         a.title                                       as addiction,
+         a.title                                       as addiction_label,
          u.days_counter_amount                         as days_count,
-         u.days_counter_updated_at,
+         u.days_counter_updated_at                     as days_updated_at,
          u.user_handle,
          u.time_zone,
          u.team_id,
