@@ -35,6 +35,7 @@ const delay = <T>(v: T) => new Promise<T>((r) => setTimeout(() => r(v), 120));
 export const mockContent: ContentApi = {
   programs: () => delay([HERO]),
   modules: (programId) => delay(MODULES.filter((m) => m.programId === programId)),
+  module: (id) => delay(MODULES.find((m) => m.id === id) ?? null),
   moduleLessons: (moduleId) =>
     delay(workshops.map((w, i) => toLesson(w, i, 'lesson')).filter((l) => l.moduleId === moduleId)),
   lesson: (id) => delay(workshops.map((w, i) => toLesson(w, i, 'lesson')).find((l) => l.id === id) ?? null),

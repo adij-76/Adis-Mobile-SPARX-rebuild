@@ -50,6 +50,7 @@ export type Snippet = {
 export type ContentApi = {
   programs(): Promise<Program[]>;
   modules(programId: string): Promise<Module[]>;
+  module(id: string): Promise<Module | null>;
   moduleLessons(moduleId: string): Promise<Lesson[]>;
   lesson(id: string): Promise<Lesson | null>;
   workshops(): Promise<Workshop[]>;
