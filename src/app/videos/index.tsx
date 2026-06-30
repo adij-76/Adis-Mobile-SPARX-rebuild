@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -11,7 +11,8 @@ import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
-import { fetchVimeoMeta, type SparkyVideo } from '@/lib/sparky';
+import { useVimeoMeta } from '@/hooks/use-vimeo-meta';
+import type { SparkyVideo } from '@/lib/sparky';
 import type { Snippet } from '@/api/types';
 
 function formatLength(sec: number | null): string | null {
@@ -23,22 +24,13 @@ function formatLength(sec: number | null): string | null {
 
 const hasRealDescription = (d: string | null) => !!d && !/no description/i.test(d);
 
-/** A snippet row, enriched on mount with its real Vimeo title + thumbnail. */
+/** A snippet row. The title comes from the DB; Vimeo only supplies the thumbnail. */
 function SnippetCard({ snippet, onPlay }: { snippet: Snippet; onPlay: (v: SparkyVideo) => void }) {
-  const [meta, setMeta] = useState<{ title?: string; thumbnail?: string } | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    if (snippet.vimeoUrl) fetchVimeoMeta(snippet.vimeoUrl).then((m) => active && setMeta(m));
-    return () => {
-      active = false;
-    };
-  }, [snippet.vimeoUrl]);
+  const meta = useVimeoMeta(snippet.vimeoUrl);
 
   const dur = formatLength(snippet.lengthSeconds);
   const description = hasRealDescription(snippet.description) ? snippet.description : null;
-  // Prefer the real DB title; fall back to the Vimeo oEmbed title, then description.
-  const title = snippet.title ?? meta?.title ?? description ?? 'Untitled video';
+  const title = hasRealDescription(snippet.title) ? (snippet.title as string) : 'Untitled video';
 
   return (
     <Pressable

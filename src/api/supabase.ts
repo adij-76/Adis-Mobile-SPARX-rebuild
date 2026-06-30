@@ -53,7 +53,8 @@ type SnippetRow = {
   id: number | string;
   lesson_id: number | string | null;
   title: string | null;
-  description: string | null;
+  description: string | null; // the DB "title" text (title-is-description convention)
+  summary: string | null; // ai_summary — the generated long description
   length_seconds: number | null;
   vimeo_url: string | null;
   vimeo_id: number | null;
@@ -99,6 +100,10 @@ export const supabaseContent: ContentApi = {
     });
     return rows.map(toLesson);
   },
+  async lesson(id) {
+    const rows = await rest<LessonRow[]>('mobile_lessons', { id: `eq.${id}`, limit: '1' });
+    return rows.length ? toLesson(rows[0]) : null;
+  },
   async workshops() {
     const rows = await rest<LessonRow[]>('mobile_lessons', {
       lesson_type: 'eq.workshop',
@@ -113,8 +118,10 @@ export const supabaseContent: ContentApi = {
         ({
           id: String(r.id),
           lessonId: r.lesson_id != null ? String(r.lesson_id) : null,
-          title: r.title,
-          description: r.description,
+          // The human title lives in the DB `description` column (title col is mostly empty).
+          title: r.title || r.description,
+          // The shown description is the AI summary.
+          description: r.summary,
           lengthSeconds: r.length_seconds,
           vimeoUrl: r.vimeo_url,
           vimeoId: r.vimeo_id,

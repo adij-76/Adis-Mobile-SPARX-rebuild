@@ -1,20 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { api } from '@/api';
 import type { Lesson } from '@/api/types';
-import { VideoPlayerModal } from '@/components/video-player-modal';
 import { Button } from '@/components/ui/button';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
 import { useVimeoMeta } from '@/hooks/use-vimeo-meta';
-import type { SparkyVideo } from '@/lib/sparky';
 
 function lessonTitle(l: Lesson): string {
   return l.title || l.navTitle || (l.description ? l.description.split(/[.!?]/)[0] : '') || 'Lesson';
@@ -23,20 +20,17 @@ function lessonTitle(l: Lesson): string {
 function LessonRow({
   lesson,
   index,
-  onPlay,
+  onOpen,
 }: {
   lesson: Lesson;
   index: number;
-  onPlay: (v: SparkyVideo) => void;
+  onOpen: () => void;
 }) {
   const meta = useVimeoMeta(lesson.vimeoUrl);
   const title = lessonTitle(lesson);
 
   return (
-    <Pressable
-      style={({ pressed }) => [styles.row, pressed && { opacity: 0.92 }]}
-      disabled={!lesson.vimeoUrl}
-      onPress={() => lesson.vimeoUrl && onPlay({ url: lesson.vimeoUrl, title })}>
+    <Pressable style={({ pressed }) => [styles.row, pressed && { opacity: 0.92 }]} onPress={onOpen}>
       <View style={styles.thumb}>
         {meta?.thumbnail && (
           <Image source={{ uri: meta.thumbnail }} style={styles.thumbImg} contentFit="cover" />
@@ -54,32 +48,19 @@ function LessonRow({
             {lesson.description}
           </Txt>
         ) : null}
-        {lesson.worksheetUrl ? (
-          <Pressable
-            style={styles.worksheet}
-            hitSlop={6}
-            onPress={(e) => {
-              (e as unknown as { stopPropagation?: () => void }).stopPropagation?.();
-              onPlay({ url: lesson.worksheetUrl as string, title: `${title} · Worksheet` });
-            }}>
-            <Ionicons name="document-text-outline" size={13} color={Colors.primary} />
-            <Txt variant="caption" color={Colors.primary}>
-              Worksheet
-            </Txt>
-          </Pressable>
-        ) : null}
       </View>
+      <Ionicons name="chevron-forward" size={18} color={Colors.textSub} />
     </Pressable>
   );
 }
 
 export default function ModuleScreen() {
+  const router = useRouter();
   const { id, title } = useLocalSearchParams<{ id: string; title?: string }>();
   const { data, loading, error, reload } = useAsync(
     () => api.content.moduleLessons(String(id)),
     [id],
   );
-  const [playing, setPlaying] = useState<SparkyVideo | null>(null);
   const lessons = data ?? [];
 
   return (
@@ -109,12 +90,10 @@ export default function ModuleScreen() {
       ) : (
         <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
           {lessons.map((l, i) => (
-            <LessonRow key={l.id} lesson={l} index={i} onPlay={setPlaying} />
+            <LessonRow key={l.id} lesson={l} index={i} onOpen={() => router.push(`/lesson/${l.id}`)} />
           ))}
         </ScrollView>
       )}
-
-      <VideoPlayerModal video={playing} onClose={() => setPlaying(null)} />
     </SafeAreaView>
   );
 }

@@ -37,6 +37,7 @@ export const mockContent: ContentApi = {
   modules: (programId) => delay(MODULES.filter((m) => m.programId === programId)),
   moduleLessons: (moduleId) =>
     delay(workshops.map((w, i) => toLesson(w, i, 'lesson')).filter((l) => l.moduleId === moduleId)),
+  lesson: (id) => delay(workshops.map((w, i) => toLesson(w, i, 'lesson')).find((l) => l.id === id) ?? null),
   workshops: () => delay<Workshop[]>(workshops.map((w, i) => toLesson(w, i, 'workshop'))),
   snippets: () =>
     delay<Snippet[]>(
