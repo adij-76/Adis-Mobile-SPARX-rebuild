@@ -42,6 +42,7 @@ function Shell() {
         options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }}
       />
       <Stack.Screen name="mydata" options={{ presentation: 'card' }} />
+      <Stack.Screen name="module" options={{ presentation: 'card' }} />
       <Stack.Screen name="feed" options={{ presentation: 'card' }} />
       <Stack.Screen name="settings" options={{ presentation: 'card' }} />
       <Stack.Screen name="notifications" options={{ presentation: 'card' }} />
