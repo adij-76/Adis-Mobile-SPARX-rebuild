@@ -41,15 +41,19 @@ create or replace view mobile_lessons as
          null::text as thumbnail            -- see note: derive from vimeos/ActiveStorage
   from lessons l;
 
+-- NOTE: CREATE OR REPLACE VIEW can only append columns, never rename/reorder
+-- existing ones — so `title` goes at the END (column order is irrelevant to the
+-- adapter, which reads by name). The `description` column keeps its position and
+-- just changes its expression to coalesce(ai_summary, real description).
 create or replace view mobile_snippets as
   select id,
          lesson_id,
-         title,                              -- real DB title (preferred over Vimeo's)
          coalesce(                           -- AI summary, else a real description, else null
            nullif(trim(ai_summary), ''),
            nullif(trim(description), 'No description available')
          ) as description,
-         length_seconds, vimeo_url, vimeo_id, ai_generated, created_at
+         length_seconds, vimeo_url, vimeo_id, ai_generated, created_at,
+         title                               -- real DB title (preferred over Vimeo's)
   from snippets
   where classified = true;                  -- only real, classified snippets
 ```
