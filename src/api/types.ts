@@ -49,6 +49,10 @@ export type Lesson = {
   progress?: number; // 0-100
   rating?: number;
   favorite?: boolean;
+  /** Whether the user's subscription role unlocks this lesson/workshop.
+   *  Undefined from backends that don't compute gating (mock) → treat as
+   *  accessible; only an explicit `false` locks the content. */
+  accessible?: boolean;
 };
 
 /** A workshop is a Lesson with lessonType === 'workshop'. */

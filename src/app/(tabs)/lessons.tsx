@@ -91,24 +91,32 @@ function ModuleNode({ module, isLast, startOpen }: { module: Module; isLast: boo
             <View style={styles.lessons}>
               {lessons.map((l, i) => {
                 const done = isLessonComplete(l.id);
+                // Only an explicit `false` locks it; undefined (mock / no gating) stays open.
+                const locked = l.accessible === false;
                 return (
                   <Pressable
                     key={l.id}
                     style={({ pressed }) => [styles.lessonRow, pressed && { opacity: 0.7 }]}
-                    onPress={() => router.push(`/lesson/${l.id}`)}>
-                    {done ? (
+                    onPress={() => router.push(locked ? '/settings/premium' : `/lesson/${l.id}`)}>
+                    {locked ? (
+                      <Ionicons name="lock-closed" size={16} color={Colors.textSub} />
+                    ) : done ? (
                       <Ionicons name="checkmark-circle" size={18} color={Colors.success} />
                     ) : (
                       <View style={styles.lessonDot} />
                     )}
                     <Txt
                       variant="bodySm"
-                      color={done ? Colors.textSub : Colors.textMain}
+                      color={locked || done ? Colors.textSub : Colors.textMain}
                       style={{ flex: 1 }}
                       numberOfLines={2}>
                       {l.title || l.navTitle || `Lesson ${i + 1}`}
                     </Txt>
-                    <Ionicons name="chevron-forward" size={16} color={Colors.textSub} />
+                    <Ionicons
+                      name={locked ? 'lock-closed-outline' : 'chevron-forward'}
+                      size={16}
+                      color={locked ? Colors.orange : Colors.textSub}
+                    />
                   </Pressable>
                 );
               })}

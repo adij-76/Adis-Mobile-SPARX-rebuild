@@ -82,6 +82,7 @@ type LessonRow = {
   progress?: number;
   rating?: number;
   favorite?: boolean;
+  accessible?: boolean;
 };
 type SnippetRow = {
   id: number | string;
@@ -115,6 +116,7 @@ const toLesson = (r: LessonRow): Lesson => ({
   progress: r.progress,
   rating: r.rating,
   favorite: r.favorite,
+  accessible: r.accessible,
 });
 
 export const supabaseContent: ContentApi = {

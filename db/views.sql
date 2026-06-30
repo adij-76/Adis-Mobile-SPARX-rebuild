@@ -58,7 +58,19 @@ create view mobile_lessons as
          null::text     as thumbnail,       -- client derives it from Vimeo oEmbed
          cl.progress_value as progress,     -- 0-100 watch progress (completed_lessons)
          lr.rating         as rating,       -- the user's star rating (lesson_ratings)
-         (fav.id is not null) as favorite   -- favorited by this user (favorites)
+         (fav.id is not null) as favorite,  -- favorited by this user (favorites)
+         -- LOCKED BY DEFAULT: content is accessible only if the user's
+         -- subscription role explicitly unlocks it. Workshops (lesson_type=1)
+         -- gate via subscription_role_workshops, lessons via
+         -- subscription_role_lessons. Anon / no role → false (locked).
+         case
+           when l.lesson_type = 1 then exists (
+             select 1 from subscription_role_workshops srw
+             where srw.role_id = me.subscription_role_id and srw.workshop_id = l.id)
+           else exists (
+             select 1 from subscription_role_lessons srl
+             where srl.role_id = me.subscription_role_id and srl.lesson_id = l.id)
+         end as accessible
   from lessons l
   left join lateral (
     select url, vimeo_id
@@ -68,7 +80,7 @@ create view mobile_lessons as
     limit 1
   ) v on true
   left join lateral (
-    select id from public.users
+    select id, subscription_role_id from public.users
     where lower(email) = lower(auth.jwt() ->> 'email')
     limit 1
   ) me on true

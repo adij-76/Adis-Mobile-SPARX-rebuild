@@ -89,6 +89,27 @@ export default function LessonScreen() {
     );
   }
 
+  // Gate locked content (only an explicit `false` locks it; undefined = open).
+  if (lesson.accessible === false) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <TopBar title={lessonTitle(lesson)} onBack={() => router.back()} />
+        <View style={styles.center}>
+          <View style={styles.summaryIcon}>
+            <Ionicons name="lock-closed" size={28} color={Colors.orange} />
+          </View>
+          <Txt variant="title" center>
+            This {lesson.lessonType === 'workshop' ? 'workshop' : 'lesson'} is locked
+          </Txt>
+          <Txt variant="bodySm" color={Colors.textSub} center>
+            It's part of SPARx Premium. Upgrade to unlock every lesson, workshop and report.
+          </Txt>
+          <Button title="Unlock with Premium" variant="primary" onPress={() => router.replace('/settings/premium')} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   const title = lessonTitle(lesson);
   // Workshops are standalone (browsed on their own), so they get no course
   // outline and a simpler header than program lessons.
