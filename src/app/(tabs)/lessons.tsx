@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
+import { useStore } from '@/lib/store';
 
 export default function LessonsScreen() {
   const programs = useAsync(() => api.content.programs(), []);
@@ -71,6 +72,7 @@ function ProgramJourney({ program }: { program: Program }) {
 
 function ModuleNode({ module, isLast, startOpen }: { module: Module; isLast: boolean; startOpen: boolean }) {
   const router = useRouter();
+  const { isLessonComplete } = useStore();
   const [open, setOpen] = useState(startOpen);
   const { data, loading } = useAsync(
     () => (open ? api.content.moduleLessons(module.id) : Promise.resolve(null)),
@@ -102,18 +104,29 @@ function ModuleNode({ module, isLast, startOpen }: { module: Module; isLast: boo
             <ActivityIndicator color={Colors.primary} style={{ alignSelf: 'flex-start', marginVertical: Spacing.sm }} />
           ) : (
             <View style={styles.lessons}>
-              {lessons.map((l, i) => (
-                <Pressable
-                  key={l.id}
-                  style={({ pressed }) => [styles.lessonRow, pressed && { opacity: 0.7 }]}
-                  onPress={() => router.push(`/lesson/${l.id}`)}>
-                  <View style={styles.lessonDot} />
-                  <Txt variant="bodySm" style={{ flex: 1 }} numberOfLines={2}>
-                    {l.title || l.navTitle || `Lesson ${i + 1}`}
-                  </Txt>
-                  <Ionicons name="chevron-forward" size={16} color={Colors.textSub} />
-                </Pressable>
-              ))}
+              {lessons.map((l, i) => {
+                const done = isLessonComplete(l.id);
+                return (
+                  <Pressable
+                    key={l.id}
+                    style={({ pressed }) => [styles.lessonRow, pressed && { opacity: 0.7 }]}
+                    onPress={() => router.push(`/lesson/${l.id}`)}>
+                    {done ? (
+                      <Ionicons name="checkmark-circle" size={18} color={Colors.success} />
+                    ) : (
+                      <View style={styles.lessonDot} />
+                    )}
+                    <Txt
+                      variant="bodySm"
+                      color={done ? Colors.textSub : Colors.textMain}
+                      style={{ flex: 1 }}
+                      numberOfLines={2}>
+                      {l.title || l.navTitle || `Lesson ${i + 1}`}
+                    </Txt>
+                    <Ionicons name="chevron-forward" size={16} color={Colors.textSub} />
+                  </Pressable>
+                );
+              })}
             </View>
           ))}
       </View>

@@ -7,6 +7,7 @@ import type { Module } from '@/api/types';
 import { Txt } from '@/components/ui/text';
 import { Colors, Spacing } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
+import { useStore } from '@/lib/store';
 
 /**
  * Course outline panel: modules as an accordion, lessons lazy-loaded when a
@@ -68,6 +69,7 @@ function OutlineModule({
   onPick: (lessonId: string) => void;
 }) {
   const [open, setOpen] = useState(startOpen);
+  const { isLessonComplete } = useStore();
   const { data, loading } = useAsync(
     () => (open ? api.content.moduleLessons(module.id) : Promise.resolve(null)),
     [module.id, open],
@@ -93,14 +95,21 @@ function OutlineModule({
         ) : (
           lessons.map((l, i) => {
             const active = l.id === currentLessonId;
+            const done = isLessonComplete(l.id);
             return (
               <Pressable
                 key={l.id}
                 onPress={() => onPick(l.id)}
                 style={[styles.lessonRow, active && styles.lessonActive]}>
-                <Txt variant="caption" color={active ? Colors.primary : Colors.textSub} style={{ width: 22 }}>
-                  {i + 1}
-                </Txt>
+                <View style={{ width: 22, alignItems: 'center' }}>
+                  {done ? (
+                    <Ionicons name="checkmark-circle" size={16} color={Colors.success} />
+                  ) : (
+                    <Txt variant="caption" color={active ? Colors.primary : Colors.textSub}>
+                      {i + 1}
+                    </Txt>
+                  )}
+                </View>
                 <Txt
                   variant="bodySm"
                   color={active ? Colors.primary : Colors.textMain}

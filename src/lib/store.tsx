@@ -56,6 +56,7 @@ type Persisted = {
   bookings: Meeting[]; // meetings booked via the booking flow
   bookedIds: string[]; // ids of existing meetings the user reserved
   readNotifications: string[]; // notification ids marked read
+  completedLessons: string[]; // lesson ids marked complete locally (until auth)
 };
 
 const EMPTY: Persisted = {
@@ -73,6 +74,7 @@ const EMPTY: Persisted = {
   bookings: [],
   bookedIds: [],
   readNotifications: [],
+  completedLessons: [],
 };
 
 type StoreValue = {
@@ -120,6 +122,10 @@ type StoreValue = {
   isNotifRead: (id: string) => boolean;
   markNotifRead: (id: string) => void;
   markAllNotifsRead: (ids: string[]) => void;
+  // lesson progress (local until auth)
+  isLessonComplete: (id: string) => boolean;
+  markLessonComplete: (id: string) => void;
+  completedLessonIds: string[];
   // account
   clearAll: () => void;
 };
@@ -275,6 +281,13 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
           ...s,
           readNotifications: Array.from(new Set([...s.readNotifications, ...ids])),
         })),
+
+      isLessonComplete: (id) => state.completedLessons.includes(id),
+      markLessonComplete: (id) =>
+        update((s) =>
+          s.completedLessons.includes(id) ? s : { ...s, completedLessons: [...s.completedLessons, id] },
+        ),
+      completedLessonIds: state.completedLessons,
 
       clearAll: () => setState(EMPTY),
     };
