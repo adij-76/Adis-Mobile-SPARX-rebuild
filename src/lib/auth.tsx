@@ -140,7 +140,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const redirectTo = window.location.origin + window.location.pathname;
     const url = api.auth.oauthUrl(provider, redirectTo);
     if (!url) throw new Error('Social sign-in needs Supabase + this provider enabled.');
-    window.location.href = url;
+    // Open in a new tab so a misconfigured provider error doesn't strand the
+    // user on a raw JSON page. The redirect brings the user back to this origin
+    // with tokens in the hash, which the _layout startup handler processes.
+    window.open(url, '_self');
   }, []);
 
   const updateAvatar = useCallback(
