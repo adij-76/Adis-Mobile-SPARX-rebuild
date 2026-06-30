@@ -6,13 +6,18 @@ import { AppHeader } from '@/components/app-header';
 import { Screen } from '@/components/layout/screen';
 import { Card } from '@/components/ui/card';
 import { Txt } from '@/components/ui/text';
+import { api } from '@/api';
 import { Colors, Radius, Spacing } from '@/constants/theme';
-import { reports, wheelCategories, wheelScore } from '@/data/content';
+import { useAsync } from '@/hooks/use-async';
 
 export default function DataScreen() {
   const router = useRouter();
-  const scored = wheelCategories.map((c) => ({ ...c, score: wheelScore(c) }));
-  const balance = Math.round(scored.reduce((s, a) => s + a.score, 0) / scored.length);
+  const wheelAreas = useAsync(() => api.insights.wheelAreas(), []).data ?? [];
+  const reports = useAsync(() => api.insights.reports(), []).data ?? [];
+  const scored = wheelAreas.map((c) => ({ ...c, score: c.current }));
+  const balance = scored.length
+    ? Math.round(scored.reduce((s, a) => s + a.score, 0) / scored.length)
+    : 0;
 
   return (
     <Screen style={styles.root}>

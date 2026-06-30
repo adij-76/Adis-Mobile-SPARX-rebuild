@@ -5,12 +5,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card } from '@/components/ui/card';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
+import { api } from '@/api';
 import { Colors, Radius, Spacing } from '@/constants/theme';
-import { wheelCategories, wheelScore } from '@/data/content';
+import { useAsync } from '@/hooks/use-async';
 
 export default function AssessmentSummary() {
-  const sorted = wheelCategories
-    .map((c) => ({ ...c, score: wheelScore(c) }))
+  const wheelAreas = useAsync(() => api.insights.wheelAreas(), []).data ?? [];
+  const sorted = wheelAreas
+    .map((c) => ({ ...c, score: c.current }))
     .sort((a, b) => b.score - a.score);
   const top = sorted.slice(0, 2);
   const focus = sorted.slice(-2);

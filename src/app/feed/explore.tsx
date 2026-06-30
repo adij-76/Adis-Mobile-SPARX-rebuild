@@ -4,12 +4,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
+import { api } from '@/api';
 import { Colors, Radius, Spacing } from '@/constants/theme';
-import { communities } from '@/data/content';
+import { useAsync } from '@/hooks/use-async';
 import { useStore } from '@/lib/store';
 
 export default function ExploreCommunities() {
   const { isJoined, toggleJoined } = useStore();
+  const communities = useAsync(() => api.community.communities(), []).data ?? [];
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>

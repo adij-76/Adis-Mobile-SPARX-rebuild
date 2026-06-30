@@ -3,12 +3,13 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useRef } from 'react';
-import { Alert, Platform, Pressable, Share, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, Pressable, Share, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { api } from '@/api';
 import { Txt } from '@/components/ui/text';
 import { Colors, FontFamily, Spacing } from '@/constants/theme';
-import { quotes } from '@/data/content';
+import { useAsync } from '@/hooks/use-async';
 
 // Bundled backgrounds (from the design) — guaranteed to load, no network.
 const LOCAL_BACKGROUNDS = [
@@ -23,10 +24,11 @@ export default function QuoteCardScreen() {
   const shotRef = useRef<View>(null);
 
   // Today's quote (the one featured on the dashboard).
+  const quotes = useAsync(() => api.content.quotes(), []).data ?? [];
   const quote = quotes[0];
   const bg = LOCAL_BACKGROUNDS[0];
 
-  const quoteText = `“${quote.text}” — ${quote.author}`;
+  const quoteText = quote ? `“${quote.text}” — ${quote.author}` : '';
 
   // Native capture is loaded lazily so web never evaluates native-only modules.
   const captureNative = async (): Promise<string | null> => {
@@ -94,6 +96,14 @@ export default function QuoteCardScreen() {
   const onCommunity = () => {
     router.push(`/feed/new?text=${encodeURIComponent(quoteText)}`);
   };
+
+  if (!quote) {
+    return (
+      <View style={[styles.root, { alignItems: 'center', justifyContent: 'center' }]}>
+        <ActivityIndicator color={Colors.white} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.root}>

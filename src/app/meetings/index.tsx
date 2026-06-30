@@ -4,9 +4,11 @@ import { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { api } from '@/api';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
-import { meetings, type MeetingStatus } from '@/data/content';
+import { type MeetingStatus } from '@/data/content';
+import { useAsync } from '@/hooks/use-async';
 import { useStore } from '@/lib/store';
 
 const TABS: { key: MeetingStatus; label: string }[] = [
@@ -20,6 +22,7 @@ export default function ManageMeetings() {
   const { bookings, isBooked } = useStore();
   const params = useLocalSearchParams<{ tab?: MeetingStatus }>();
   const [tab, setTab] = useState<MeetingStatus>(params.tab ?? 'upcoming');
+  const meetings = useAsync(() => api.meetings.all(), []).data ?? [];
 
   // Booked sessions show at the top of Upcoming.
   const data =

@@ -8,6 +8,24 @@
  * Shapes mirror the production Postgres: programs → portions(modules) → lessons
  * (lesson_type: lesson|workshop); snippets are standalone short videos.
  */
+// Auxiliary surfaces (meetings, community, quotes, …) don't have their own
+// Supabase views yet, so their domain shapes still live with the seed data in
+// src/data/content. Re-using them here keeps one source of truth until each
+// gets a real backend view.
+import type {
+  Challenge,
+  Coach,
+  Community,
+  LeaderboardEntry,
+  Meeting,
+  Quote,
+  Report,
+  VideoItem,
+  WheelArea,
+} from '@/data/content';
+
+export type { Challenge, Coach, Community, LeaderboardEntry, Meeting, Quote, Report, VideoItem, WheelArea };
+
 export type LessonType = 'lesson' | 'workshop';
 
 export type Program = { id: string; name: string; active: boolean };
@@ -55,6 +73,25 @@ export type ContentApi = {
   lesson(id: string): Promise<Lesson | null>;
   workshops(): Promise<Workshop[]>;
   snippets(): Promise<Snippet[]>;
+  /** Curated "recommended videos" rail (home + check-in + favorites). */
+  recommendedVideos(): Promise<VideoItem[]>;
+  /** Shareable daily quotes. */
+  quotes(): Promise<Quote[]>;
+  /** Home "Challenges" tab. */
+  challenges(): Promise<Challenge[]>;
+};
+
+export type MeetingsApi = {
+  all(): Promise<Meeting[]>;
+  upcoming(): Promise<Meeting[]>;
+  get(id: string): Promise<Meeting | null>;
+  /** The coach shown in the booking flow. */
+  coach(): Promise<Coach>;
+};
+
+export type CommunityApi = {
+  /** The user's communities / groups. */
+  communities(): Promise<Community[]>;
 };
 
 /** One month's overall Wheel of Life score (for the Monthly/Annual trend views). */
@@ -68,6 +105,12 @@ export type InsightsApi = {
    * ignores it.
    */
   wheelHistory(anchor?: { current: number; last: number }): Promise<WheelPoint[]>;
+  /** The Wheel of Life areas with current/previous scores. */
+  wheelAreas(): Promise<WheelArea[]>;
+  /** Generated reports / summaries. */
+  reports(): Promise<Report[]>;
+  /** Community points leaderboard. */
+  leaderboard(): Promise<LeaderboardEntry[]>;
 };
 
 export type Api = {
@@ -75,6 +118,8 @@ export type Api = {
   backend: 'mock' | 'supabase';
   content: ContentApi;
   insights: InsightsApi;
+  meetings: MeetingsApi;
+  community: CommunityApi;
   // Future seams (kept here so adapters grow uniformly):
-  // auth: AuthApi; checkins: CheckinApi; community: CommunityApi;
+  // auth: AuthApi; checkins: CheckinApi;
 };

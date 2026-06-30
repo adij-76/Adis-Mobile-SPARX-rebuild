@@ -48,7 +48,7 @@ export type ChecklistItem = {
 export const dailyChecklist: ChecklistItem[] = [
   { id: 'checkin', label: 'Your daily check-in', done: true, route: '/checkin' },
   { id: 'video', label: 'Video: Learning to face your experience', done: false, route: '/videos/v1' },
-  { id: 'workshop', label: 'Workshop: The inner map of Relationships', done: false, route: '/workshop/intro' },
+  { id: 'workshop', label: 'Workshop: The inner map of Relationships', done: false, route: '/workshop/list' },
 ];
 
 export type Program = {
@@ -331,18 +331,6 @@ export const challenges: Challenge[] = [
   },
 ];
 
-export const workshop = {
-  id: 'master-belief',
-  title: 'Master your belief with Dr. Bruce Lipton',
-  rating: 5,
-  hero: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=800&q=70',
-  intro:
-    'The "Ultimate Bliss Blueprint" aims to craft a comprehensive system that integrates scientific understanding of human motivation with practical strategies to achieve optimal well-being and fulfillment. This blueprint is designed to provide actionable insights and methodologies for individuals seeking to maximize their happiness and life satisfaction.',
-  videoPoster: 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?w=800&q=70',
-  videoBody:
-    'Behavioural Economics: Insights into how people make decisions and what drives their choices, including concepts like nudging and incentive structures.\n\nFostering intrinsic motivation for sustainable happiness through autonomy, mastery, and purpose.',
-};
-
 /* ------------------------------------------------------------------ */
 /* My Data — Wheel of Life, Daily Assessment, Leaderboard             */
 /* ------------------------------------------------------------------ */
@@ -383,10 +371,6 @@ export const wheelAreas: WheelArea[] = [
   { id: 'environment', label: 'Physical Environment', short: 'Environ.', icon: 'home', color: '#C9A66B',
     prompt: 'How satisfied are you with your living environment?', last: 72, current: 70 },
 ];
-
-/** Back-compat alias for screens still importing the old name. */
-export const wheelCategories = wheelAreas;
-export const wheelScore = (a: WheelArea) => a.current;
 
 /** One month's overall Wheel of Life score. */
 export type WheelMonth = { key: string; label: string; year: number; score: number };
@@ -488,11 +472,19 @@ export type Post = {
   comments: Comment[];
 };
 
-export const communities = [
-  { id: 'helping-hands', name: 'Helping Hands', members: '3.2k', icon: 'hand-left' as const, color: '#FF9D4B' },
-  { id: 'sober-curious', name: 'Sober Curious', members: '1.8k', icon: 'leaf' as const, color: '#38C793' },
-  { id: 'parents', name: 'Parents in Recovery', members: '940', icon: 'people' as const, color: '#166890' },
-  { id: 'mindfulness', name: 'Daily Mindfulness', members: '2.5k', icon: 'sparkles' as const, color: '#4A2B6B' },
+export type Community = {
+  id: string;
+  name: string;
+  members: string;
+  icon: 'hand-left' | 'leaf' | 'people' | 'sparkles';
+  color: string;
+};
+
+export const communities: Community[] = [
+  { id: 'helping-hands', name: 'Helping Hands', members: '3.2k', icon: 'hand-left', color: '#FF9D4B' },
+  { id: 'sober-curious', name: 'Sober Curious', members: '1.8k', icon: 'leaf', color: '#38C793' },
+  { id: 'parents', name: 'Parents in Recovery', members: '940', icon: 'people', color: '#166890' },
+  { id: 'mindfulness', name: 'Daily Mindfulness', members: '2.5k', icon: 'sparkles', color: '#4A2B6B' },
 ];
 
 export const posts: Post[] = [
