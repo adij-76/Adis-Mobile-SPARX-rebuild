@@ -117,24 +117,28 @@ lives on the production `users` row. Map them by email with a `mobile_me` view:
 -- One row for the signed-in user; RLS limits it to their own email.
 -- Exposes identity, avatar, subscription state, addiction label, days counter,
 -- and scheduling / coaching fields used for UX personalisation.
+-- NOTE: public.users.addiction is an integer FK to public.addictions.id.
+--       We JOIN to return the human-readable title (e.g. "Alcohol") so the
+--       app can personalise the check-in question without extra lookups.
 create or replace view mobile_me as
-  select id                                                          as app_user_id,
-         first_name                                                  as name,
-         email,
-         avatar_link                                                 as avatar,
-         program_id,
-         coalesce(subscribed, false)                                 as subscribed,
+  select u.id                                                        as app_user_id,
+         u.first_name                                                as name,
+         u.email,
+         u.avatar_link                                               as avatar,
+         u.program_id,
+         coalesce(u.subscribed, false)                               as subscribed,
          -- Note: column has a typo in the production schema ("subsctiption")
-         coalesce(stripe_subsctiption_active, false)                 as stripe_active,
-         coalesce(advanced_coaching, false)                          as advanced_coaching,
-         addiction,                   -- text label e.g. "Alcohol"
-         days_counter_amount                                         as days_count,
-         days_counter_updated_at,
-         user_handle,
-         time_zone,
-         team_id,
-         zoom_email
-  from public.users;
+         coalesce(u.stripe_subsctiption_active, false)               as stripe_active,
+         coalesce(u.advanced_coaching, false)                        as advanced_coaching,
+         a.title                                                     as addiction,
+         u.days_counter_amount                                       as days_count,
+         u.days_counter_updated_at,
+         u.user_handle,
+         u.time_zone,
+         u.team_id,
+         u.zoom_email
+  from public.users u
+  left join public.addictions a on a.id = u.addiction;
 
 alter view mobile_me set (security_invoker = on);   -- run as the caller
 alter table public.users enable row level security;
