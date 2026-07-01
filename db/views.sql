@@ -134,7 +134,17 @@ grant select on mobile_programs, mobile_modules, mobile_lessons, mobile_snippets
 create or replace view mobile_recommended_videos as
   select distinct on (s.id)
          s.id,
-         coalesce(nullif(s.description, ''), s.title) as title,  -- human title lives in `description`
+         -- Title source is messy in prod: `title` is usually empty and
+         -- `description` is sometimes the literal placeholder "No description
+         -- available". Prefer a real title, skip the placeholder, and fall back
+         -- to a trimmed summary so a card is NEVER labelled "No description…".
+         case
+           when nullif(trim(s.title), '') is not null then s.title
+           when s.description is not null and trim(s.description) <> ''
+                and lower(trim(s.description)) <> 'no description available' then s.description
+           when nullif(trim(s.ai_summary), '') is not null then left(s.ai_summary, 70)
+           else 'SPARx video'
+         end                                          as title,
          s.ai_summary                                 as description,
          s.length_seconds,
          s.vimeo_url,
