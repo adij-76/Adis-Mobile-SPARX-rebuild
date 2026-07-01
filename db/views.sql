@@ -160,6 +160,23 @@ create view mobile_recommended_videos as
 
 grant select on mobile_recommended_videos to authenticated;
 
+-- Substance-use tracking — the recurring usage assessment writes a row per
+-- attempt to answer_headers with a usage_score (and audit_score). Email-scoped;
+-- the app buckets these into recent / weekly / monthly / annual trends. Higher
+-- score = more use, so the client treats a DROP as improvement.
+create or replace view mobile_use_tracking as
+  select ah.id,
+         coalesce(ah.complete_date, ah.start_date, ah.created_at) as recorded_at,
+         ah.usage_score,
+         ah.audit_score
+  from public.answer_headers ah
+  join public.users u on u.id = ah.user_id
+  where lower(u.email) = lower(auth.jwt() ->> 'email')
+    and ah.usage_score is not null
+  order by recorded_at;
+
+grant select on mobile_use_tracking to authenticated;
+
 -- -----------------------------------------------------------------------------
 -- 2. mobile_me — maps the signed-in auth email → the production users row, plus
 --    the personalisation fields the app reads after login. Filters internally on

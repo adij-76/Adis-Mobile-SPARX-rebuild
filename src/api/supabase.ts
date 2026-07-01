@@ -297,6 +297,15 @@ export const supabaseInsights: InsightsApi = {
   async leaderboard() {
     return leaderboard;
   },
+  async useTracking() {
+    type Row = { recorded_at: string; usage_score: number | null; audit_score: number | null };
+    try {
+      const rows = await rest<Row[]>('mobile_use_tracking', { order: 'recorded_at.asc', limit: '400' });
+      return rows.map((r) => ({ at: r.recorded_at, usage: r.usage_score, audit: r.audit_score }));
+    } catch {
+      return [];
+    }
+  },
 };
 
 // --- Auth (Supabase GoTrue over REST; no SDK, same as the data layer) ---

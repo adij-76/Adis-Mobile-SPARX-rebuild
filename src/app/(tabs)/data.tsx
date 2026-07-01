@@ -5,15 +5,21 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { AppHeader } from '@/components/app-header';
 import { Screen } from '@/components/layout/screen';
 import { Card } from '@/components/ui/card';
+import { MetricTrend } from '@/components/ui/metric-trend';
 import { Txt } from '@/components/ui/text';
 import { api } from '@/api';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
+import { buildTrendSeries } from '@/lib/trend';
 
 export default function DataScreen() {
   const router = useRouter();
   const wheelAreas = useAsync(() => api.insights.wheelAreas(), []).data ?? [];
   const reports = useAsync(() => api.insights.reports(), []).data ?? [];
+  const useTracking = useAsync(() => api.insights.useTracking(), []).data ?? [];
+  const useSeries = buildTrendSeries(
+    useTracking.filter((p) => p.usage != null).map((p) => ({ at: p.at, value: p.usage as number })),
+  );
   const scored = wheelAreas.map((c) => ({ ...c, score: c.current }));
   const balance = scored.length
     ? Math.round(scored.reduce((s, a) => s + a.score, 0) / scored.length)
@@ -62,6 +68,19 @@ export default function DataScreen() {
             </Txt>
           </Card>
         </Pressable>
+
+        {/* Substance-use tracking */}
+        {useSeries.length > 0 && (
+          <Card style={{ gap: Spacing.lg }}>
+            <View style={styles.cardHead}>
+              <Txt variant="titleSm">Substance use</Txt>
+              <Txt variant="caption" color={Colors.textSub}>
+                lower is better
+              </Txt>
+            </View>
+            <MetricTrend series={useSeries} higherIsBetter={false} accent={Colors.primary} />
+          </Card>
+        )}
 
         {/* Daily check-in CTA */}
         <Pressable onPress={() => router.push('/checkin')}>

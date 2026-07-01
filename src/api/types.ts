@@ -101,6 +101,10 @@ export type CommunityApi = {
 /** One month's overall Wheel of Life score (for the Monthly/Annual trend views). */
 export type WheelPoint = { key: string; label: string; year: number; score: number };
 
+/** One recorded substance-use assessment: usage + AUDIT score at a point in time.
+ *  Higher = more use, so the UI treats a drop as improvement. */
+export type UseTrackingPoint = { at: string; usage: number | null; audit: number | null };
+
 export type InsightsApi = {
   /**
    * Trailing months of the user's overall Wheel score, oldest → newest.
@@ -115,6 +119,8 @@ export type InsightsApi = {
   reports(): Promise<Report[]>;
   /** Community points leaderboard. */
   leaderboard(): Promise<LeaderboardEntry[]>;
+  /** Substance-use tracking history (usage + AUDIT score over time), oldest → newest. */
+  useTracking(): Promise<UseTrackingPoint[]>;
 };
 
 /** The signed-in user. `id` is the Supabase auth user id; `appUserId` (when
