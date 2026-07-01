@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { createElement } from 'react';
+import { createElement, useEffect, useRef } from 'react';
 import {
   Linking,
   Modal,
@@ -17,19 +17,67 @@ import { vimeoEmbedUrl, type SparkyVideo } from '@/lib/sparky';
 /**
  * Full-screen modal that plays a Vimeo video.
  *
- * On web we embed the Vimeo player in an iframe. On native (no extra webview
- * dependency yet) we fall back to opening the video in the system browser /
- * Vimeo app — swap in react-native-webview here when we ship native builds.
+ * On web we embed the Vimeo player in an iframe and listen to its postMessage
+ * API to detect when the video finishes (fires `onEnded` at end, or once ≥95%
+ * is watched). On native (no webview dependency yet) we fall back to opening the
+ * video in the system browser — swap in react-native-webview for native builds.
  */
 export function VideoPlayerModal({
   video,
   onClose,
+  onEnded,
 }: {
   video: SparkyVideo | null;
   onClose: () => void;
+  /** Fired once when the video reaches the end (web only). */
+  onEnded?: () => void;
 }) {
   const { width, height } = useWindowDimensions();
   const embed = video ? vimeoEmbedUrl(video.url) : null;
+
+  const iframeRef = useRef<{ contentWindow?: { postMessage: (m: string, o: string) => void } } | null>(null);
+  const onEndedRef = useRef(onEnded);
+  onEndedRef.current = onEnded;
+
+  // Wire the Vimeo postMessage API: subscribe to the player's `ended` and
+  // `timeupdate` events and fire onEnded exactly once when the video completes.
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !embed) return;
+    const win = (globalThis as { window?: any }).window;
+    if (!win) return;
+    let done = false;
+    const post = (method: string, value?: string) =>
+      iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ method, value }), '*');
+    const subscribe = () => {
+      post('addEventListener', 'ended');
+      post('addEventListener', 'timeupdate');
+    };
+    const fire = () => {
+      if (done) return;
+      done = true;
+      onEndedRef.current?.();
+    };
+    const onMessage = (e: { origin?: string; data?: unknown }) => {
+      if (typeof e.origin === 'string' && !/player\.vimeo\.com/.test(e.origin)) return;
+      let data: { event?: string; data?: { percent?: number } } | null = null;
+      try {
+        data = typeof e.data === 'string' ? JSON.parse(e.data) : (e.data as typeof data);
+      } catch {
+        return;
+      }
+      if (!data) return;
+      if (data.event === 'ready') subscribe();
+      else if (data.event === 'ended') fire();
+      else if (data.event === 'timeupdate' && (data.data?.percent ?? 0) >= 0.95) fire();
+    };
+    win.addEventListener('message', onMessage);
+    // The player may already be ready before we attached; nudge it.
+    const t = setTimeout(subscribe, 800);
+    return () => {
+      win.removeEventListener('message', onMessage);
+      clearTimeout(t);
+    };
+  }, [embed]);
 
   const frameWidth = Math.min(width - Spacing.lg * 2, 720);
   const frameHeight = Math.min((frameWidth * 9) / 16, height * 0.6);
@@ -55,6 +103,7 @@ export function VideoPlayerModal({
           <View style={[styles.frame, { width: frameWidth, height: frameHeight }]}>
             {Platform.OS === 'web' && embed
               ? createElement('iframe', {
+                  ref: iframeRef,
                   src: embed,
                   style: { width: '100%', height: '100%', border: 'none' },
                   allow: 'autoplay; fullscreen; picture-in-picture',

@@ -25,10 +25,11 @@ export default function VideoDetail() {
   const [liked, setLiked] = useState(false);
   const [playing, setPlaying] = useState(false);
 
-  // Opening the player counts as watching it (checks off the daily-checklist
-  // video item). True end-of-video detection needs the Vimeo Player SDK.
+  // Web: mark watched when the player reports the video ended (onEnded below).
+  // Native: the fallback opens an external browser we can't observe, so mark it
+  // watched on open instead.
   const play = () => {
-    if (video) markVideoWatched(video.id);
+    if (Platform.OS !== 'web' && video) markVideoWatched(video.id);
     setPlaying(true);
   };
 
@@ -135,6 +136,7 @@ export default function VideoDetail() {
       <VideoPlayerModal
         video={playing ? { url: playUrl, title: video.title, thumbnail: video.image } : null}
         onClose={() => setPlaying(false)}
+        onEnded={() => markVideoWatched(video.id)}
       />
     </SafeAreaView>
   );
