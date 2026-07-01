@@ -54,7 +54,7 @@ export default function CheckinScreen() {
   const [affirmation, setAffirmation] = useState('');
 
   const finish = async () => {
-    addCheckin({
+    const entry = {
       date: new Date().toISOString().slice(0, 10),
       mood,
       positive,
@@ -63,7 +63,10 @@ export default function CheckinScreen() {
       amount,
       count,
       affirmation,
-    });
+    };
+    addCheckin(entry); // optimistic local save
+    // Persist to the server too (best-effort — local save already succeeded).
+    api.checkins.save(entry, authUser?.appUserId ?? null).catch(() => {});
     const r = await recordCheckin();
     setResult(r);
   };

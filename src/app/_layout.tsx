@@ -14,11 +14,12 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { api } from '@/api';
 import { DesktopSidebar } from '@/components/nav/desktop-sidebar';
 import { Colors } from '@/constants/theme';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
 import { AuthProvider, useAuth } from '@/lib/auth';
-import { AppStoreProvider } from '@/lib/store';
+import { AppStoreProvider, useStore } from '@/lib/store';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -47,6 +48,7 @@ function Splash() {
 function Shell() {
   const { isDesktop } = useBreakpoint();
   const { status } = useAuth();
+  const { mergeRemoteCheckins } = useStore();
   const segments = useSegments();
   const router = useRouter();
   const onLogin = segments[0] === 'login';
@@ -57,6 +59,23 @@ function Shell() {
     if (status === 'guest' && !onLogin) router.replace('/login');
     else if (status === 'authed' && onLogin) router.replace('/');
   }, [status, onLogin, router]);
+
+  // Hydrate server-side check-ins once signed in, so streaks/reports reflect
+  // check-ins from any device (local entries still win for a shared date).
+  useEffect(() => {
+    if (status !== 'authed') return;
+    let active = true;
+    api.checkins
+      .list()
+      .then((remote) => {
+        if (active && remote.length) mergeRemoteCheckins(remote);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
 
   const stack = (
     <Stack screenOptions={{ headerShown: false }}>

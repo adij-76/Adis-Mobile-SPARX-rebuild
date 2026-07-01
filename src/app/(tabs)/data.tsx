@@ -10,10 +10,14 @@ import { Txt } from '@/components/ui/text';
 import { api } from '@/api';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
+import { useStore } from '@/lib/store';
 import { buildTrendSeries } from '@/lib/trend';
 
 export default function DataScreen() {
   const router = useRouter();
+  const { checkins } = useStore();
+  const today = new Date().toISOString().slice(0, 10);
+  const checkedInToday = checkins.some((c) => c.date === today);
   const wheelAreas = useAsync(() => api.insights.wheelAreas(), []).data ?? [];
   const reports = useAsync(() => api.insights.reports(), []).data ?? [];
   const useTracking = useAsync(() => api.insights.useTracking(), []).data ?? [];
@@ -83,20 +87,17 @@ export default function DataScreen() {
           </Card>
         )}
 
-        {/* Daily check-in CTA */}
-        <Pressable onPress={() => router.push('/checkin')}>
-          <Card style={styles.cta}>
-            <View style={styles.ctaIcon}>
-              <Ionicons name="clipboard" size={22} color={Colors.white} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Txt variant="titleSm">Daily check-in</Txt>
-              <Txt variant="bodySm" color={Colors.textSub}>
-                1 minute · keeps your streak alive
-              </Txt>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={Colors.textSub} />
-          </Card>
+        {/* Daily check-in — compact row; shows a done state once completed today. */}
+        <Pressable onPress={() => router.push('/checkin')} style={styles.checkinRow}>
+          <Ionicons
+            name={checkedInToday ? 'checkmark-circle' : 'clipboard-outline'}
+            size={20}
+            color={checkedInToday ? Colors.success : Colors.primary}
+          />
+          <Txt variant="bodySmMedium" style={{ flex: 1 }}>
+            {checkedInToday ? 'Checked in today' : 'Daily check-in'}
+          </Txt>
+          {!checkedInToday && <Ionicons name="chevron-forward" size={18} color={Colors.textSub} />}
         </Pressable>
 
         {/* Assessments taken */}
@@ -182,14 +183,16 @@ const styles = StyleSheet.create({
   areaRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   track: { flex: 1, height: 8, borderRadius: Radius.pill, backgroundColor: Colors.soft, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: Radius.pill },
-  cta: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  ctaIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.primary,
+  checkinRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.stroke,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
   },
   assessRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   assessIcon: {

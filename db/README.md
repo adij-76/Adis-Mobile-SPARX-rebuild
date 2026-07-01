@@ -86,11 +86,28 @@ CI instead of reaching the app.
 To enable the per-user checks (title/gating/identity), set repo secrets
 `AUDIT_USER_EMAIL` / `AUDIT_USER_PASSWORD` to a dedicated audit account.
 
+## App-owned data tables (NOT views) — preserve on re-import ⚠️
+
+`db/mobile-checkins.sql` creates **`public.mobile_checkins`**, a real table the app
+**writes user data to** (daily check-ins), unlike the `mobile_*` views which are
+recreatable read layers. Two consequences for a production re-import:
+
+1. **Do not drop it.** If a re-import recreates the `public` schema, back up and
+   restore `mobile_checkins` (it holds real user check-ins). A data-only import of
+   the production tables leaves it untouched.
+2. **Reconcile with production.** These check-ins live only in `mobile_checkins`
+   today. When the final DB comes over, run a one-time sync to insert them into
+   production `daily_assessments` (each row carries `app_user_id` + `date` for the
+   mapping), then the app can read/write `daily_assessments` directly and
+   `mobile_checkins` becomes a cache (or is retired). Until that sync exists,
+   `mobile_checkins` is the source of truth for mobile check-ins.
+
 ## Re-import playbook
 
 1. Import / refresh the production snapshot into Supabase (`public` schema).
-2. Run `db/views.sql`, then `db/auth-and-storage.sql`.
-3. Confirm the dashboard-only settings below (a data import never changes them).
+2. Run `db/views.sql`, `db/auth-and-storage.sql`, and `db/mobile-checkins.sql`.
+3. **Preserve `mobile_checkins` data** (see the ⚠️ note above) — never drop it.
+4. Confirm the dashboard-only settings below (a data import never changes them).
 
 ## Dashboard-only settings (not SQL — set once, survive re-import)
 
