@@ -12,9 +12,9 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Image } from 'expo-image';
 
 import { Screen } from '@/components/layout/screen';
+import { VideoThumbnail } from '@/components/video-thumbnail';
 import { Button } from '@/components/ui/button';
 import { Confetti } from '@/components/confetti';
 import { ProgressBar } from '@/components/ui/progress-bar';
@@ -443,19 +443,21 @@ function buildSummary(a: {
   return { headline, focus, question };
 }
 
-function SummaryVideo({ video }: { video: VideoItem }) {
+function SummaryVideo({ video, onPress }: { video: VideoItem; onPress: () => void }) {
   return (
-    <View style={styles.vCard}>
+    <Pressable style={styles.vCard} onPress={onPress}>
       <View style={styles.vThumbWrap}>
-        <Image source={{ uri: video.image }} style={styles.vThumb} contentFit="cover" />
+        <VideoThumbnail image={video.image} vimeoUrl={video.vimeoUrl} seed={video.id} style={styles.vThumb} />
         <View style={styles.vPlay}>
           <Ionicons name="play" size={16} color={Colors.white} />
         </View>
-        <View style={styles.vDuration}>
-          <Txt variant="caption" color={Colors.white}>
-            {video.duration}
-          </Txt>
-        </View>
+        {video.duration ? (
+          <View style={styles.vDuration}>
+            <Txt variant="caption" color={Colors.white}>
+              {video.duration}
+            </Txt>
+          </View>
+        ) : null}
       </View>
       <View style={styles.vMetaRow}>
         <View style={styles.stars}>
@@ -468,7 +470,7 @@ function SummaryVideo({ video }: { video: VideoItem }) {
       <Txt variant="caption" color={Colors.textMain} numberOfLines={2}>
         {video.title}
       </Txt>
-    </View>
+    </Pressable>
   );
 }
 
@@ -485,6 +487,7 @@ function CheckinSummary({
   behavior: 'yes' | 'no' | null;
   onDone: () => void;
 }) {
+  const router = useRouter();
   const { headline, focus, question } = buildSummary({ mood, positive, negative, behavior });
   const firstName = useFirstName();
   const recommendedVideos = useAsync(() => api.content.recommendedVideos(), []).data ?? [];
@@ -518,7 +521,7 @@ function CheckinSummary({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ gap: Spacing.md, paddingVertical: Spacing.xs }}>
           {recommendedVideos.map((v) => (
-            <SummaryVideo key={v.id} video={v} />
+            <SummaryVideo key={v.id} video={v} onPress={() => router.push(`/videos/${v.id}`)} />
           ))}
         </ScrollView>
 
