@@ -211,9 +211,8 @@ grant select on mobile_me to authenticated;
 --    One overall score per month = average across the user's life areas, scoped
 --    by the caller's email.
 --
---    SCALE NOTE: the app's wheel chart is 0-100. This averages the raw `score`.
---    If raw scores are 1-10, wrap avg() with `* 10`. Confirm with:
---        select min(score), max(score) from public.wheel_of_life_scores;
+--    SCALE: raw wheel_of_life_scores.score is 0-10 (confirmed); the app chart is
+--    0-100, so we scale the monthly average by 10.
 -- -----------------------------------------------------------------------------
 
 do $$
@@ -227,7 +226,7 @@ begin
         select to_char(date_trunc('month', ws.created_at), 'YYYY-MM') as month_key,
                to_char(date_trunc('month', ws.created_at), 'Mon')     as label,
                extract(year from ws.created_at)::int                  as year,
-               round(avg(ws.score))::int                              as score
+               round(avg(ws.score) * 10)::int                         as score  -- 0-10 → 0-100
         from public.wheel_of_life_scores ws
         join public.users u on u.id = ws.user_id
         where lower(u.email) = lower(auth.jwt() ->> 'email')
