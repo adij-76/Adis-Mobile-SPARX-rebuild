@@ -177,6 +177,46 @@ create or replace view mobile_use_tracking as
 
 grant select on mobile_use_tracking to authenticated;
 
+-- Wheel of Life — real per-area current + previous score for the signed-in user.
+-- wheel_of_life_scores.score is 0-10; the app chart is 0-100, so we scale ×10.
+-- life_area_id (1..10) maps 1:1 (same order) to the app's wheel areas / life_areas.title.
+create or replace view mobile_wheel_areas as
+  with me as (
+    select id from public.users where lower(email) = lower(auth.jwt() ->> 'email') limit 1
+  ),
+  ranked as (
+    select ws.life_area_id, ws.score,
+           row_number() over (partition by ws.life_area_id order by ws.created_at desc) as rn
+    from public.wheel_of_life_scores ws
+    join me on me.id = ws.user_id
+  )
+  select r.life_area_id,
+         la.title,
+         round(max(case when r.rn = 1 then r.score end) * 10) as current_score,
+         round(max(case when r.rn = 2 then r.score end) * 10) as last_score
+  from ranked r
+  join public.life_areas la on la.id = r.life_area_id
+  where r.rn <= 2
+  group by r.life_area_id, la.title;
+
+grant select on mobile_wheel_areas to authenticated;
+
+-- Community leaderboard — total points per user (user_points), top 50. Global
+-- (a leaderboard is inherently multi-user); `you` flags the caller's own row.
+create or replace view mobile_leaderboard as
+  select u.id                                                              as user_id,
+         coalesce(nullif(trim(u.first_name), ''), split_part(u.email, '@', 1)) as name,
+         u.avatar_link                                                     as avatar,
+         coalesce(sum(up.points), 0)::int                                  as points,
+         (u.id = (select id from public.users where lower(email) = lower(auth.jwt() ->> 'email'))) as you
+  from public.users u
+  join public.user_points up on up.user_id = u.id
+  group by u.id, u.first_name, u.email, u.avatar_link
+  order by points desc
+  limit 50;
+
+grant select on mobile_leaderboard to authenticated;
+
 -- -----------------------------------------------------------------------------
 -- 2. mobile_me — maps the signed-in auth email → the production users row, plus
 --    the personalisation fields the app reads after login. Filters internally on
