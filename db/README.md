@@ -63,6 +63,29 @@ on `public.users` or any other base table.
 > deliberate security step worth doing before launch — flag it when you're ready
 > and we'll scope it carefully.
 
+## Contract invariants (audited automatically)
+
+These are the rules the `mobile_*` views must always satisfy. They're enforced by
+`scripts/audit-db-contract.mjs` via the **Audit DB contract** workflow, which runs
+daily, on every merge that touches `db/**`, and on demand — so a regression fails
+CI instead of reaching the app.
+
+1. **Lesson structure is canonical, not per-user.** `mobile_lessons` returns
+   exactly ONE row per lesson, sourced from `lessons`/`portions`. Per-user data
+   (progress, rating, favorite) is attached as single-value **scalar subqueries**,
+   never `JOIN`s — because `completed_lessons` / `lesson_ratings` / `favorites`
+   have many rows per (lesson, user), and joining them multiplies the lesson into
+   duplicates. Rating a lesson 3× must never list it 3×.
+2. **No placeholder titles.** `mobile_recommended_videos.title` is never empty and
+   never the literal "No description available" (a real value in prod `description`).
+3. **Views evolve additively.** Renamed columns keep their old names as aliases
+   until the app build on `main` uses the new ones (see the additive-views rule
+   above). The audit selects both canonical + legacy columns and fails if any is
+   missing.
+
+To enable the per-user checks (title/gating/identity), set repo secrets
+`AUDIT_USER_EMAIL` / `AUDIT_USER_PASSWORD` to a dedicated audit account.
+
 ## Re-import playbook
 
 1. Import / refresh the production snapshot into Supabase (`public` schema).
