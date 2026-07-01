@@ -43,6 +43,7 @@ export default function ProfileScreen() {
   const { user: authUser, signOut, updateAvatar } = useAuth();
   const [confirm, setConfirm] = useState<null | 'logout' | 'delete'>(null);
   const [uploading, setUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
 
   const displayName = authUser?.name?.trim() || authUser?.email?.split('@')[0] || 'there';
   const avatarUri = authUser?.avatarUrl ?? user.avatar;
@@ -72,10 +73,17 @@ export default function ProfileScreen() {
           const dataUrl = typeof reader.result === 'string' ? reader.result : null;
           if (!dataUrl) return;
           setUploading(true);
+          setAvatarError(null);
           try {
             await updateAvatar(dataUrl);
-          } catch {
-            /* surfaced below via no-change */
+          } catch (e) {
+            // Surface the reason instead of silently doing nothing — the usual
+            // cause is the `avatars` storage bucket/policies not existing yet.
+            setAvatarError(
+              (e as Error)?.message?.includes('404') || (e as Error)?.message?.includes('Bucket')
+                ? "Upload failed — the 'avatars' storage bucket isn't set up yet."
+                : (e as Error)?.message || 'Upload failed. Please try again.',
+            );
           } finally {
             setUploading(false);
           }
@@ -121,6 +129,11 @@ export default function ProfileScreen() {
               {uploading ? 'Uploading…' : 'Change Image'}
             </Txt>
           </Pressable>
+          {avatarError ? (
+            <Txt variant="caption" color={Colors.danger} center style={{ marginTop: Spacing.xs, paddingHorizontal: Spacing.lg }}>
+              {avatarError}
+            </Txt>
+          ) : null}
         </View>
 
         <Card style={styles.stats}>
