@@ -191,8 +191,12 @@ begin
     app_union := 'union all select we.life_area_id, we.score::numeric as s, we.taken_at as at '
               || 'from public.mobile_wheel_entries we where we.auth_uid = auth.uid()';
   end if;
+  -- DROP+CREATE, not CREATE OR REPLACE: an earlier mobile_wheel_areas typed its
+  -- score columns as double precision (round on a float). This version rounds a
+  -- numeric, and a view column's type can't change under CREATE OR REPLACE.
+  execute 'drop view if exists mobile_wheel_areas';
   execute format($v$
-    create or replace view mobile_wheel_areas as
+    create view mobile_wheel_areas as
       with scores as (
         select ws.life_area_id, (ws.score * 10)::numeric as s, ws.created_at as at
         from public.wheel_of_life_scores ws
