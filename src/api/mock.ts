@@ -147,11 +147,25 @@ export const mockAuth: AuthApi = {
   updateAvatar: (dataUrl) => delay(dataUrl),
 };
 
+// A few months of a gently-declining usage trend for offline/dev.
+const mockUseTracking = Array.from({ length: 8 }, (_, i) => ({
+  at: new Date(2026, i, 15).toISOString(),
+  usage: Math.max(4, 30 - i * 3),
+  audit: Math.max(0, 8 - i),
+}));
+
 export const mockInsights: InsightsApi = {
   wheelHistory: (anchor) => delay(wheelHistory(anchor?.current ?? 71, anchor?.last ?? 67)),
   wheelAreas: () => delay(wheelAreas),
   reports: () => delay(reports),
   leaderboard: () => delay(leaderboard),
+  useTracking: () => delay(mockUseTracking),
+  assessments: () =>
+    delay([
+      { id: 'audit', name: 'IGNTD AUDIT', takenAt: '2026-06-27', score: 6 },
+      { id: 'qol', name: 'Quality of Life Assessment', takenAt: '2026-06-20', score: 72 },
+      { id: 'assist', name: 'The ASSIST', takenAt: '2026-06-10', score: 14 },
+    ]),
 };
 
 export const mockMeetings: MeetingsApi = {

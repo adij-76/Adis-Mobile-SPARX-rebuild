@@ -159,11 +159,14 @@ export default function WheelOfLife() {
           />
         </Card>
 
-        <Button
-          title="Retake assessment"
-          variant="primary"
+        <Pressable
           onPress={() => router.push('/mydata/wheel-assessment')}
-        />
+          style={{ alignSelf: 'center', paddingVertical: Spacing.md }}
+          hitSlop={8}>
+          <Txt variant="bodySm" color={Colors.textSub}>
+            Retake assessment
+          </Txt>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );

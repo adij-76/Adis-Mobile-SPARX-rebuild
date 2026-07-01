@@ -287,15 +287,75 @@ export const supabaseInsights: InsightsApi = {
       .map((r) => ({ key: r.month_key, label: r.label, year: r.year, score: r.score }) satisfies WheelPoint)
       .reverse();
   },
-  // No dedicated views yet — serve the seed data (see header note).
+  // Real per-area current/last from wheel_of_life_scores, merged onto the seed
+  // areas (which carry each area's icon/colour/prompt). life_area_id 1..10 maps
+  // by order to the seed wheelAreas. Falls back to seed if the user has no scores.
   async wheelAreas() {
-    return wheelAreas;
+    type Row = { life_area_id: number; title: string; current_score: number | null; last_score: number | null };
+    try {
+      const rows = await rest<Row[]>('mobile_wheel_areas');
+      if (!rows.length) return wheelAreas;
+      const byId = new Map(rows.map((r) => [Number(r.life_area_id), r]));
+      return wheelAreas.map((base, i) => {
+        const r = byId.get(i + 1);
+        if (!r || r.current_score == null) return base;
+        return { ...base, current: r.current_score, last: r.last_score ?? r.current_score };
+      });
+    } catch {
+      return wheelAreas;
+    }
   },
   async reports() {
     return reports;
   },
   async leaderboard() {
-    return leaderboard;
+    type Row = { user_id: number | string; name: string | null; avatar: string | null; points: number; you: boolean };
+    try {
+      const rows = await rest<Row[]>('mobile_leaderboard', { order: 'points.desc', limit: '50' });
+      if (!rows.length) return leaderboard;
+      return rows.map((r, i) => ({
+        id: String(r.user_id),
+        rank: i + 1,
+        name: r.name || 'Member',
+        avatar: r.avatar || '',
+        points: r.points ?? 0,
+        you: !!r.you,
+      }));
+    } catch {
+      return leaderboard;
+    }
+  },
+  async useTracking() {
+    type Row = { recorded_at: string; usage_score: number | null; audit_score: number | null };
+    try {
+      const rows = await rest<Row[]>('mobile_use_tracking', { order: 'recorded_at.asc', limit: '400' });
+      return rows.map((r) => ({ at: r.recorded_at, usage: r.usage_score, audit: r.audit_score }));
+    } catch {
+      return [];
+    }
+  },
+  async assessments() {
+    type Row = { profile_id: number | string; name: string | null; taken_at: string | null; score: number | null };
+    try {
+      const rows = await rest<Row[]>('mobile_assessments', { order: 'taken_at.desc', limit: '200' });
+      // Keep the latest result per assessment (rows arrive newest-first).
+      const seen = new Set<string>();
+      return rows
+        .filter((r) => {
+          const key = String(r.profile_id);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
+        .map((r) => ({
+          id: String(r.profile_id),
+          name: r.name || 'Assessment',
+          takenAt: r.taken_at,
+          score: r.score != null ? Math.round(r.score) : null,
+        }));
+    } catch {
+      return [];
+    }
   },
 };
 

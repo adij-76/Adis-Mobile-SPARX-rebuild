@@ -5,15 +5,22 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { AppHeader } from '@/components/app-header';
 import { Screen } from '@/components/layout/screen';
 import { Card } from '@/components/ui/card';
+import { MetricTrend } from '@/components/ui/metric-trend';
 import { Txt } from '@/components/ui/text';
 import { api } from '@/api';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
+import { buildTrendSeries } from '@/lib/trend';
 
 export default function DataScreen() {
   const router = useRouter();
   const wheelAreas = useAsync(() => api.insights.wheelAreas(), []).data ?? [];
   const reports = useAsync(() => api.insights.reports(), []).data ?? [];
+  const useTracking = useAsync(() => api.insights.useTracking(), []).data ?? [];
+  const useSeries = buildTrendSeries(
+    useTracking.filter((p) => p.usage != null).map((p) => ({ at: p.at, value: p.usage as number })),
+  );
+  const assessments = useAsync(() => api.insights.assessments(), []).data ?? [];
   const scored = wheelAreas.map((c) => ({ ...c, score: c.current }));
   const balance = scored.length
     ? Math.round(scored.reduce((s, a) => s + a.score, 0) / scored.length)
@@ -63,6 +70,19 @@ export default function DataScreen() {
           </Card>
         </Pressable>
 
+        {/* Substance-use tracking */}
+        {useSeries.length > 0 && (
+          <Card style={{ gap: Spacing.lg }}>
+            <View style={styles.cardHead}>
+              <Txt variant="titleSm">Substance use</Txt>
+              <Txt variant="caption" color={Colors.textSub}>
+                lower is better
+              </Txt>
+            </View>
+            <MetricTrend series={useSeries} higherIsBetter={false} accent={Colors.primary} />
+          </Card>
+        )}
+
         {/* Daily check-in CTA */}
         <Pressable onPress={() => router.push('/checkin')}>
           <Card style={styles.cta}>
@@ -78,6 +98,39 @@ export default function DataScreen() {
             <Ionicons name="chevron-forward" size={20} color={Colors.textSub} />
           </Card>
         </Pressable>
+
+        {/* Assessments taken */}
+        {assessments.length > 0 && (
+          <View style={{ gap: Spacing.md }}>
+            <Txt variant="titleSm">Assessments</Txt>
+            {assessments.map((a) => (
+              <Card key={a.id} style={styles.assessRow}>
+                <View style={styles.assessIcon}>
+                  <Ionicons name="clipboard-outline" size={18} color={Colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Txt variant="bodyMedium" numberOfLines={1}>
+                    {a.name}
+                  </Txt>
+                  {a.takenAt ? (
+                    <Txt variant="caption" color={Colors.textSub}>
+                      {String(a.takenAt).slice(0, 10)}
+                    </Txt>
+                  ) : null}
+                </View>
+                {a.score != null ? (
+                  <View style={styles.scorePill}>
+                    <Txt variant="bodySmBold" color={Colors.primary}>
+                      {a.score}
+                    </Txt>
+                  </View>
+                ) : (
+                  <Ionicons name="checkmark-circle" size={20} color={Colors.success} />
+                )}
+              </Card>
+            ))}
+          </View>
+        )}
 
         {/* Quick links */}
         <View style={styles.quick}>
@@ -137,6 +190,23 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  assessRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  assessIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(22,104,144,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scorePill: {
+    minWidth: 36,
+    alignItems: 'center',
+    backgroundColor: 'rgba(22,104,144,0.1)',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: Radius.pill,
   },
   quick: { flexDirection: 'row', gap: Spacing.lg },
   quickItem: {

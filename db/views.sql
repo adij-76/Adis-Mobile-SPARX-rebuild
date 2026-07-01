@@ -160,6 +160,81 @@ create view mobile_recommended_videos as
 
 grant select on mobile_recommended_videos to authenticated;
 
+-- Substance-use tracking — the recurring usage assessment writes a row per
+-- attempt to answer_headers with a usage_score (and audit_score). Email-scoped;
+-- the app buckets these into recent / weekly / monthly / annual trends. Higher
+-- score = more use, so the client treats a DROP as improvement.
+create or replace view mobile_use_tracking as
+  select ah.id,
+         coalesce(ah.complete_date, ah.start_date, ah.created_at) as recorded_at,
+         ah.usage_score,
+         ah.audit_score
+  from public.answer_headers ah
+  join public.users u on u.id = ah.user_id
+  where lower(u.email) = lower(auth.jwt() ->> 'email')
+    and ah.usage_score is not null
+  order by recorded_at;
+
+grant select on mobile_use_tracking to authenticated;
+
+-- Wheel of Life — real per-area current + previous score for the signed-in user.
+-- wheel_of_life_scores.score is 0-10; the app chart is 0-100, so we scale ×10.
+-- life_area_id (1..10) maps 1:1 (same order) to the app's wheel areas / life_areas.title.
+create or replace view mobile_wheel_areas as
+  with me as (
+    select id from public.users where lower(email) = lower(auth.jwt() ->> 'email') limit 1
+  ),
+  ranked as (
+    select ws.life_area_id, ws.score,
+           row_number() over (partition by ws.life_area_id order by ws.created_at desc) as rn
+    from public.wheel_of_life_scores ws
+    join me on me.id = ws.user_id
+  )
+  select r.life_area_id,
+         la.title,
+         round(max(case when r.rn = 1 then r.score end) * 10) as current_score,
+         round(max(case when r.rn = 2 then r.score end) * 10) as last_score
+  from ranked r
+  join public.life_areas la on la.id = r.life_area_id
+  where r.rn <= 2
+  group by r.life_area_id, la.title;
+
+grant select on mobile_wheel_areas to authenticated;
+
+-- Community leaderboard — total points per user (user_points), top 50. Global
+-- (a leaderboard is inherently multi-user); `you` flags the caller's own row.
+create or replace view mobile_leaderboard as
+  select u.id                                                              as user_id,
+         coalesce(nullif(trim(u.first_name), ''), split_part(u.email, '@', 1)) as name,
+         u.avatar_link                                                     as avatar,
+         coalesce(sum(up.points), 0)::int                                  as points,
+         (u.id = (select id from public.users where lower(email) = lower(auth.jwt() ->> 'email'))) as you
+  from public.users u
+  join public.user_points up on up.user_id = u.id
+  group by u.id, u.first_name, u.email, u.avatar_link
+  order by points desc
+  limit 50;
+
+grant select on mobile_leaderboard to authenticated;
+
+-- Assessments the user has taken — answer_headers joined to the assessment name
+-- (profiles.title), limited to attempts that are complete or carry a score. No
+-- DISTINCT ON (PostgREST-unsafe with order+limit); the adapter keeps the latest
+-- per assessment. `score` coalesces the per-instrument score column.
+create or replace view mobile_assessments as
+  select ah.id,
+         ah.profile_id,
+         p.title                                              as name,
+         coalesce(ah.complete_date, ah.updated_at)            as taken_at,
+         coalesce(ah.usage_score, ah.audit_score, ah.rating)  as score
+  from public.answer_headers ah
+  join public.users    u on u.id = ah.user_id
+  join public.profiles p on p.id = ah.profile_id
+  where lower(u.email) = lower(auth.jwt() ->> 'email')
+    and (ah.complete = true or ah.usage_score is not null or ah.audit_score is not null or ah.rating is not null);
+
+grant select on mobile_assessments to authenticated;
+
 -- -----------------------------------------------------------------------------
 -- 2. mobile_me — maps the signed-in auth email → the production users row, plus
 --    the personalisation fields the app reads after login. Filters internally on
@@ -211,9 +286,8 @@ grant select on mobile_me to authenticated;
 --    One overall score per month = average across the user's life areas, scoped
 --    by the caller's email.
 --
---    SCALE NOTE: the app's wheel chart is 0-100. This averages the raw `score`.
---    If raw scores are 1-10, wrap avg() with `* 10`. Confirm with:
---        select min(score), max(score) from public.wheel_of_life_scores;
+--    SCALE: raw wheel_of_life_scores.score is 0-10 (confirmed); the app chart is
+--    0-100, so we scale the monthly average by 10.
 -- -----------------------------------------------------------------------------
 
 do $$
@@ -227,7 +301,7 @@ begin
         select to_char(date_trunc('month', ws.created_at), 'YYYY-MM') as month_key,
                to_char(date_trunc('month', ws.created_at), 'Mon')     as label,
                extract(year from ws.created_at)::int                  as year,
-               round(avg(ws.score))::int                              as score
+               round(avg(ws.score) * 10)::int                         as score  -- 0-10 → 0-100
         from public.wheel_of_life_scores ws
         join public.users u on u.id = ws.user_id
         where lower(u.email) = lower(auth.jwt() ->> 'email')
