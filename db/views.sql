@@ -120,6 +120,26 @@ create or replace view mobile_quotes as
 grant select on mobile_programs, mobile_modules, mobile_lessons, mobile_snippets, mobile_quotes
   to anon, authenticated;
 
+-- Recommended videos rail — the snippets the recommendation engine selected for
+-- this user (public.user_snippets), newest-first (= highest ranked), joined to
+-- the snippet's video. Email-scoped, so it returns only the caller's picks.
+create or replace view mobile_recommended_videos as
+  select s.id,
+         coalesce(nullif(s.description, ''), s.title) as title,  -- human title lives in `description`
+         s.ai_summary                                 as description,
+         s.length_seconds,
+         s.vimeo_url,
+         s.vimeo_id,
+         us.created_at                                as recommended_at
+  from public.user_snippets us
+  join public.snippets s on s.id = us.snippet_id
+  join public.users    u on u.id = us.user_id
+  where lower(u.email) = lower(auth.jwt() ->> 'email')
+    and (s.vimeo_id is not null or s.vimeo_url is not null)   -- must have a playable video
+  order by us.created_at desc;
+
+grant select on mobile_recommended_videos to authenticated;
+
 -- -----------------------------------------------------------------------------
 -- 2. mobile_me — maps the signed-in auth email → the production users row, plus
 --    the personalisation fields the app reads after login. Filters internally on

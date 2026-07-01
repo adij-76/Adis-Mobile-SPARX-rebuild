@@ -13,6 +13,7 @@ import { ActivityIndicator } from 'react-native';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { DEMO_VIDEO_URL } from '@/data/content';
 import { useAsync } from '@/hooks/use-async';
+import { useVimeoMeta } from '@/hooks/use-vimeo-meta';
 import { useStore } from '@/lib/store';
 
 export default function VideoDetail() {
@@ -24,6 +25,8 @@ export default function VideoDetail() {
   const { isFav, toggleFav, markVideoWatched } = useStore();
   const [liked, setLiked] = useState(false);
   const [playing, setPlaying] = useState(false);
+  // Snippets carry no image URL — derive the poster from Vimeo when needed.
+  const posterMeta = useVimeoMeta(video?.image ? null : video?.vimeoUrl ?? null);
 
   // Web: mark watched when the player reports the video ended (onEnded below).
   // Native: the fallback opens an external browser we can't observe, so mark it
@@ -70,7 +73,7 @@ export default function VideoDetail() {
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         {/* Player */}
         <Pressable style={styles.player} onPress={play}>
-          <Image source={{ uri: video.image }} style={styles.poster} />
+          <Image source={{ uri: video.image || posterMeta?.thumbnail || undefined }} style={styles.poster} />
           <View style={styles.playBig}>
             <Ionicons name="play" size={28} color={Colors.primaryDark} />
           </View>

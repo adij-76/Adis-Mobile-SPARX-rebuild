@@ -30,6 +30,14 @@ import { useStore } from '@/lib/store';
 
 const TABS = ['Programs', 'Workshop', 'Challenges'] as const;
 
+/** Video poster that uses the given image, or derives the thumbnail from Vimeo
+ *  when there's no image URL (snippets carry only a Vimeo link). */
+function VideoThumb({ image, vimeoUrl, style }: { image?: string; vimeoUrl?: string; style: object }) {
+  const meta = useVimeoMeta(image ? null : vimeoUrl ?? null);
+  const uri = image || meta?.thumbnail || undefined;
+  return <Image source={uri ? { uri } : undefined} style={style} contentFit="cover" transition={200} />;
+}
+
 export default function HomeScreen() {
   const router = useRouter();
   const { isFav, toggleFav, completedLessonIds, checkins, isVideoWatched, isLessonComplete } = useStore();
@@ -274,12 +282,18 @@ export default function HomeScreen() {
       style={isDesktop ? styles.videoCardWide : styles.videoCard}
       onPress={() => router.push(`/videos/${v.id}`)}>
       <View>
-        <Image source={{ uri: v.image }} style={isDesktop ? styles.videoImageWide : styles.videoImage} />
-        <View style={styles.videoDuration}>
-          <Txt variant="caption" color={Colors.white}>
-            {v.duration}
-          </Txt>
-        </View>
+        <VideoThumb
+          image={v.image}
+          vimeoUrl={v.vimeoUrl}
+          style={isDesktop ? styles.videoImageWide : styles.videoImage}
+        />
+        {v.duration ? (
+          <View style={styles.videoDuration}>
+            <Txt variant="caption" color={Colors.white}>
+              {v.duration}
+            </Txt>
+          </View>
+        ) : null}
         <View style={styles.playButton}>
           <Ionicons name="play" size={18} color={Colors.primaryDark} />
         </View>

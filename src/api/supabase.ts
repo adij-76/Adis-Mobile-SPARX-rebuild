@@ -21,6 +21,7 @@ import type {
   Program,
   Quote,
   Snippet,
+  VideoItem,
   WheelPoint,
   Workshop,
 } from '@/api/types';
@@ -101,6 +102,9 @@ type SnippetRow = {
 const vimeoUrlFrom = (url: string | null, id: number | null): string | null =>
   url || (id != null ? `https://vimeo.com/${id}` : null);
 
+/** Seconds → "m:ss" for video duration labels. */
+const fmtDuration = (sec: number): string => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+
 const toLesson = (r: LessonRow): Lesson => ({
   id: String(r.id),
   moduleId: String(r.module_id),
@@ -176,9 +180,41 @@ export const supabaseContent: ContentApi = {
         }) satisfies Snippet,
     );
   },
-  // No dedicated views yet — serve the seed data (see header note).
+  // The recommendation engine's per-user picks (mobile_recommended_videos over
+  // user_snippets), newest-first. Falls back to seed videos if the view is empty
+  // or unavailable, so the rail is never blank. Thumbnails derive from Vimeo
+  // client-side (snippets carry no image), same as lessons.
   async recommendedVideos() {
-    return recommendedVideos;
+    type RecRow = {
+      id: number | string;
+      title: string | null;
+      description: string | null;
+      length_seconds: number | null;
+      vimeo_url: string | null;
+      vimeo_id: number | null;
+    };
+    try {
+      const rows = await rest<RecRow[]>('mobile_recommended_videos', {
+        order: 'recommended_at.desc',
+        limit: '6',
+      });
+      if (!rows.length) return recommendedVideos;
+      return rows.map(
+        (r) =>
+          ({
+            id: String(r.id),
+            title: r.title || 'SPARx video',
+            duration: r.length_seconds ? fmtDuration(r.length_seconds) : '',
+            image: '', // derived from Vimeo oEmbed in the card
+            presenter: 'SPARx',
+            views: '',
+            description: r.description || '',
+            vimeoUrl: vimeoUrlFrom(r.vimeo_url, r.vimeo_id) ?? undefined,
+          }) satisfies VideoItem,
+      );
+    } catch {
+      return recommendedVideos;
+    }
   },
   async quotes() {
     // Read the DB quotes when the view exists; fall back to seed quotes so the
