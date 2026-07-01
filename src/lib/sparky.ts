@@ -13,14 +13,10 @@
  * just drop Vimeo links into the message text. Either way we surface them as
  * playable cards (see extractReply / vimeoEmbedUrl).
  */
-// Production n8n webhook (overridable at build time via the repo variable).
-const DEFAULT_WEBHOOK = 'https://igntd.app.n8n.cloud/webhook/380bcfd0-caf8-4333-b9e7-783f363daf01';
-const WEBHOOK = (process.env.EXPO_PUBLIC_SPARKY_WEBHOOK || DEFAULT_WEBHOOK).trim();
-
-// The n8n flow personalizes on userId (coach, check-ins, Wheel of Life). Until
-// real auth is wired up, default to the team's test user (11). Override per
-// build with EXPO_PUBLIC_SPARKY_USER_ID.
-const USER_ID = (process.env.EXPO_PUBLIC_SPARKY_USER_ID || '11').trim();
+// The n8n webhook is provided at build time (repo variable → EXPO_PUBLIC_SPARKY_WEBHOOK).
+// Fail closed: if it's not set, Sparky uses local canned responses rather than
+// shipping a live production webhook URL baked into the client bundle.
+const WEBHOOK = (process.env.EXPO_PUBLIC_SPARKY_WEBHOOK || '').trim();
 
 export const sparkyConfigured = WEBHOOK.length > 0;
 
@@ -35,6 +31,7 @@ export async function askSparky(
   message: string,
   sessionId: string,
   history: SparkyTurn[],
+  userId: string | null,
 ): Promise<SparkyReply> {
   const res = await fetch(WEBHOOK, {
     method: 'POST',
@@ -42,12 +39,13 @@ export async function askSparky(
     // n8n's Chat Trigger node expects `chatInput` + `sessionId` (and an
     // `action`). We also send `message`/`history` so a plain Webhook node
     // still works — harmless extra fields either way. `userId`/`timestamp`
-    // drive the flow's personalization + crisis-alert nodes.
+    // drive the flow's personalization + crisis-alert nodes. userId is the
+    // signed-in user's production id (mobile_me.app_user_id), never a constant.
     body: JSON.stringify({
       action: 'sendMessage',
       chatInput: message,
       sessionId,
-      userId: USER_ID,
+      userId: userId ?? '',
       timestamp: new Date().toISOString(),
       message,
       history,

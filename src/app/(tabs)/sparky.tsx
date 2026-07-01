@@ -17,6 +17,7 @@ import { Screen } from '@/components/layout/screen';
 import { VideoPlayerModal } from '@/components/video-player-modal';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
+import { useAuth } from '@/lib/auth';
 import {
   askSparky,
   sparkyConfigured,
@@ -92,6 +93,7 @@ function VideoCard({ video, onPress }: { video: SparkyVideo; onPress: () => void
 }
 
 export default function Sparky() {
+  const { user } = useAuth();
   const [messages, setMessages] = useState<Msg[]>([WELCOME]);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -118,7 +120,7 @@ export default function Sparky() {
     if (sparkyConfigured) {
       setBusy(true);
       try {
-        answer = await askSparky(content, sessionId, history);
+        answer = await askSparky(content, sessionId, history, user?.appUserId ?? null);
       } catch {
         answer = {
           text: "I couldn't reach my brain just now — please check your connection and try again in a moment.",
