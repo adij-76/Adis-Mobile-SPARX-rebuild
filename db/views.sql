@@ -131,7 +131,10 @@ grant select on mobile_programs, mobile_modules, mobile_lessons, mobile_snippets
 -- the snippet's video. Email-scoped, so it returns only the caller's picks.
 -- DISTINCT ON (s.id): a snippet can be recommended more than once in
 -- user_snippets; keep only its newest pick so the rail never shows duplicates.
-create or replace view mobile_recommended_videos as
+-- DROP+CREATE (not REPLACE): the title expression's type changed (varchar→text),
+-- and CREATE OR REPLACE can't change a column's type.
+drop view if exists mobile_recommended_videos;
+create view mobile_recommended_videos as
   select distinct on (s.id)
          s.id,
          -- Title source is messy in prod: `title` is usually empty and
