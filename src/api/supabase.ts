@@ -10,6 +10,8 @@ import type {
   AuthApi,
   AuthSession,
   AuthUser,
+  CheckinRecord,
+  CheckinsApi,
   CommunityApi,
   ContentApi,
   InsightsApi,
@@ -356,6 +358,66 @@ export const supabaseInsights: InsightsApi = {
     } catch {
       return [];
     }
+  },
+};
+
+// --- Daily check-ins (app-owned mobile_checkins table; RLS-scoped by auth.uid) ---
+
+export const supabaseCheckins: CheckinsApi = {
+  async list() {
+    type Row = {
+      date: string;
+      mood: number | null;
+      positive: string[] | null;
+      negative: string[] | null;
+      behavior: string | null;
+      amount: string | null;
+      use_count: string | null;
+      affirmation: string | null;
+    };
+    try {
+      const rows = await rest<Row[]>('mobile_checkins', { order: 'date.desc', limit: '400' });
+      return rows.map((r) => ({
+        date: r.date,
+        mood: r.mood ?? 0,
+        positive: r.positive ?? [],
+        negative: r.negative ?? [],
+        behavior: (r.behavior as CheckinRecord['behavior']) ?? null,
+        amount: (r.amount as CheckinRecord['amount']) ?? null,
+        count: r.use_count ?? '',
+        affirmation: r.affirmation ?? '',
+      }));
+    } catch {
+      return [];
+    }
+  },
+  async save(entry, appUserId) {
+    const idNum = Number(appUserId);
+    const body = {
+      date: entry.date,
+      mood: entry.mood,
+      positive: entry.positive,
+      negative: entry.negative,
+      behavior: entry.behavior,
+      amount: entry.amount,
+      use_count: entry.count,
+      affirmation: entry.affirmation,
+      app_user_id: Number.isFinite(idNum) ? idNum : null,
+      updated_at: new Date().toISOString(),
+    };
+    // Upsert on (auth_uid, date): one check-in per user per day. auth_uid is set
+    // by the column default auth.uid(); RLS enforces it's the caller's.
+    const res = await fetch(`${BASE}/rest/v1/mobile_checkins?on_conflict=auth_uid,date`, {
+      method: 'POST',
+      headers: {
+        apikey: ANON,
+        Authorization: `Bearer ${authToken ?? ANON}`,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates,return=minimal',
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`Check-in save failed (${res.status})`);
   },
 };
 

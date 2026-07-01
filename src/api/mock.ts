@@ -19,6 +19,7 @@ import {
 import type {
   AuthApi,
   AuthSession,
+  CheckinsApi,
   CommunityApi,
   ContentApi,
   InsightsApi,
@@ -177,4 +178,10 @@ export const mockMeetings: MeetingsApi = {
 
 export const mockCommunity: CommunityApi = {
   communities: () => delay(communities),
+};
+
+// Mock keeps check-ins device-local (the store handles persistence offline).
+export const mockCheckins: CheckinsApi = {
+  list: () => delay([]),
+  save: () => delay(undefined),
 };

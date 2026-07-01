@@ -208,6 +208,25 @@ export type AuthApi = {
   updateAvatar(dataUrl: string, userId: string): Promise<string>;
 };
 
+/** A saved daily check-in (mirrors the local store's CheckinEntry). */
+export type CheckinRecord = {
+  date: string; // YYYY-MM-DD
+  mood: number; // 0-100
+  positive: string[];
+  negative: string[];
+  behavior: 'yes' | 'no' | null;
+  amount: 'less' | 'same' | 'more' | null;
+  count: string;
+  affirmation: string;
+};
+
+export type CheckinsApi = {
+  /** The signed-in user's check-ins, newest first. */
+  list(): Promise<CheckinRecord[]>;
+  /** Upsert one day's check-in (one row per user per day). */
+  save(entry: CheckinRecord, appUserId: string | null): Promise<void>;
+};
+
 export type Api = {
   /** Which backend is serving requests — handy for debugging. */
   backend: 'mock' | 'supabase';
@@ -216,6 +235,5 @@ export type Api = {
   insights: InsightsApi;
   meetings: MeetingsApi;
   community: CommunityApi;
-  // Future seams (kept here so adapters grow uniformly):
-  // checkins: CheckinApi;
+  checkins: CheckinsApi;
 };

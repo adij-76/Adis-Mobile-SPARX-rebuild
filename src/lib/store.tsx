@@ -112,6 +112,8 @@ type StoreValue = {
   // daily check-ins
   checkins: CheckinEntry[];
   addCheckin: (e: CheckinEntry) => void;
+  /** Merge server check-ins in (cross-device); local entries win for a shared date. */
+  mergeRemoteCheckins: (remote: CheckinEntry[]) => void;
   // wheel of life
   wheelScores: Record<string, number>;
   saveWheel: (scores: Record<string, number>) => void;
@@ -264,6 +266,16 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       checkins: state.checkins,
       addCheckin: (e) =>
         update((s) => ({ ...s, checkins: [e, ...s.checkins.filter((c) => c.date !== e.date)] })),
+      mergeRemoteCheckins: (remote) =>
+        update((s) => {
+          const byDate = new Map<string, CheckinEntry>();
+          remote.forEach((e) => byDate.set(e.date, e));
+          s.checkins.forEach((e) => byDate.set(e.date, e)); // local wins for a shared date
+          const merged = [...byDate.values()].sort((a, b) => (a.date < b.date ? 1 : -1));
+          // Avoid a needless state churn if nothing changed.
+          if (merged.length === s.checkins.length && merged.every((m, i) => m.date === s.checkins[i]?.date)) return s;
+          return { ...s, checkins: merged };
+        }),
 
       wheelScores: state.wheel,
       saveWheel: (scores) => update((s) => ({ ...s, wheel: { ...s.wheel, ...scores } })),
