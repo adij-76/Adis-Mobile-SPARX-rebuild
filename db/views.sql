@@ -57,9 +57,19 @@ create view mobile_lessons as
          case l.lesson_type when 1 then 'workshop' else 'lesson' end as lesson_type,
          l.worksheet_explanation_url as worksheet_url,
          null::text     as thumbnail,       -- client derives it from Vimeo oEmbed
-         cl.progress_value as progress,     -- 0-100 watch progress (completed_lessons)
-         lr.rating         as rating,       -- the user's star rating (lesson_ratings)
-         (fav.id is not null) as favorite,  -- favorited by this user (favorites)
+         -- Per-user fields as scalar subqueries (NOT joins): completed_lessons /
+         -- lesson_ratings / favorites can each have MANY rows per (lesson,user),
+         -- and joining them fans out — one lesson becomes N duplicate rows. A
+         -- single-value subquery keeps mobile_lessons at exactly one row/lesson.
+         (select cl.progress_value from completed_lessons cl
+           where cl.lesson_id = l.id and cl.user_id = me.id
+           order by cl.updated_at desc nulls last limit 1)          as progress,
+         (select lr.rating from lesson_ratings lr
+           where lr.lesson_id = l.id and lr.user_id = me.id
+           order by lr.updated_at desc nulls last limit 1)          as rating,
+         exists (select 1 from favorites fav
+           where fav.favoritable_type = 'Lesson'
+             and fav.favoritable_id = l.id and fav.user_id = me.id) as favorite,
          -- ACCESS MODEL (locked by default for content the user isn't entitled to):
          --   1. PROGRAM CONTENT — lessons in the user's enrolled program
          --      (portion.program_id = users.program_id) are accessible. This is
@@ -90,12 +100,7 @@ create view mobile_lessons as
     select id, program_id, subscription_role_id from public.users
     where lower(email) = lower(auth.jwt() ->> 'email')
     limit 1
-  ) me on true
-  left join completed_lessons cl on cl.lesson_id = l.id and cl.user_id = me.id
-  left join lesson_ratings   lr on lr.lesson_id = l.id and lr.user_id = me.id
-  left join favorites       fav on fav.favoritable_type = 'Lesson'
-                                and fav.favoritable_id = l.id
-                                and fav.user_id = me.id;
+  ) me on true;
 
 create or replace view mobile_snippets as
   select id,
@@ -124,8 +129,11 @@ grant select on mobile_programs, mobile_modules, mobile_lessons, mobile_snippets
 -- Recommended videos rail — the snippets the recommendation engine selected for
 -- this user (public.user_snippets), newest-first (= highest ranked), joined to
 -- the snippet's video. Email-scoped, so it returns only the caller's picks.
+-- DISTINCT ON (s.id): a snippet can be recommended more than once in
+-- user_snippets; keep only its newest pick so the rail never shows duplicates.
 create or replace view mobile_recommended_videos as
-  select s.id,
+  select distinct on (s.id)
+         s.id,
          coalesce(nullif(s.description, ''), s.title) as title,  -- human title lives in `description`
          s.ai_summary                                 as description,
          s.length_seconds,
@@ -137,7 +145,7 @@ create or replace view mobile_recommended_videos as
   join public.users    u on u.id = us.user_id
   where lower(u.email) = lower(auth.jwt() ->> 'email')
     and (s.vimeo_id is not null or s.vimeo_url is not null)   -- must have a playable video
-  order by us.created_at desc;
+  order by s.id, us.created_at desc;   -- newest pick per snippet (adapter re-sorts by recommended_at)
 
 grant select on mobile_recommended_videos to authenticated;
 
