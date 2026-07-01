@@ -126,14 +126,16 @@ create or replace view mobile_quotes as
 grant select on mobile_programs, mobile_modules, mobile_lessons, mobile_snippets, mobile_quotes
   to anon, authenticated;
 
--- Recommended videos rail — the snippets the recommendation engine selected for
--- this user (public.user_snippets), newest-first (= highest ranked), joined to
--- the snippet's video. Email-scoped, so it returns only the caller's picks.
--- DISTINCT ON (s.id): a snippet can be recommended more than once in
--- user_snippets; keep only its newest pick so the rail never shows duplicates.
-create or replace view mobile_recommended_videos as
-  select distinct on (s.id)
-         s.id,
+-- Recommended videos rail — the snippets the recommendation engine (n8n) writes
+-- to public.user_snippets, joined to the snippet's video. Email-scoped, so it
+-- returns only the caller's picks. NO DISTINCT ON / no ORDER BY here: PostgREST
+-- adds its own order+limit, and a DISTINCT ON view combined with that can fail
+-- the request (which then silently fell back to seed videos). The adapter sorts
+-- by recommended_at and de-duplicates by snippet id instead.
+-- DROP+CREATE (not REPLACE): the title expression's type is text (was varchar).
+drop view if exists mobile_recommended_videos;
+create view mobile_recommended_videos as
+  select s.id,
          -- Title source is messy in prod: `title` is usually empty and
          -- `description` is sometimes the literal placeholder "No description
          -- available". Prefer a real title, skip the placeholder, and fall back
@@ -154,8 +156,7 @@ create or replace view mobile_recommended_videos as
   join public.snippets s on s.id = us.snippet_id
   join public.users    u on u.id = us.user_id
   where lower(u.email) = lower(auth.jwt() ->> 'email')
-    and (s.vimeo_id is not null or s.vimeo_url is not null)   -- must have a playable video
-  order by s.id, us.created_at desc;   -- newest pick per snippet (adapter re-sorts by recommended_at)
+    and (s.vimeo_id is not null or s.vimeo_url is not null);   -- must have a playable video
 
 grant select on mobile_recommended_videos to authenticated;
 
