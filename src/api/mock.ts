@@ -160,6 +160,12 @@ export const mockInsights: InsightsApi = {
   reports: () => delay(reports),
   leaderboard: () => delay(leaderboard),
   useTracking: () => delay(mockUseTracking),
+  assessments: () =>
+    delay([
+      { id: 'audit', name: 'IGNTD AUDIT', takenAt: '2026-06-27', score: 6 },
+      { id: 'qol', name: 'Quality of Life Assessment', takenAt: '2026-06-20', score: 72 },
+      { id: 'assist', name: 'The ASSIST', takenAt: '2026-06-10', score: 14 },
+    ]),
 };
 
 export const mockMeetings: MeetingsApi = {

@@ -217,6 +217,24 @@ create or replace view mobile_leaderboard as
 
 grant select on mobile_leaderboard to authenticated;
 
+-- Assessments the user has taken — answer_headers joined to the assessment name
+-- (profiles.title), limited to attempts that are complete or carry a score. No
+-- DISTINCT ON (PostgREST-unsafe with order+limit); the adapter keeps the latest
+-- per assessment. `score` coalesces the per-instrument score column.
+create or replace view mobile_assessments as
+  select ah.id,
+         ah.profile_id,
+         p.title                                              as name,
+         coalesce(ah.complete_date, ah.updated_at)            as taken_at,
+         coalesce(ah.usage_score, ah.audit_score, ah.rating)  as score
+  from public.answer_headers ah
+  join public.users    u on u.id = ah.user_id
+  join public.profiles p on p.id = ah.profile_id
+  where lower(u.email) = lower(auth.jwt() ->> 'email')
+    and (ah.complete = true or ah.usage_score is not null or ah.audit_score is not null or ah.rating is not null);
+
+grant select on mobile_assessments to authenticated;
+
 -- -----------------------------------------------------------------------------
 -- 2. mobile_me — maps the signed-in auth email → the production users row, plus
 --    the personalisation fields the app reads after login. Filters internally on

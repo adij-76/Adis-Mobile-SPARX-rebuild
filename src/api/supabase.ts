@@ -334,6 +334,29 @@ export const supabaseInsights: InsightsApi = {
       return [];
     }
   },
+  async assessments() {
+    type Row = { profile_id: number | string; name: string | null; taken_at: string | null; score: number | null };
+    try {
+      const rows = await rest<Row[]>('mobile_assessments', { order: 'taken_at.desc', limit: '200' });
+      // Keep the latest result per assessment (rows arrive newest-first).
+      const seen = new Set<string>();
+      return rows
+        .filter((r) => {
+          const key = String(r.profile_id);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
+        .map((r) => ({
+          id: String(r.profile_id),
+          name: r.name || 'Assessment',
+          takenAt: r.taken_at,
+          score: r.score != null ? Math.round(r.score) : null,
+        }));
+    } catch {
+      return [];
+    }
+  },
 };
 
 // --- Auth (Supabase GoTrue over REST; no SDK, same as the data layer) ---
