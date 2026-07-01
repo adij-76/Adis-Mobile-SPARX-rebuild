@@ -14,6 +14,13 @@ import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { vimeoEmbedUrl, type SparkyVideo } from '@/lib/sparky';
 
+/** Only allow opening https Vimeo URLs externally. Sparky replies can carry
+ *  arbitrary text, so an unvalidated openURL could launch any scheme/host on
+ *  native (tel:, an attacker's site, etc.); restrict to https vimeo.com. */
+function safeVimeoUrl(url?: string): string | null {
+  return url && /^https:\/\/([a-z0-9-]+\.)*vimeo\.com\//i.test(url) ? url : null;
+}
+
 /**
  * Full-screen modal that plays a Vimeo video.
  *
@@ -113,7 +120,10 @@ export function VideoPlayerModal({
               : (
                 <Pressable
                   style={styles.fallback}
-                  onPress={() => video && Linking.openURL(video.url)}>
+                  onPress={() => {
+                    const safe = safeVimeoUrl(video?.url);
+                    if (safe) Linking.openURL(safe);
+                  }}>
                   <Ionicons name="play-circle" size={64} color={Colors.white} />
                   <Txt variant="bodySm" color={Colors.white} style={styles.fallbackText}>
                     Tap to play
