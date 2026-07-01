@@ -8,6 +8,7 @@ import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, View } f
 import { api } from '@/api';
 import { AppHeader } from '@/components/app-header';
 import { Screen } from '@/components/layout/screen';
+import { VideoThumbnail } from '@/components/video-thumbnail';
 import { useAsync } from '@/hooks/use-async';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
 import { useVimeoMeta } from '@/hooks/use-vimeo-meta';
@@ -29,14 +30,6 @@ import { recommendQuote } from '@/lib/quote-pick';
 import { useStore } from '@/lib/store';
 
 const TABS = ['Programs', 'Workshop', 'Challenges'] as const;
-
-/** Video poster that uses the given image, or derives the thumbnail from Vimeo
- *  when there's no image URL (snippets carry only a Vimeo link). */
-function VideoThumb({ image, vimeoUrl, style }: { image?: string; vimeoUrl?: string; style: object }) {
-  const meta = useVimeoMeta(image ? null : vimeoUrl ?? null);
-  const uri = image || meta?.thumbnail || undefined;
-  return <Image source={uri ? { uri } : undefined} style={style} contentFit="cover" transition={200} />;
-}
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -282,9 +275,10 @@ export default function HomeScreen() {
       style={isDesktop ? styles.videoCardWide : styles.videoCard}
       onPress={() => router.push(`/videos/${v.id}`)}>
       <View>
-        <VideoThumb
+        <VideoThumbnail
           image={v.image}
           vimeoUrl={v.vimeoUrl}
+          seed={v.id}
           style={isDesktop ? styles.videoImageWide : styles.videoImage}
         />
         {v.duration ? (
