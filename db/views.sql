@@ -178,28 +178,45 @@ create or replace view mobile_use_tracking as
 grant select on mobile_use_tracking to authenticated;
 
 -- Wheel of Life — real per-area current + previous score for the signed-in user.
--- wheel_of_life_scores.score is 0-10; the app chart is 0-100, so we scale ×10.
+-- Two sources are UNIONed and the newest two per area win:
+--   1. production wheel_of_life_scores.score (0-10) — scaled ×10 to the app's 0-100 chart.
+--   2. app-owned mobile_wheel_entries.score (already 0-100) — a mobile "retake".
 -- life_area_id (1..10) maps 1:1 (same order) to the app's wheel areas / life_areas.title.
-create or replace view mobile_wheel_areas as
-  with me as (
-    select id from public.users where lower(email) = lower(auth.jwt() ->> 'email') limit 1
-  ),
-  ranked as (
-    select ws.life_area_id, ws.score,
-           row_number() over (partition by ws.life_area_id order by ws.created_at desc) as rn
-    from public.wheel_of_life_scores ws
-    join me on me.id = ws.user_id
-  )
-  select r.life_area_id,
-         la.title,
-         round(max(case when r.rn = 1 then r.score end) * 10) as current_score,
-         round(max(case when r.rn = 2 then r.score end) * 10) as last_score
-  from ranked r
-  join public.life_areas la on la.id = r.life_area_id
-  where r.rn <= 2
-  group by r.life_area_id, la.title;
-
-grant select on mobile_wheel_areas to authenticated;
+-- The app-entries arm is spliced in only when that table exists, so this file still
+-- runs standalone against a fresh import (before mobile-wheel-entries.sql is applied).
+do $wheel$
+declare app_union text := '';
+begin
+  if to_regclass('public.mobile_wheel_entries') is not null then
+    app_union := 'union all select we.life_area_id, we.score::numeric as s, we.taken_at as at '
+              || 'from public.mobile_wheel_entries we where we.auth_uid = auth.uid()';
+  end if;
+  execute format($v$
+    create or replace view mobile_wheel_areas as
+      with scores as (
+        select ws.life_area_id, (ws.score * 10)::numeric as s, ws.created_at as at
+        from public.wheel_of_life_scores ws
+        join public.users u on u.id = ws.user_id
+        where lower(u.email) = lower(auth.jwt() ->> 'email')
+        %s
+      ),
+      ranked as (
+        select life_area_id, s,
+               row_number() over (partition by life_area_id order by at desc) as rn
+        from scores
+      )
+      select r.life_area_id,
+             la.title,
+             round(max(case when r.rn = 1 then r.s end)) as current_score,
+             round(max(case when r.rn = 2 then r.s end)) as last_score
+      from ranked r
+      join public.life_areas la on la.id = r.life_area_id
+      where r.rn <= 2
+      group by r.life_area_id, la.title
+  $v$, app_union);
+  execute 'grant select on mobile_wheel_areas to authenticated';
+end
+$wheel$;
 
 -- Community leaderboard — total points per user (user_points), top 50. Global
 -- (a leaderboard is inherently multi-user); `you` flags the caller's own row.
@@ -291,22 +308,36 @@ grant select on mobile_me to authenticated;
 -- -----------------------------------------------------------------------------
 
 do $$
+declare app_union text := '';
 begin
   if to_regclass('public.wheel_of_life_scores') is not null then
+    -- App-owned retakes (mobile_wheel_entries) are spliced in as extra monthly
+    -- samples so a fresh retake immediately moves this month's average. Scores
+    -- there are already 0-100; production is 0-10, so it's the one scaled ×10.
+    -- Only splice when the table exists (fresh imports run this file first).
+    if to_regclass('public.mobile_wheel_entries') is not null then
+      app_union := 'union all select we.score::numeric as s, we.taken_at as at '
+                || 'from public.mobile_wheel_entries we where we.auth_uid = auth.uid()';
+    end if;
     -- DROP+CREATE: an earlier mobile_wheel_scores had a user_id column we no
     -- longer expose, and CREATE OR REPLACE can't drop a column.
     execute 'drop view if exists mobile_wheel_scores';
-    execute $v$
+    execute format($v$
       create view mobile_wheel_scores as
-        select to_char(date_trunc('month', ws.created_at), 'YYYY-MM') as month_key,
-               to_char(date_trunc('month', ws.created_at), 'Mon')     as label,
-               extract(year from ws.created_at)::int                  as year,
-               round(avg(ws.score) * 10)::int                         as score  -- 0-10 → 0-100
-        from public.wheel_of_life_scores ws
-        join public.users u on u.id = ws.user_id
-        where lower(u.email) = lower(auth.jwt() ->> 'email')
+        with samples as (
+          select (ws.score * 10)::numeric as s, ws.created_at as at
+          from public.wheel_of_life_scores ws
+          join public.users u on u.id = ws.user_id
+          where lower(u.email) = lower(auth.jwt() ->> 'email')
+          %s
+        )
+        select to_char(date_trunc('month', at), 'YYYY-MM') as month_key,
+               to_char(date_trunc('month', at), 'Mon')     as label,
+               extract(year from at)::int                  as year,
+               round(avg(s))::int                          as score  -- already 0-100
+        from samples
         group by 1, 2, 3
-    $v$;
+    $v$, app_union);
     execute 'grant select on mobile_wheel_scores to authenticated';
   end if;
 end $$;

@@ -24,6 +24,7 @@ import type {
   Quote,
   Snippet,
   VideoItem,
+  WheelEntryInput,
   WheelPoint,
   Workshop,
 } from '@/api/types';
@@ -358,6 +359,29 @@ export const supabaseInsights: InsightsApi = {
     } catch {
       return [];
     }
+  },
+  // Persist a retake to mobile_wheel_entries (one row per area). auth_uid is set
+  // by the column default auth.uid(); RLS enforces it's the caller's own rows.
+  // The mobile_wheel_areas view unions these in, so the retake shows immediately.
+  async saveWheel(entries: WheelEntryInput[], appUserId) {
+    if (!entries.length) return;
+    const idNum = Number(appUserId);
+    const rows = entries.map((e) => ({
+      life_area_id: e.lifeAreaId,
+      score: Math.round(e.score),
+      app_user_id: Number.isFinite(idNum) ? idNum : null,
+    }));
+    const res = await fetch(`${BASE}/rest/v1/mobile_wheel_entries`, {
+      method: 'POST',
+      headers: {
+        apikey: ANON,
+        Authorization: `Bearer ${authToken ?? ANON}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify(rows),
+    });
+    if (!res.ok) throw new Error(`Wheel save failed (${res.status})`);
   },
 };
 
