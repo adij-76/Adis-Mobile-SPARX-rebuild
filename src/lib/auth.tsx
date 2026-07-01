@@ -46,11 +46,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<AuthSession | null>(null);
 
   /** Apply a session: point the data layer at its token, enrich the user with
-   *  their production id, persist, and flip to authed. */
+   *  their production id + all personalisation fields, persist, flip to authed. */
   const apply = useCallback(async (s: AuthSession) => {
     setSupabaseToken(s.accessToken);
     const me = await api.auth.me(s.user.email).catch(() => null);
-    const user: AuthUser = me ? { ...s.user, appUserId: me.appUserId, name: s.user.name ?? me.name } : s.user;
+    const user: AuthUser = me
+      ? {
+          ...s.user,
+          appUserId: me.appUserId,
+          // GoTrue user_metadata has precedence for name/avatar (most recently
+          // updated by the user); fall back to what the production DB row has.
+          name: s.user.name ?? me.name,
+          avatarUrl: s.user.avatarUrl ?? me.avatarUrl,
+          programId: me.programId,
+          subscribed: me.subscribed,
+          stripeActive: me.stripeActive,
+          advancedCoaching: me.advancedCoaching,
+          addictionLabel: me.addictionLabel,
+          daysCount: me.daysCount,
+          daysUpdatedAt: me.daysUpdatedAt,
+          userHandle: me.userHandle,
+          timeZone: me.timeZone,
+          teamId: me.teamId,
+          zoomEmail: me.zoomEmail,
+        }
+      : s.user;
     const enriched: AuthSession = { ...s, user };
     await persist(enriched);
     setSession(enriched);
@@ -85,10 +105,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
         const saved = JSON.parse(raw) as AuthSession;
-        setSupabaseToken(saved.accessToken);
-        if (active) {
-          setSession(saved);
-          setStatus('authed');
+        // Try to refresh first so the access token stays valid. On network
+        // error fall back to the cached session (user stays logged in).
+        try {
+          const fresh = await api.auth.refresh(saved.refreshToken);
+          if (active) await apply(fresh);
+        } catch {
+          setSupabaseToken(saved.accessToken);
+          if (active) {
+            setSession(saved);
+            setStatus('authed');
+          }
         }
       } catch {
         if (active) setStatus('guest');
@@ -120,7 +147,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const redirectTo = window.location.origin + window.location.pathname;
     const url = api.auth.oauthUrl(provider, redirectTo);
     if (!url) throw new Error('Social sign-in needs Supabase + this provider enabled.');
-    window.location.href = url;
+    // Open in a new tab so a misconfigured provider error doesn't strand the
+    // user on a raw JSON page. The redirect brings the user back to this origin
+    // with tokens in the hash, which the _layout startup handler processes.
+    window.open(url, '_self');
   }, []);
 
   const updateAvatar = useCallback(

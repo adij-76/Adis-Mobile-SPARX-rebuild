@@ -15,11 +15,13 @@ import type {
   InsightsApi,
   Lesson,
   LessonType,
+  MeResult,
   MeetingsApi,
   Module,
   Program,
   Quote,
   Snippet,
+  VideoItem,
   WheelPoint,
   Workshop,
 } from '@/api/types';
@@ -68,7 +70,7 @@ type ProgramRow = { id: number | string; name: string; active: boolean };
 type ModuleRow = { id: number | string; program_id: number | string; title: string; order: number };
 type LessonRow = {
   id: number | string;
-  portion_id: number | string;
+  module_id: number | string;
   title: string;
   nav_title: string;
   position: number;
@@ -81,6 +83,7 @@ type LessonRow = {
   progress?: number;
   rating?: number;
   favorite?: boolean;
+  accessible?: boolean;
 };
 type SnippetRow = {
   id: number | string;
@@ -99,9 +102,12 @@ type SnippetRow = {
 const vimeoUrlFrom = (url: string | null, id: number | null): string | null =>
   url || (id != null ? `https://vimeo.com/${id}` : null);
 
+/** Seconds → "m:ss" for video duration labels. */
+const fmtDuration = (sec: number): string => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+
 const toLesson = (r: LessonRow): Lesson => ({
   id: String(r.id),
-  moduleId: String(r.portion_id),
+  moduleId: String(r.module_id),
   title: r.title,
   navTitle: r.nav_title,
   position: r.position,
@@ -114,6 +120,7 @@ const toLesson = (r: LessonRow): Lesson => ({
   progress: r.progress,
   rating: r.rating,
   favorite: r.favorite,
+  accessible: r.accessible,
 });
 
 export const supabaseContent: ContentApi = {
@@ -138,7 +145,7 @@ export const supabaseContent: ContentApi = {
   },
   async moduleLessons(moduleId) {
     const rows = await rest<LessonRow[]>('mobile_lessons', {
-      portion_id: `eq.${moduleId}`,
+      module_id: `eq.${moduleId}`,
       lesson_type: 'eq.lesson',
       order: 'position',
     });
@@ -173,9 +180,41 @@ export const supabaseContent: ContentApi = {
         }) satisfies Snippet,
     );
   },
-  // No dedicated views yet — serve the seed data (see header note).
+  // The recommendation engine's per-user picks (mobile_recommended_videos over
+  // user_snippets), newest-first. Falls back to seed videos if the view is empty
+  // or unavailable, so the rail is never blank. Thumbnails derive from Vimeo
+  // client-side (snippets carry no image), same as lessons.
   async recommendedVideos() {
-    return recommendedVideos;
+    type RecRow = {
+      id: number | string;
+      title: string | null;
+      description: string | null;
+      length_seconds: number | null;
+      vimeo_url: string | null;
+      vimeo_id: number | null;
+    };
+    try {
+      const rows = await rest<RecRow[]>('mobile_recommended_videos', {
+        order: 'recommended_at.desc',
+        limit: '6',
+      });
+      if (!rows.length) return recommendedVideos;
+      return rows.map(
+        (r) =>
+          ({
+            id: String(r.id),
+            title: r.title || 'SPARx video',
+            duration: r.length_seconds ? fmtDuration(r.length_seconds) : '',
+            image: '', // derived from Vimeo oEmbed in the card
+            presenter: 'SPARx',
+            views: '',
+            description: r.description || '',
+            vimeoUrl: vimeoUrlFrom(r.vimeo_url, r.vimeo_id) ?? undefined,
+          }) satisfies VideoItem,
+      );
+    } catch {
+      return recommendedVideos;
+    }
   },
   async quotes() {
     // Read the DB quotes when the view exists; fall back to seed quotes so the
@@ -272,7 +311,19 @@ function toAuthUser(u: GoTrueUser): AuthUser {
     email: u.email,
     name: u.user_metadata?.name ?? u.user_metadata?.full_name ?? null,
     avatarUrl: u.user_metadata?.avatar_url ?? null,
-    appUserId: null, // resolved separately via me()
+    appUserId: null,
+    // Rich fields are null/false until enriched by apply() → me()
+    programId: null,
+    subscribed: false,
+    stripeActive: false,
+    advancedCoaching: false,
+    addictionLabel: null,
+    daysCount: null,
+    daysUpdatedAt: null,
+    userHandle: null,
+    timeZone: null,
+    teamId: null,
+    zoomEmail: null,
   };
 }
 
@@ -326,15 +377,47 @@ export const supabaseAuth: AuthApi = {
       headers: { ...authHeaders, Authorization: `Bearer ${accessToken}` },
     }).catch(() => {});
   },
-  async me(email) {
-    // mobile_me maps the auth email → the production users row that owns the
-    // user's real data. Optional: falls back to null until the view exists.
+  async me(email): Promise<MeResult | null> {
+    // mobile_me maps the auth email → the production users row (and rich
+    // personalisation fields). Falls back to null until the view exists.
+    // MeRow column names mirror the mobile_me view (canonical snake_case); each
+    // maps mechanically to the camelCase MeResult field. See db/field-dictionary.md.
+    type MeRow = {
+      app_user_id: string | number;
+      name: string | null;
+      avatar_url: string | null;
+      program_id: string | number | null;
+      subscribed: boolean | null;
+      stripe_active: boolean | null;
+      advanced_coaching: boolean | null;
+      addiction_label: string | null;
+      days_count: number | null;
+      days_updated_at: string | null;
+      user_handle: string | null;
+      time_zone: string | null;
+      team_id: string | number | null;
+      zoom_email: string | null;
+    };
     try {
-      const rows = await rest<{ app_user_id: string | number; name: string | null }[]>('mobile_me', {
-        email: `eq.${email}`,
-        limit: '1',
-      });
-      return rows.length ? { appUserId: String(rows[0].app_user_id), name: rows[0].name } : null;
+      const rows = await rest<MeRow[]>('mobile_me', { email: `eq.${email}`, limit: '1' });
+      if (!rows.length) return null;
+      const r = rows[0];
+      return {
+        appUserId: String(r.app_user_id),
+        name: r.name,
+        avatarUrl: r.avatar_url,
+        programId: r.program_id != null ? String(r.program_id) : null,
+        subscribed: r.subscribed ?? false,
+        stripeActive: r.stripe_active ?? false,
+        advancedCoaching: r.advanced_coaching ?? false,
+        addictionLabel: r.addiction_label,
+        daysCount: r.days_count,
+        daysUpdatedAt: r.days_updated_at,
+        userHandle: r.user_handle,
+        timeZone: r.time_zone,
+        teamId: r.team_id != null ? String(r.team_id) : null,
+        zoomEmail: r.zoom_email,
+      } satisfies MeResult;
     } catch {
       return null;
     }

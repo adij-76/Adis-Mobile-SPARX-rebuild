@@ -37,6 +37,7 @@ export type {
   ContentApi,
   InsightsApi,
   Lesson,
+  MeResult,
   MeetingsApi,
   Module,
   Program,

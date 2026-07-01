@@ -13,6 +13,7 @@ import { ActivityIndicator } from 'react-native';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { DEMO_VIDEO_URL } from '@/data/content';
 import { useAsync } from '@/hooks/use-async';
+import { useVimeoMeta } from '@/hooks/use-vimeo-meta';
 import { useStore } from '@/lib/store';
 
 export default function VideoDetail() {
@@ -21,9 +22,19 @@ export default function VideoDetail() {
   const recommendedVideos = useAsync(() => api.content.recommendedVideos(), []).data ?? [];
   const video = recommendedVideos.find((v) => v.id === id) ?? recommendedVideos[0];
 
-  const { isFav, toggleFav } = useStore();
+  const { isFav, toggleFav, markVideoWatched } = useStore();
   const [liked, setLiked] = useState(false);
   const [playing, setPlaying] = useState(false);
+  // Snippets carry no image URL — derive the poster from Vimeo when needed.
+  const posterMeta = useVimeoMeta(video?.image ? null : video?.vimeoUrl ?? null);
+
+  // Web: mark watched when the player reports the video ended (onEnded below).
+  // Native: the fallback opens an external browser we can't observe, so mark it
+  // watched on open instead.
+  const play = () => {
+    if (Platform.OS !== 'web' && video) markVideoWatched(video.id);
+    setPlaying(true);
+  };
 
   if (!video) {
     return (
@@ -61,8 +72,8 @@ export default function VideoDetail() {
       <ScreenHeader title="Back" />
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         {/* Player */}
-        <Pressable style={styles.player} onPress={() => setPlaying(true)}>
-          <Image source={{ uri: video.image }} style={styles.poster} />
+        <Pressable style={styles.player} onPress={play}>
+          <Image source={{ uri: video.image || posterMeta?.thumbnail || undefined }} style={styles.poster} />
           <View style={styles.playBig}>
             <Ionicons name="play" size={28} color={Colors.primaryDark} />
           </View>
@@ -128,6 +139,7 @@ export default function VideoDetail() {
       <VideoPlayerModal
         video={playing ? { url: playUrl, title: video.title, thumbnail: video.image } : null}
         onClose={() => setPlaying(false)}
+        onEnded={() => markVideoWatched(video.id)}
       />
     </SafeAreaView>
   );

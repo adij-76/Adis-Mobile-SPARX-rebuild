@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
+import { useAuth } from '@/lib/auth';
 
 const BENEFITS = [
   'Every workshop and lesson, unlocked',
@@ -25,26 +26,55 @@ const PLANS = [
 
 export default function Premium() {
   const router = useRouter();
+  const { user: authUser } = useAuth();
   const [plan, setPlan] = useState('annual');
+
+  const isPremium = authUser?.subscribed || authUser?.stripeActive || false;
+  const hasAdvanced = authUser?.advancedCoaching || false;
+
   return (
     <View style={styles.root}>
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
         <ScreenHeader title="Back" />
         <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-          <LinearGradient colors={['#FF9D4B', '#FFB879']} style={styles.hero}>
+          <LinearGradient
+            colors={isPremium ? ['#166890', '#0d4f6e'] : ['#FF9D4B', '#FFB879']}
+            style={styles.hero}>
             <Ionicons name="diamond" size={40} color={Colors.white} />
             <Txt variant="titleLg" color={Colors.white} center>
-              SPARx Premium
+              {isPremium ? "You're on SPARx Premium" : 'SPARx Premium'}
             </Txt>
             <Txt variant="bodySm" color="rgba(255,255,255,0.9)" center>
-              Everything you need for your recovery journey, in one place.
+              {isPremium
+                ? hasAdvanced
+                  ? 'Advanced coaching + full content library active.'
+                  : 'Full content library active. All workshops and reports unlocked.'
+                : 'Everything you need for your recovery journey, in one place.'}
             </Txt>
           </LinearGradient>
+
+          {isPremium ? (
+            <View style={styles.activeCard}>
+              <Ionicons name="checkmark-circle" size={28} color={Colors.success} />
+              <View style={{ flex: 1 }}>
+                <Txt variant="bodyMedium">Subscription active</Txt>
+                <Txt variant="caption" color={Colors.textSub}>
+                  {hasAdvanced
+                    ? 'Advanced coaching included with your plan.'
+                    : 'Manage your subscription via your App Store or Stripe account.'}
+                </Txt>
+              </View>
+            </View>
+          ) : null}
 
           <View style={{ gap: Spacing.md }}>
             {BENEFITS.map((b) => (
               <View key={b} style={styles.benefit}>
-                <Ionicons name="checkmark-circle" size={22} color={Colors.success} />
+                <Ionicons
+                  name="checkmark-circle"
+                  size={22}
+                  color={isPremium ? Colors.success : Colors.success}
+                />
                 <Txt variant="bodyMedium" style={{ flex: 1 }}>
                   {b}
                 </Txt>
@@ -52,42 +82,46 @@ export default function Premium() {
             ))}
           </View>
 
-          <View style={styles.plans}>
-            {PLANS.map((p) => {
-              const active = p.key === plan;
-              return (
-                <Pressable
-                  key={p.key}
-                  onPress={() => setPlan(p.key)}
-                  style={[styles.plan, active && styles.planActive]}>
-                  {p.tag && (
-                    <View style={styles.tag}>
-                      <Txt variant="caption" color={Colors.white}>
-                        {p.tag}
-                      </Txt>
-                    </View>
-                  )}
-                  <Txt variant="bodySmMedium" color={Colors.textSub}>
-                    {p.label}
-                  </Txt>
-                  <Txt variant="titleLg" color={active ? Colors.primary : Colors.textMain}>
-                    {p.price}
-                    <Txt variant="bodySm" color={Colors.textSub}>
-                      {p.per}
+          {!isPremium && (
+            <View style={styles.plans}>
+              {PLANS.map((p) => {
+                const active = p.key === plan;
+                return (
+                  <Pressable
+                    key={p.key}
+                    onPress={() => setPlan(p.key)}
+                    style={[styles.plan, active && styles.planActive]}>
+                    {p.tag && (
+                      <View style={styles.tag}>
+                        <Txt variant="caption" color={Colors.white}>
+                          {p.tag}
+                        </Txt>
+                      </View>
+                    )}
+                    <Txt variant="bodySmMedium" color={Colors.textSub}>
+                      {p.label}
                     </Txt>
-                  </Txt>
-                </Pressable>
-              );
-            })}
-          </View>
+                    <Txt variant="titleLg" color={active ? Colors.primary : Colors.textMain}>
+                      {p.price}
+                      <Txt variant="bodySm" color={Colors.textSub}>
+                        {p.per}
+                      </Txt>
+                    </Txt>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
         </ScrollView>
-        <View style={styles.footer}>
-          <Button
-            title="Start 7-day free trial"
-            variant="primary"
-            onPress={() => router.push('/settings/payment')}
-          />
-        </View>
+        {!isPremium && (
+          <View style={styles.footer}>
+            <Button
+              title="Start 7-day free trial"
+              variant="primary"
+              onPress={() => router.push('/settings/payment')}
+            />
+          </View>
+        )}
       </SafeAreaView>
     </View>
   );
@@ -116,6 +150,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
     borderRadius: Radius.pill,
+  },
+  activeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    backgroundColor: 'rgba(22,104,144,0.06)',
+    borderWidth: 1,
+    borderColor: Colors.primary,
+    borderRadius: Radius.lg,
+    padding: Spacing.lg,
   },
   footer: { padding: Spacing.lg },
 });

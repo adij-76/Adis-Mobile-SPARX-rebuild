@@ -49,6 +49,10 @@ export type Lesson = {
   progress?: number; // 0-100
   rating?: number;
   favorite?: boolean;
+  /** Whether the user's subscription role unlocks this lesson/workshop.
+   *  Undefined from backends that don't compute gating (mock) → treat as
+   *  accessible; only an explicit `false` locks the content. */
+  accessible?: boolean;
 };
 
 /** A workshop is a Lesson with lessonType === 'workshop'. */
@@ -113,14 +117,40 @@ export type InsightsApi = {
   leaderboard(): Promise<LeaderboardEntry[]>;
 };
 
-/** The signed-in user. `id` is the auth user id; `appUserId` (when resolved via
- *  the mobile_me view) is the production users.id that owns their real data. */
+/** The signed-in user. `id` is the Supabase auth user id; `appUserId` (when
+ *  resolved via the mobile_me view) is the production users.id that owns their
+ *  real data. Rich fields below are null/false until mobile_me is queried. */
 export type AuthUser = {
   id: string;
   email: string;
   name: string | null;
   avatarUrl: string | null;
   appUserId: string | null;
+
+  // -- resolved from public.users via mobile_me --
+  /** The program the user is enrolled in (program_id). */
+  programId: string | null;
+  /** Whether the user has an active subscription (subscribed OR stripe_active). */
+  subscribed: boolean;
+  /** Stripe subscription is live. */
+  stripeActive: boolean;
+  /** Has advanced coaching access. */
+  advancedCoaching: boolean;
+  /** Text label for their primary struggle (e.g. "Alcohol"). Used by
+   *  addictionStruggle() to personalise the check-in and Sparky AI. */
+  addictionLabel: string | null;
+  /** Current sobriety / behaviour-free day count (days_counter_amount). */
+  daysCount: number | null;
+  /** When the days counter was last reset (days_counter_updated_at). */
+  daysUpdatedAt: string | null;
+  /** Community display handle (user_handle). */
+  userHandle: string | null;
+  /** IANA time-zone string for scheduling and notifications. */
+  timeZone: string | null;
+  /** Coach / team assignment (team_id). */
+  teamId: string | null;
+  /** Email address used for Zoom meeting booking. */
+  zoomEmail: string | null;
 };
 
 export type AuthSession = {
@@ -131,6 +161,24 @@ export type AuthSession = {
 
 export type OAuthProvider = 'google' | 'apple' | 'facebook';
 
+/** What mobile_me returns after sign-in enrichment. */
+export type MeResult = {
+  appUserId: string;
+  name: string | null;
+  avatarUrl: string | null;
+  programId: string | null;
+  subscribed: boolean;
+  stripeActive: boolean;
+  advancedCoaching: boolean;
+  addictionLabel: string | null;
+  daysCount: number | null;
+  daysUpdatedAt: string | null;
+  userHandle: string | null;
+  timeZone: string | null;
+  teamId: string | null;
+  zoomEmail: string | null;
+};
+
 export type AuthApi = {
   signIn(email: string, password: string): Promise<AuthSession>;
   signUp(email: string, password: string): Promise<AuthSession>;
@@ -138,7 +186,7 @@ export type AuthApi = {
   /** Exchange a refresh token for a fresh session (expired access tokens). */
   refresh(refreshToken: string): Promise<AuthSession>;
   /** Resolve the production user that owns this email's data (mobile_me view). */
-  me(email: string): Promise<{ appUserId: string; name: string | null } | null>;
+  me(email: string): Promise<MeResult | null>;
   /** Hosted-provider sign-in URL to redirect to (web). Empty string if the
    *  backend can't do OAuth (e.g. the mock). */
   oauthUrl(provider: OAuthProvider, redirectTo: string): string;
