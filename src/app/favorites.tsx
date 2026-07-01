@@ -12,12 +12,14 @@ import { Txt } from '@/components/ui/text';
 import { VideoThumb } from '@/components/ui/video-thumb';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
+import { useGoBack } from '@/hooks/use-go-back';
 import { useStore } from '@/lib/store';
 
 type Tab = 'lessons' | 'videos';
 
 export default function Favorites() {
   const router = useRouter();
+  const goBack = useGoBack();
   const [tab, setTab] = useState<Tab>('lessons');
   const { favoriteIds, toggleFav } = useStore();
   const workshops = useAsync(() => api.content.workshops(), []).data ?? [];
@@ -30,7 +32,7 @@ export default function Favorites() {
     <Screen variant="modal" style={styles.safe}>
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12} style={styles.back}>
+        <Pressable onPress={goBack} hitSlop={12} style={styles.back}>
           <Ionicons name="arrow-back" size={22} color={Colors.textMain} />
           <Txt variant="bodyMedium">Back</Txt>
         </Pressable>

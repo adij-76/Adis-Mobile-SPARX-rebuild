@@ -11,10 +11,12 @@ import { Button } from '@/components/ui/button';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
+import { useGoBack } from '@/hooks/use-go-back';
 import { useStore } from '@/lib/store';
 
 export default function MeetingDetail() {
   const router = useRouter();
+  const goBack = useGoBack('/meetings');
   const { id } = useLocalSearchParams<{ id: string }>();
   const { bookings, isBooked, bookMeeting } = useStore();
   const [showConfirm, setShowConfirm] = useState(false);
@@ -36,7 +38,7 @@ export default function MeetingDetail() {
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.header}>
         <Pressable
-          onPress={() => router.back()}
+          onPress={goBack}
           hitSlop={12}
           accessibilityRole="button"
           accessibilityLabel="Go back"

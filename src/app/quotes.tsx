@@ -10,6 +10,7 @@ import { api } from '@/api';
 import { Txt } from '@/components/ui/text';
 import { Colors, FontFamily, Spacing } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
+import { useGoBack } from '@/hooks/use-go-back';
 import { backgroundIndexFor, recommendQuote } from '@/lib/quote-pick';
 import { useStore } from '@/lib/store';
 
@@ -23,6 +24,7 @@ const LOCAL_BACKGROUNDS = [
 
 export default function QuoteCardScreen() {
   const router = useRouter();
+  const goBack = useGoBack();
   const shotRef = useRef<View>(null);
   const { checkins } = useStore();
 
@@ -129,7 +131,7 @@ export default function QuoteCardScreen() {
 
       {/* Chrome overlay (not captured) */}
       <SafeAreaView style={styles.overlay} edges={['top', 'bottom']} pointerEvents="box-none">
-        <Pressable onPress={() => router.back()} hitSlop={12} style={styles.back}>
+        <Pressable onPress={goBack} hitSlop={12} style={styles.back}>
           <Ionicons name="arrow-back" size={24} color={Colors.white} />
           <Txt variant="bodyMedium" color={Colors.white}>
             Back

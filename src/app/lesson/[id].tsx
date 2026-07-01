@@ -18,6 +18,7 @@ import { WORKSHOP_STEPS } from '@/data/content';
 import { lessonTitle } from '@/lib/content-format';
 import { useAsync } from '@/hooks/use-async';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
+import { useGoBack } from '@/hooks/use-go-back';
 import { useVimeoMeta } from '@/hooks/use-vimeo-meta';
 import { useStore } from '@/lib/store';
 import type { SparkyVideo } from '@/lib/sparky';
@@ -42,6 +43,7 @@ function VideoPoster({ url, label, onPlay }: { url: string | null; label: string
 
 export default function LessonScreen() {
   const router = useRouter();
+  const goBack = useGoBack('/lessons');
   const { isDesktop } = useBreakpoint();
   const { id } = useLocalSearchParams<{ id: string }>();
 
@@ -66,7 +68,7 @@ export default function LessonScreen() {
   if (lessonQ.loading) {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <TopBar title="" onBack={() => router.back()} />
+        <TopBar title="" onBack={goBack} />
         <View style={styles.center}>
           <ActivityIndicator color={Colors.primary} />
         </View>
@@ -77,7 +79,7 @@ export default function LessonScreen() {
   if (lessonQ.error || !lesson) {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <TopBar title="" onBack={() => router.back()} />
+        <TopBar title="" onBack={goBack} />
         <View style={styles.center}>
           <Ionicons name="cloud-offline-outline" size={40} color={Colors.strokeStrong} />
           <Txt variant="bodySm" color={Colors.textSub} center>
@@ -93,7 +95,7 @@ export default function LessonScreen() {
   if (lesson.accessible === false) {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <TopBar title={lessonTitle(lesson)} onBack={() => router.back()} />
+        <TopBar title={lessonTitle(lesson)} onBack={goBack} />
         <View style={styles.center}>
           <View style={styles.summaryIcon}>
             <Ionicons name="lock-closed" size={28} color={Colors.orange} />
@@ -242,7 +244,7 @@ export default function LessonScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <TopBar
         title={`${context} · ${title}`}
-        onBack={() => router.back()}
+        onBack={goBack}
         outlineOpen={outlineOpen}
         onToggleOutline={isWorkshop ? undefined : () => setOutlineOpen((o) => !o)}
       />

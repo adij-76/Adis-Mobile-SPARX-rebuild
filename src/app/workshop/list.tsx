@@ -1,21 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { WorkshopList } from '@/components/workshop-list';
 import { Txt } from '@/components/ui/text';
 import { Colors, Spacing } from '@/constants/theme';
+import { useGoBack } from '@/hooks/use-go-back';
 
 export default function WorkshopListScreen() {
-  const router = useRouter();
+  const goBack = useGoBack();
   const { cat } = useLocalSearchParams<{ cat?: string }>();
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <Pressable
-          onPress={() => router.back()}
+          onPress={goBack}
           hitSlop={12}
           accessibilityRole="button"
           accessibilityLabel="Go back"
