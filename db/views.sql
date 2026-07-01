@@ -46,7 +46,8 @@ create or replace view mobile_modules as
 drop view if exists mobile_lessons;
 create view mobile_lessons as
   select l.id,
-         l.portion_id as module_id,        -- Rails calls modules "portions"; app domain = module
+         l.portion_id as module_id,        -- canonical (app domain = "module")
+         l.portion_id,                     -- compat: pre-rename app builds filter on portion_id
          l.title,
          l.nav_title,
          l.position,
@@ -154,18 +155,25 @@ create view mobile_me as
   -- Column aliases are the canonical clean contract: each is the snake_case of
   -- the app's camelCase field, so the adapter is a mechanical transform and the
   -- admin backend can speak the same vocabulary. (See db/field-dictionary.md.)
+  -- Canonical clean names PLUS backward-compat aliases: the deployed app build
+  -- (from main) still reads the pre-rename names (avatar, addiction,
+  -- days_counter_updated_at). We expose both so a view update never breaks the
+  -- live app; the old aliases can be dropped once the new build ships to main.
   select u.id                                          as app_user_id,
          u.first_name                                  as name,
          u.email,
          u.avatar_link                                 as avatar_url,
+         u.avatar_link                                 as avatar,           -- compat
          u.program_id,
          coalesce(u.subscribed, false)                 as subscribed,
          -- production column has the typo "subsctiption"; the clean name hides it.
          coalesce(u.stripe_subsctiption_active, false) as stripe_active,
          coalesce(u.advanced_coaching, false)          as advanced_coaching,
          a.title                                       as addiction_label,
+         a.title                                       as addiction,        -- compat
          u.days_counter_amount                         as days_count,
          u.days_counter_updated_at                     as days_updated_at,
+         u.days_counter_updated_at,                                         -- compat
          u.user_handle,
          u.time_zone,
          u.team_id,
