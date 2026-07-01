@@ -196,16 +196,25 @@ export const supabaseContent: ContentApi = {
     try {
       const rows = await rest<RecRow[]>('mobile_recommended_videos', {
         order: 'recommended_at.desc',
-        limit: '6',
+        limit: '40',
       });
       if (!rows.length) return recommendedVideos;
-      return rows.map(
+      // De-duplicate by snippet id (a snippet can be recommended more than once),
+      // keeping the first = newest since rows arrive recommended_at.desc.
+      const seen = new Set<string>();
+      const unique = rows.filter((r) => {
+        const id = String(r.id);
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
+      return unique.slice(0, 8).map(
         (r) =>
           ({
             id: String(r.id),
             title: r.title || 'SPARx video',
             duration: r.length_seconds ? fmtDuration(r.length_seconds) : '',
-            image: '', // derived from Vimeo oEmbed in the card
+            image: '', // derived from Vimeo oEmbed / gradient in the card
             presenter: 'SPARx',
             views: '',
             description: r.description || '',
