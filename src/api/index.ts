@@ -28,7 +28,7 @@ export const api: Api = {
   checkins: useSupabase ? supabaseCheckins : mockCheckins,
 };
 
-export { setSupabaseToken } from '@/api/supabase';
+export { setSupabaseToken, setOnUnauthorized } from '@/api/supabase';
 
 export type {
   Api,

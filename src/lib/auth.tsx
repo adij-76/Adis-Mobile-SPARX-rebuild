@@ -12,12 +12,13 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
 import { Platform } from 'react-native';
 
-import { api, setSupabaseToken, type AuthSession, type AuthUser } from '@/api';
+import { api, setOnUnauthorized, setSupabaseToken, type AuthSession, type AuthUser } from '@/api';
 import type { OAuthProvider } from '@/api/types';
 
 const KEY = 'sparx.auth.v1';
@@ -44,6 +45,13 @@ async function persist(session: AuthSession | null) {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<Status>('loading');
   const [session, setSession] = useState<AuthSession | null>(null);
+  // Latest session, readable from the 401 handler without re-registering it.
+  const sessionRef = useRef<AuthSession | null>(null);
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
+  // Guards against a burst of parallel 401s all kicking off refreshes.
+  const refreshingRef = useRef<Promise<void> | null>(null);
 
   /** Apply a session: point the data layer at its token, enrich the user with
    *  their production id + all personalisation fields, persist, flip to authed. */
@@ -105,16 +113,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
         const saved = JSON.parse(raw) as AuthSession;
-        // Try to refresh first so the access token stays valid. On network
-        // error fall back to the cached session (user stays logged in).
+        // Try to refresh first so the access token stays valid. Two failure
+        // modes, handled differently:
+        //   • network error (offline) → keep the cached session so a flaky
+        //     connection doesn't sign the user out.
+        //   • anything else (refresh token expired/revoked/invalid) → the
+        //     session is dead. Clear it and drop to guest so the auth gate
+        //     sends them to login, instead of leaving them "authed" with a
+        //     dead token that 401s every request and falls back to seed data.
         try {
           const fresh = await api.auth.refresh(saved.refreshToken);
           if (active) await apply(fresh);
-        } catch {
-          setSupabaseToken(saved.accessToken);
-          if (active) {
-            setSession(saved);
-            setStatus('authed');
+        } catch (err) {
+          if ((err as { network?: boolean })?.network) {
+            setSupabaseToken(saved.accessToken);
+            if (active) {
+              setSession(saved);
+              setStatus('authed');
+            }
+          } else {
+            setSupabaseToken(null);
+            await persist(null);
+            if (active) {
+              setSession(null);
+              setStatus('guest');
+            }
           }
         }
       } catch {
@@ -124,6 +147,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       active = false;
     };
+  }, [apply]);
+
+  // When a signed-in request 401s (access token expired mid-session), try to
+  // refresh once; if the refresh token is also dead, drop to guest so the login
+  // gate takes over instead of the app quietly serving seed data.
+  useEffect(() => {
+    setOnUnauthorized(() => {
+      if (refreshingRef.current) return;
+      const current = sessionRef.current;
+      if (!current) return;
+      refreshingRef.current = (async () => {
+        try {
+          const fresh = await api.auth.refresh(current.refreshToken);
+          await apply(fresh);
+        } catch (err) {
+          if ((err as { network?: boolean })?.network) return; // transient — keep session
+          setSupabaseToken(null);
+          await persist(null);
+          setSession(null);
+          setStatus('guest');
+        } finally {
+          refreshingRef.current = null;
+        }
+      })();
+    });
+    return () => setOnUnauthorized(null);
   }, [apply]);
 
   const signIn = useCallback(
