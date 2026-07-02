@@ -17,11 +17,13 @@ import { ReactionBar, type ReactionKey } from '@/components/ui/reaction-bar';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
-import { user, type Comment } from '@/data/content';
+import { type Comment } from '@/data/content';
+import { useCurrentAuthor } from '@/lib/auth';
 import { useStore } from '@/lib/store';
 
 function CommentItem({ comment, isReply = false }: { comment: Comment; isReply?: boolean }) {
   const { commentReactionFor, setCommentReaction, repliesFor, addReply } = useStore();
+  const author = useCurrentAuthor();
   const reaction = commentReactionFor(comment.id) as ReactionKey | null;
   const replies = isReply ? [] : repliesFor(comment.id);
   const [open, setOpen] = useState(false);
@@ -31,8 +33,8 @@ function CommentItem({ comment, isReply = false }: { comment: Comment; isReply?:
     if (!text.trim()) return;
     addReply(comment.id, {
       id: `r${Date.now()}`,
-      author: user.name,
-      avatar: user.avatar,
+      author: author.name,
+      avatar: author.avatar,
       time: 'now',
       text: text.trim(),
     });
@@ -99,6 +101,7 @@ function CommentItem({ comment, isReply = false }: { comment: Comment; isReply?:
 export default function PostDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { allPosts, addComment } = useStore();
+  const author = useCurrentAuthor();
   const post = allPosts.find((p) => p.id === id) ?? allPosts[0];
   const comments = post.comments;
   const [text, setText] = useState('');
@@ -107,8 +110,8 @@ export default function PostDetail() {
     if (!text.trim()) return;
     addComment(post.id, {
       id: `c${Date.now()}`,
-      author: user.name,
-      avatar: user.avatar,
+      author: author.name,
+      avatar: author.avatar,
       time: 'now',
       text: text.trim(),
     });

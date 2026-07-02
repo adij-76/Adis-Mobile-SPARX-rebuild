@@ -8,7 +8,8 @@ import { ActionSheet, type SheetAction } from '@/components/ui/action-sheet';
 import { ReactionBar, type ReactionKey } from '@/components/ui/reaction-bar';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
-import { user, type Post } from '@/data/content';
+import { type Post } from '@/data/content';
+import { useCurrentAuthor } from '@/lib/auth';
 import { chatId, useStore } from '@/lib/store';
 
 export type PostCardProps = {
@@ -21,10 +22,11 @@ export type PostCardProps = {
 export function PostCard({ post, onPress, full }: PostCardProps) {
   const router = useRouter();
   const { reactionFor, setReaction, hidePost, deletePost } = useStore();
+  const author = useCurrentAuthor();
   const reaction = reactionFor(post.id) as ReactionKey | null;
   const count = post.likes + (reaction ? 1 : 0);
   const [menu, setMenu] = useState(false);
-  const isOwn = post.author === user.name;
+  const isOwn = post.author === author.name;
 
   const stop = (e?: GestureResponderEvent) =>
     (e as unknown as { stopPropagation?: () => void } | undefined)?.stopPropagation?.();

@@ -12,6 +12,7 @@ import { Txt } from '@/components/ui/text';
 import { api } from '@/api';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
+import { useCurrentAuthor } from '@/lib/auth';
 import { useStore } from '@/lib/store';
 
 // Sample images used by "Add photo" until a real image picker is wired in.
@@ -31,6 +32,7 @@ const RULES = [
 export default function NewPost() {
   const router = useRouter();
   const { addPost } = useStore();
+  const author = useCurrentAuthor();
   const { text: prefill } = useLocalSearchParams<{ text?: string }>();
   // Coming from a shared quote → skip the rules gate and prefill the text.
   const [agreed, setAgreed] = useState(!!prefill);
@@ -42,7 +44,7 @@ export default function NewPost() {
 
   const submit = () => {
     const name = communities.find((c) => c.id === selectedCommunity)?.name ?? 'Community';
-    addPost({ community: name, text: text.trim(), image: photo ?? undefined });
+    addPost({ community: name, text: text.trim(), image: photo ?? undefined, author });
     router.back();
   };
 
