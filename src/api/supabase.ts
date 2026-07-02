@@ -55,6 +55,16 @@ export function setSupabaseToken(token: string | null) {
   authToken = token;
 }
 
+// Called when an authenticated request comes back 401 — i.e. the user's access
+// token is expired/invalid. The auth layer registers a handler that refreshes
+// the session or, failing that, drops to guest so the login gate takes over.
+// Without this, an expired session silently 401s and every adapter falls back
+// to seed data — the app looks "logged in" but shows generic content.
+let onUnauthorized: (() => void) | null = null;
+export function setOnUnauthorized(cb: (() => void) | null) {
+  onUnauthorized = cb;
+}
+
 async function rest<T>(view: string, query: Record<string, string> = {}): Promise<T> {
   const qs = new URLSearchParams(query).toString();
   const res = await fetch(`${BASE}/rest/v1/${view}${qs ? `?${qs}` : ''}`, {
@@ -64,6 +74,10 @@ async function rest<T>(view: string, query: Record<string, string> = {}): Promis
       Accept: 'application/json',
     },
   });
+  // A 401 only happens with a bad/expired bearer token; the anon key never
+  // 401s. So a 401 here means a signed-in user's token died — signal the auth
+  // layer rather than letting the caller swallow it into a seed fallback.
+  if (res.status === 401 && authToken) onUnauthorized?.();
   if (!res.ok) throw new Error(`Supabase ${view} → ${res.status}`);
   return (await res.json()) as T;
 }
@@ -492,12 +506,30 @@ function dataUrlToBlob(dataUrl: string): { blob: Blob; contentType: string } {
   return { blob: new Blob([bytes], { type: contentType }), contentType };
 }
 
+/** An auth call that couldn't reach the server at all (offline / DNS / CORS),
+ *  as opposed to the server rejecting the credentials. Callers use `.network`
+ *  to decide whether to keep a cached session or force a fresh sign-in. */
+export class AuthNetworkError extends Error {
+  network = true as const;
+  constructor() {
+    super('Could not reach the sign-in server.');
+    this.name = 'AuthNetworkError';
+  }
+}
+
 async function goTrue(path: string, body: unknown): Promise<GoTrueSession> {
-  const res = await fetch(`${BASE}/auth/v1/${path}`, {
-    method: 'POST',
-    headers: authHeaders,
-    body: JSON.stringify(body),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}/auth/v1/${path}`, {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify(body),
+    });
+  } catch {
+    // fetch only rejects when the request never got a response (network down,
+    // DNS, CORS) — never for a 4xx/5xx. Treat that as a transient network error.
+    throw new AuthNetworkError();
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new Error(data?.error_description || data?.msg || data?.error || `Auth failed (${res.status})`);
