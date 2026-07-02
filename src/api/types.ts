@@ -145,6 +145,68 @@ export type PostsApi = {
   }): Promise<void>;
 };
 
+/** A conversation summary in the messages list. A conversation is a thread with
+ *  N members; a 1:1 DM is a 2-member, non-group conversation. */
+export type Thread = {
+  /** The conversation id — used to open and post to the thread. */
+  conversationId: string;
+  /** Display name: the group title (or joined member names), else the other person. */
+  name: string;
+  /** The other person's avatar for a 1:1; empty for a group. */
+  avatar: string;
+  isGroup: boolean;
+  /** Number of other members (1 for a DM). */
+  otherCount: number;
+  /** The other person's production users.id for a 1:1 (for block); null for a group. */
+  peerId: string | null;
+  /** Preview of the most recent message. */
+  last: string;
+  /** Short relative label of the last activity ("2m", "3h"). */
+  time: string;
+  /** Count of others' messages I haven't read. */
+  unread: number;
+};
+
+/** One message in a conversation. `mine` picks the bubble side; sender fields
+ *  label who spoke (shown in group threads). */
+export type ChatMessage = {
+  id: string;
+  mine: boolean;
+  senderId: string | null;
+  senderName: string;
+  senderAvatar: string;
+  text: string;
+  /** Short relative label for display. */
+  time: string;
+  /** ISO timestamp, for ordering + dedupe. */
+  createdAt: string;
+};
+
+/** A person you can start a chat with (from mobile_directory). */
+export type DirectoryUser = { userId: string; name: string; avatar: string; handle: string | null };
+
+export type MessagesApi = {
+  /** The user's conversations, newest activity first. */
+  threads(): Promise<Thread[]>;
+  /** All messages in a conversation, oldest → newest. */
+  messages(conversationId: string): Promise<ChatMessage[]>;
+  /** Post a message to a conversation. `senderId` is the caller's production id. */
+  send(conversationId: string, text: string, senderId: string | null): Promise<void>;
+  /** Mark a conversation read up to now (my last_read_at). */
+  markRead(conversationId: string): Promise<void>;
+  /** People you can message (optionally filtered by a name/handle search). */
+  directory(search?: string): Promise<DirectoryUser[]>;
+  /** Production ids of people I've blocked (active blocks). */
+  blockedIds(): Promise<string[]>;
+  /** Block/unblock a user. `blockerId` is the caller's production id. */
+  setBlock(userId: string, on: boolean, blockerId: string | null): Promise<void>;
+  /** Find-or-create a 1:1 conversation with a user; returns its id (null if
+   *  blocked or the call fails). */
+  startDirect(otherUserId: string): Promise<string | null>;
+  /** Create a group conversation with the given members; returns its id. */
+  startGroup(memberIds: string[], title?: string | null): Promise<string | null>;
+};
+
 /** One month's overall Wheel of Life score (for the Monthly/Annual trend views). */
 export type WheelPoint = { key: string; label: string; year: number; score: number };
 
@@ -305,4 +367,5 @@ export type Api = {
   posts: PostsApi;
   favorites: FavoritesApi;
   checkins: CheckinsApi;
+  messages: MessagesApi;
 };

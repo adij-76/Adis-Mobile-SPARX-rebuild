@@ -13,6 +13,7 @@ import {
   mockFavorites,
   mockInsights,
   mockMeetings,
+  mockMessages,
   mockPosts,
 } from '@/api/mock';
 import {
@@ -23,6 +24,7 @@ import {
   supabaseFavorites,
   supabaseInsights,
   supabaseMeetings,
+  supabaseMessages,
   supabasePosts,
 } from '@/api/supabase';
 import type { Api } from '@/api/types';
@@ -39,6 +41,7 @@ export const api: Api = {
   posts: useSupabase ? supabasePosts : mockPosts,
   favorites: useSupabase ? supabaseFavorites : mockFavorites,
   checkins: useSupabase ? supabaseCheckins : mockCheckins,
+  messages: useSupabase ? supabaseMessages : mockMessages,
 };
 
 export { setSupabaseToken, setOnUnauthorized } from '@/api/supabase';
@@ -48,15 +51,19 @@ export type {
   AuthApi,
   AuthSession,
   AuthUser,
+  ChatMessage,
   CommunityApi,
   ContentApi,
+  DirectoryUser,
   InsightsApi,
   Lesson,
   MeResult,
   MeetingsApi,
+  MessagesApi,
   Module,
   Program,
   Snippet,
+  Thread,
   WheelPoint,
   Workshop,
 } from '@/api/types';

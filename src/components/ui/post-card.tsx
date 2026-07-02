@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Platform, Pressable, Share, StyleSheet, View, type GestureResponderEvent } from 'react-native';
 
+import { api } from '@/api';
 import { ActionSheet, type SheetAction } from '@/components/ui/action-sheet';
 import { Avatar } from '@/components/ui/avatar';
 import { ReactionBar, type ReactionKey } from '@/components/ui/reaction-bar';
@@ -13,7 +14,7 @@ import { Colors, Radius, Spacing } from '@/constants/theme';
 import { type Post } from '@/data/content';
 import { htmlToText } from '@/lib/html';
 import { useCurrentAuthor } from '@/lib/auth';
-import { chatId, useStore } from '@/lib/store';
+import { useStore } from '@/lib/store';
 
 export type PostCardProps = {
   post: Post;
@@ -52,10 +53,21 @@ export function PostCard({ post, onPress, full }: PostCardProps) {
     }
   };
 
-  const startChat = () =>
+  // DM the post author: find-or-create the 1:1 conversation, then open it. Seed
+  // posts (and any post whose author id the view didn't resolve) have no id, and
+  // a blocked author yields no conversation → fall back to the messages list.
+  const startChat = async () => {
+    if (!post.authorId) {
+      router.push('/feed/messages');
+      return;
+    }
+    const convId = await api.messages.startDirect(post.authorId);
     router.push(
-      `/feed/chat?id=${chatId(post.author)}&name=${encodeURIComponent(post.author)}&avatar=${encodeURIComponent(post.avatar)}`,
+      convId
+        ? `/feed/chat?id=${convId}&name=${encodeURIComponent(post.author)}&avatar=${encodeURIComponent(post.avatar)}&peer=${post.authorId}`
+        : '/feed/messages',
     );
+  };
 
   const menuActions: SheetAction[] = isOwn
     ? [
@@ -73,7 +85,9 @@ export function PostCard({ post, onPress, full }: PostCardProps) {
         },
       ]
     : [
-        { label: `Start chat with ${post.author}`, icon: 'chatbubble-ellipses-outline', onPress: startChat },
+        ...(post.authorId
+          ? [{ label: `Start chat with ${post.author}`, icon: 'chatbubble-ellipses-outline' as const, onPress: startChat }]
+          : []),
         { label: 'Copy link', icon: 'link-outline', onPress: copyLink },
         { label: 'Hide post', icon: 'eye-off-outline', onPress: () => hidePost(post.id) },
         { label: 'Report post', icon: 'flag-outline', destructive: true, onPress: () => hidePost(post.id) },

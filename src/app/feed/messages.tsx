@@ -1,70 +1,90 @@
-import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { api } from '@/api';
+import { Avatar } from '@/components/ui/avatar';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
-import { Colors, Spacing } from '@/constants/theme';
-import { chatId, useStore } from '@/lib/store';
-
-type Thread = {
-  id: string;
-  name: string;
-  avatar: string;
-  last: string;
-  time: string;
-  unread?: number;
-};
-
-const SEED_THREADS: Thread[] = [
-  { id: chatId('Adi Jaffe (Coach)'), name: 'Adi Jaffe (Coach)', avatar: 'https://i.pravatar.cc/80?img=68', last: 'Proud of your progress this week — keep going!', time: '2m', unread: 2 },
-  { id: chatId('Helping Hands'), name: 'Helping Hands', avatar: 'https://i.pravatar.cc/80?img=5', last: 'Maya: The mornings really do get easier 💙', time: '1h' },
-  { id: chatId('James K.'), name: 'James K.', avatar: 'https://i.pravatar.cc/80?img=12', last: 'Thanks for the support yesterday 🙏', time: '3h' },
-  { id: chatId('Daily Mindfulness'), name: 'Daily Mindfulness', avatar: 'https://i.pravatar.cc/80?img=45', last: 'New breathing exercise posted', time: '1d' },
-];
+import { Colors, Radius, Spacing } from '@/constants/theme';
+import { useAsync } from '@/hooks/use-async';
+import type { Thread } from '@/api';
 
 export default function Messages() {
   const router = useRouter();
-  const { chatThreads } = useStore();
+  const { data, loading, reload } = useAsync(() => api.messages.threads(), []);
+  const threads = data ?? [];
 
-  // Threads the user has actually started (newest first), then the seed list,
-  // de-duped by id so a started conversation replaces its seed row.
-  const started: Thread[] = chatThreads().map((t) => ({
-    id: t.id,
-    name: t.name,
-    avatar: t.avatar,
-    last: t.messages.length ? t.messages[t.messages.length - 1].text : 'Say hi 👋',
-    time: 'now',
-  }));
-  const startedIds = new Set(started.map((t) => t.id));
-  const threads = [...started, ...SEED_THREADS.filter((t) => !startedIds.has(t.id))];
+  // Refetch when returning to the list (a sent message / new reply changes it).
+  useFocusEffect(useCallback(() => void reload(), [])); // eslint-disable-line react-hooks/exhaustive-deps
 
   const open = (t: Thread) =>
     router.push(
-      `/feed/chat?id=${t.id}&name=${encodeURIComponent(t.name)}&avatar=${encodeURIComponent(t.avatar)}`,
+      `/feed/chat?id=${t.conversationId}` +
+        `&name=${encodeURIComponent(t.name)}` +
+        `&avatar=${encodeURIComponent(t.avatar)}` +
+        `&group=${t.isGroup ? '1' : ''}` +
+        `&peer=${t.peerId ?? ''}`,
     );
+
+  const newMessage = () => router.push('/feed/people');
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScreenHeader title="Back" largeTitle="Messages" />
+      <ScreenHeader
+        title="Back"
+        largeTitle="Messages"
+        right={
+          <Pressable onPress={newMessage} hitSlop={12} accessibilityLabel="New message" style={styles.compose}>
+            <Ionicons name="create-outline" size={22} color={Colors.primary} />
+          </Pressable>
+        }
+      />
       <FlatList
         data={threads}
-        keyExtractor={(t) => t.id}
+        keyExtractor={(t) => t.conversationId}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={() => <View style={styles.divider} />}
+        ListEmptyComponent={
+          loading ? null : (
+            <View style={styles.empty}>
+              <Ionicons name="chatbubbles-outline" size={44} color={Colors.strokeStrong} />
+              <Txt variant="bodyMedium" center>
+                No messages yet
+              </Txt>
+              <Txt variant="bodySm" color={Colors.textSub} center>
+                Start a conversation with your coach or a community member.
+              </Txt>
+              <Pressable onPress={newMessage} style={styles.emptyBtn}>
+                <Txt variant="bodySmBold" color={Colors.white}>
+                  New message
+                </Txt>
+              </Pressable>
+            </View>
+          )
+        }
         renderItem={({ item }) => (
           <Pressable style={styles.row} onPress={() => open(item)}>
-            <Image source={{ uri: item.avatar }} style={styles.avatar} />
+            {item.isGroup ? (
+              <View style={styles.groupIcon}>
+                <Ionicons name="people" size={22} color={Colors.primary} />
+              </View>
+            ) : (
+              <Avatar uri={item.avatar} name={item.name} size={48} />
+            )}
             <View style={{ flex: 1 }}>
               <View style={styles.top}>
-                <Txt variant="bodySmBold">{item.name}</Txt>
+                <Txt variant="bodySmBold" numberOfLines={1} style={{ flex: 1 }}>
+                  {item.name}
+                </Txt>
                 <Txt variant="caption" color={Colors.textSub}>
                   {item.time}
                 </Txt>
               </View>
-              <Txt variant="bodySm" color={Colors.textSub} numberOfLines={1}>
+              <Txt variant="bodySm" color={item.unread ? Colors.textMain : Colors.textSub} numberOfLines={1}>
                 {item.last}
               </Txt>
             </View>
@@ -84,11 +104,19 @@ export default function Messages() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.white },
-  list: { padding: Spacing.lg },
+  compose: { padding: Spacing.xs },
+  list: { padding: Spacing.lg, flexGrow: 1 },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.md },
+  groupIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: `${Colors.primary}18`,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   divider: { height: 1, backgroundColor: Colors.stroke },
-  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: Colors.soft },
-  top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm },
   badge: {
     minWidth: 20,
     height: 20,
@@ -97,5 +125,13 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.orange,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.md, paddingTop: Spacing.xxl * 2 },
+  emptyBtn: {
+    marginTop: Spacing.sm,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.pill,
+    backgroundColor: Colors.primary,
   },
 });

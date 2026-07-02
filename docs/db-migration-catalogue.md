@@ -18,9 +18,10 @@ Run in this order; all are idempotent.
 | 1 | `db/views.sql` | Catalog + per-user read views: `mobile_programs`, `mobile_modules`, `mobile_lessons`, `mobile_snippets`, `mobile_quotes`, `mobile_recommended_videos`, `mobile_use_tracking`, `mobile_wheel_areas`, `mobile_wheel_scores`, `mobile_leaderboard`, `mobile_assessments`, `mobile_me` | ✅ |
 | 2 | `db/mobile-checkins.sql` | App-owned `mobile_checkins` table (RLS) | ✅ |
 | 3 | `db/mobile-wheel-entries.sql` | App-owned `mobile_wheel_entries` table (RLS) | ✅ |
-| 4 | `db/community.sql` | App-owned write tables: `mobile_feed_posts`, `mobile_feed_comments`, `mobile_feed_reactions`, `mobile_dm_conversations`, `mobile_dm_messages` | ✅ |
-| 5 | `db/community-views.sql` | Community read views: `mobile_posts`, `mobile_comments`, `mobile_channels`, `mobile_notifications` (+ `mobile_threads`/`mobile_thread_messages` when chat lands) | ✅ (chat views ⚠️) |
-| 6 | `db/auth-and-storage.sql` | Imports users into Supabase Auth (keeps passwords), avatars bucket + storage policies | ✅ |
+| 4 | `db/community.sql` | App-owned write tables: `mobile_feed_posts`, `mobile_feed_comments`, `mobile_feed_reactions` (the `mobile_dm_*` tables here are superseded by `db/chat.sql`) | ✅ |
+| 5 | `db/community-views.sql` | Community read views: `mobile_posts` (now exposes `author_id` for DM-from-post), `mobile_comments`, `mobile_channels`, `mobile_notifications` | ✅ |
+| 6 | `db/chat.sql` | Chat (conversation model): helpers `mobile_uid()` / `mobile_is_member()` / `mobile_blocked_in()`; app-owned `mobile_conversations`, `mobile_conversation_members`, `mobile_messages`, `mobile_blocks` (RLS); RPCs `mobile_start_direct()` / `mobile_start_group()`; read views `mobile_directory`, `mobile_threads`, `mobile_thread_messages`. A 1:1 DM is a 2-member, non-group conversation. | ✅ |
+| 7 | `db/auth-and-storage.sql` | Imports users into Supabase Auth (keeps passwords), avatars bucket + storage policies | ✅ |
 
 > **Order note:** run the app-owned table files (2–4) **before** the view files
 > (1, 5) — or re-run the views after — because the views splice in the app tables
@@ -35,9 +36,11 @@ production tables leaves them untouched.
 - `mobile_checkins` — daily check-ins
 - `mobile_wheel_entries` — Wheel of Life retakes
 - `mobile_feed_posts` / `mobile_feed_comments` / `mobile_feed_reactions` — community feed
-- `mobile_dm_conversations` / `mobile_dm_messages` — direct messages
+- `mobile_conversations` / `mobile_conversation_members` / `mobile_messages` — chat (DMs + groups)
+- `mobile_blocks` — one-directional block list ("X can't DM me")
 - `mobile_favorites` — bookmark toggles (kind/item_id, `active` tombstones un-saves)
-- *(future)* notification read-state, block list
+- *(legacy, unused)* `mobile_dm_conversations` / `mobile_dm_messages` — superseded by `mobile_messages`
+- *(future)* notification read-state
 
 ## C. Reconciliation jobs — app-owned → production (write for cutover) ⚠️
 
@@ -51,8 +54,9 @@ and retires the app-owned tables. Each carries keys back to the real FKs.
 | `mobile_feed_posts` | `comm_posts` | `app_user_id`→user_id, `comm_channel_id`, `content`/`title`; image has no prod column (handle separately) |
 | `mobile_feed_comments` | `comments` | `app_user_id`, `post_ref`→`comm_post_id`, `parent_ref`→polymorphic `commentable_*` |
 | `mobile_feed_reactions` | `reactions` | `app_user_id`, `target_ref`→`comm_post_id`/polymorphic, `reaction`→`emoji_id` (via `emojis`) |
-| `mobile_dm_conversations` | `community_conversations` | `app_user_id`→`user_one_id`, `other_user_id`→`user_two_id` |
-| `mobile_dm_messages` | `community_messages` | `app_user_id`→`sender_id`, `conversation_ref`, `content`, `read_at` |
+| `mobile_conversations` + `mobile_conversation_members` | `community_conversations` | 1:1 → `user_one_id`/`user_two_id`; groups have no direct prod equivalent (needs a prod group-thread mechanism at cutover) |
+| `mobile_messages` | `community_messages` | `sender_id`, `conversation_id`→prod conversation, `content`, `created_at`; `last_read_at` (on members) → prod read state |
+| `mobile_blocks` | *(prod block table TBD)* | `blocker_id`, `blocked_id`, `active` — map to the production block/mute mechanism at cutover |
 
 After the job: app reads/writes prod directly; app-owned tables become a cache or
 are dropped. Document the executed job + date in `db/README.md` at cutover.

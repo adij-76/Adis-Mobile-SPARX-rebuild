@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
-import { useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -13,26 +12,96 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { api } from '@/api';
+import { Avatar } from '@/components/ui/avatar';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
+import { useAsync } from '@/hooks/use-async';
 import { useGoBack } from '@/hooks/use-go-back';
-import { useStore } from '@/lib/store';
+import { useCurrentAuthor } from '@/lib/auth';
+import type { ChatMessage } from '@/api';
+
+// How often to poll for new messages while the thread is open. Chat has no push
+// channel yet, so a light poll keeps the conversation live enough for a DM.
+const POLL_MS = 5000;
 
 export default function ChatThread() {
   const goBack = useGoBack('/feed/messages');
-  const { id, name, avatar } = useLocalSearchParams<{ id: string; name?: string; avatar?: string }>();
-  const { chatFor, sendDm } = useStore();
+  const router = useRouter();
+  const { id, name, avatar, group, peer } = useLocalSearchParams<{
+    id: string;
+    name?: string;
+    avatar?: string;
+    group?: string;
+    peer?: string;
+  }>();
+  const { appUserId } = useCurrentAuthor();
 
-  const thread = chatFor(id);
-  const personName = thread?.name ?? name ?? 'Chat';
-  const personAvatar = thread?.avatar ?? avatar ?? '';
-  const messages = thread?.messages ?? [];
+  const personName = name ?? 'Chat';
+  const personAvatar = avatar ?? '';
+  const isGroup = group === '1';
+  // Block is a 1:1 concept: it needs the other person's user id (peer), which
+  // only a direct thread carries. Groups have no single "other person".
+  const peerId = !isGroup && peer ? peer : null;
+
+  const { data, reload } = useAsync(() => api.messages.messages(id), [id]);
+  // Optimistic messages we've sent but haven't seen echoed back by a reload yet.
+  const [pending, setPending] = useState<ChatMessage[]>([]);
   const [text, setText] = useState('');
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [blocked, setBlocked] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+
+  const server = data ?? [];
+  const serverIds = new Set(server.map((m) => m.id));
+  const messages = [...server, ...pending.filter((p) => !serverIds.has(p.id))];
+
+  // Clear optimistic messages once the server catches up (avoids duplicates).
+  useEffect(() => {
+    if (data) setPending((p) => p.filter((m) => !serverIds.has(m.id)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+
+  // Mark the conversation read on open, and poll for new messages.
+  useEffect(() => {
+    api.messages.markRead(id).catch(() => {});
+    if (peerId) api.messages.blockedIds().then((ids) => setBlocked(ids.includes(peerId))).catch(() => {});
+    const t = setInterval(() => {
+      reload();
+      api.messages.markRead(id).catch(() => {});
+    }, POLL_MS);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   const send = () => {
-    if (!text.trim()) return;
-    sendDm(id, personName, personAvatar, text.trim());
+    const body = text.trim();
+    if (!body) return;
     setText('');
+    const optimistic: ChatMessage = {
+      id: `pending-${Date.now()}`,
+      mine: true,
+      senderId: appUserId,
+      senderName: 'You',
+      senderAvatar: '',
+      text: body,
+      time: 'now',
+      createdAt: new Date().toISOString(),
+    };
+    setPending((p) => [...p, optimistic]);
+    api.messages
+      .send(id, body, appUserId)
+      .then(() => reload())
+      .catch(() => {});
+  };
+
+  const toggleBlock = () => {
+    if (!peerId) return;
+    const next = !blocked;
+    setBlocked(next);
+    setMenuOpen(false);
+    api.messages.setBlock(peerId, next, appUserId).catch(() => setBlocked(!next));
+    if (next) router.back();
   };
 
   return (
@@ -41,16 +110,44 @@ export default function ChatThread() {
         <Pressable onPress={goBack} hitSlop={12}>
           <Ionicons name="arrow-back" size={24} color={Colors.textMain} />
         </Pressable>
-        {personAvatar ? <Image source={{ uri: personAvatar }} style={styles.avatar} /> : null}
+        {isGroup ? (
+          <View style={styles.groupIcon}>
+            <Ionicons name="people" size={20} color={Colors.primary} />
+          </View>
+        ) : (
+          <Avatar uri={personAvatar} name={personName} size={36} />
+        )}
         <Txt variant="titleSm" numberOfLines={1} style={{ flex: 1 }}>
           {personName}
         </Txt>
+        {peerId ? (
+          <Pressable onPress={() => setMenuOpen((o) => !o)} hitSlop={12}>
+            <Ionicons name="ellipsis-horizontal" size={22} color={Colors.textMain} />
+          </Pressable>
+        ) : null}
       </View>
+
+      {menuOpen && peerId ? (
+        <Pressable style={styles.menu} onPress={toggleBlock}>
+          <Ionicons
+            name={blocked ? 'lock-open-outline' : 'ban-outline'}
+            size={18}
+            color={blocked ? Colors.textMain : Colors.danger}
+          />
+          <Txt variant="bodySm" color={blocked ? Colors.textMain : Colors.danger}>
+            {blocked ? `Unblock ${personName}` : `Block ${personName}`}
+          </Txt>
+        </Pressable>
+      ) : null}
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={styles.body}
+          showsVerticalScrollIndicator={false}
+          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}>
           {messages.length === 0 ? (
             <View style={styles.empty}>
               <Ionicons name="chatbubbles-outline" size={40} color={Colors.strokeStrong} />
@@ -59,31 +156,55 @@ export default function ChatThread() {
               </Txt>
             </View>
           ) : (
-            messages.map((m) => (
-              <View
-                key={m.id}
-                style={[styles.bubble, m.from === 'me' ? styles.bubbleMe : styles.bubbleThem]}>
-                <Txt variant="bodySm" color={m.from === 'me' ? Colors.white : Colors.textMain}>
-                  {m.text}
-                </Txt>
-              </View>
-            ))
+            messages.map((m, i) => {
+              // In a group, label a message with the sender's name when it starts
+              // a new run from that person (keeps consecutive messages clean).
+              const showSender =
+                isGroup && !m.mine && messages[i - 1]?.senderId !== m.senderId;
+              return (
+                <View
+                  key={m.id}
+                  style={[styles.bubbleWrap, m.mine ? styles.alignEnd : styles.alignStart]}>
+                  {showSender ? (
+                    <Txt variant="caption" color={Colors.textSub} style={styles.sender}>
+                      {m.senderName}
+                    </Txt>
+                  ) : null}
+                  <View style={[styles.bubble, m.mine ? styles.bubbleMe : styles.bubbleThem]}>
+                    <Txt variant="bodySm" color={m.mine ? Colors.white : Colors.textMain}>
+                      {m.text}
+                    </Txt>
+                  </View>
+                </View>
+              );
+            })
           )}
         </ScrollView>
 
-        <View style={styles.composer}>
-          <TextInput
-            value={text}
-            onChangeText={setText}
-            placeholder={`Message ${personName}…`}
-            placeholderTextColor={Colors.textSub}
-            style={styles.input}
-            multiline
-          />
-          <Pressable onPress={send} disabled={!text.trim()} style={[styles.send, !text.trim() && { opacity: 0.5 }]}>
-            <Ionicons name="arrow-up" size={20} color={Colors.white} />
-          </Pressable>
-        </View>
+        {blocked ? (
+          <View style={styles.blockedBar}>
+            <Txt variant="bodySm" color={Colors.textSub} center>
+              You blocked {personName}. Unblock to send a message.
+            </Txt>
+          </View>
+        ) : (
+          <View style={styles.composer}>
+            <TextInput
+              value={text}
+              onChangeText={setText}
+              placeholder={`Message ${personName}…`}
+              placeholderTextColor={Colors.textSub}
+              style={styles.input}
+              multiline
+            />
+            <Pressable
+              onPress={send}
+              disabled={!text.trim()}
+              style={[styles.send, !text.trim() && { opacity: 0.5 }]}>
+              <Ionicons name="arrow-up" size={20} color={Colors.white} />
+            </Pressable>
+          </View>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -101,11 +222,41 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.stroke,
     backgroundColor: Colors.white,
   },
-  avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.soft },
+  menu: {
+    position: 'absolute',
+    top: 60,
+    right: Spacing.lg,
+    zIndex: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.stroke,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  groupIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: `${Colors.primary}18`,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   body: { padding: Spacing.lg, gap: Spacing.sm, flexGrow: 1 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.md, paddingTop: Spacing.xxl },
+  bubbleWrap: { maxWidth: '82%' },
+  alignEnd: { alignSelf: 'flex-end', alignItems: 'flex-end' },
+  alignStart: { alignSelf: 'flex-start', alignItems: 'flex-start' },
+  sender: { marginBottom: 2, marginLeft: Spacing.sm },
   bubble: {
-    maxWidth: '82%',
     borderRadius: Radius.lg,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
@@ -123,6 +274,12 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: Spacing.sm,
     padding: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.stroke,
+    backgroundColor: Colors.white,
+  },
+  blockedBar: {
+    padding: Spacing.lg,
     borderTopWidth: 1,
     borderTopColor: Colors.stroke,
     backgroundColor: Colors.white,
