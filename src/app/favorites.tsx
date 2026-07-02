@@ -69,10 +69,22 @@ export default function Favorites() {
                 ) : (
                   <VideoThumb url={w.vimeoUrl} width={96} height={64} />
                 )}
-                <View style={{ flex: 1, gap: 2 }}>
+                <View style={{ flex: 1, gap: 4 }}>
                   <Txt variant="bodySmBold" numberOfLines={2}>
                     {w.title || w.navTitle}
                   </Txt>
+                  {w.lessonType === 'workshop' ? (
+                    <View style={styles.badge}>
+                      <Ionicons name="easel" size={12} color={Colors.primary} />
+                      <Txt variant="caption" color={Colors.primary}>
+                        Workshop
+                      </Txt>
+                    </View>
+                  ) : (
+                    <Txt variant="caption" color={Colors.textSub}>
+                      Lesson
+                    </Txt>
+                  )}
                 </View>
                 <Pressable onPress={() => toggleFav('lesson', w.id)} hitSlop={10}>
                   <Ionicons name="bookmark" size={20} color={Colors.primary} />
@@ -139,6 +151,16 @@ const styles = StyleSheet.create({
   body: { padding: Spacing.lg, gap: Spacing.lg },
   lessonRow: { flexDirection: 'row', gap: Spacing.md, alignItems: 'center' },
   lessonThumb: { width: 96, height: 64, borderRadius: Radius.md, backgroundColor: Colors.soft },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: Radius.pill,
+    backgroundColor: `${Colors.primary}18`,
+  },
   play: {
     position: 'absolute',
     top: '50%',
