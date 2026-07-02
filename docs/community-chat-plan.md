@@ -27,10 +27,32 @@ Classification of every piece: see the inventory in the session notes. Summary:
   attributes posts/comments/replies to the signed-in user (name + avatar +
   appUserId) instead of the seed "Okei". `isOwn` (delete gating) now compares to
   the real user.
-- **F2 — Storage strategy.** App-owned tables, RLS by `auth.uid()`, reconciled on
-  re-import (the `mobile_checkins` / `mobile_wheel_entries` pattern). If production
-  has community/message tables, read history via email-scoped views and UNION
-  app-owned new rows (the wheel pattern). Gated on DB introspection.
+- **F2 — Storage strategy.** ✅ **DECIDED: app-owned write tables unioned into
+  read views** (the wheel/check-in pattern). Read existing content from the real
+  production tables; write new mobile content to app-owned `mobile_*` tables and
+  UNION them in. Never mutates the production copy; nothing lost on re-import;
+  mobile-only until a shared production write API exists. App-owned write tables
+  are built in `db/community.sql`.
+
+### Confirmed production schema (introspected)
+
+| Feature | Production table(s) | Key columns |
+|---|---|---|
+| Feed posts | `comm_posts` | `user_id`, `comm_channel_id`, `title`, `content`, `active`, `is_profane`, `comments_count` |
+| Communities (feed) | `comm_channels` | ⚠️ shape TBD — the feed's channels (distinct from meeting groups) |
+| Comments | `comments` | `comm_post_id` + polymorphic `commentable_*` (nests), `is_profane`, `active` |
+| Reactions | `reactions` | emoji-based (`emoji_id`) + polymorphic `reactionable_*`, `comm_post_id` |
+| DM chat (1:1) | `community_conversations` (`user_one_id`/`user_two_id`) + `community_messages` (`sender_id`, `content`, `read_at`) | — |
+| Notifications | `notifications` | per-user, polymorphic `notifiable_*`, `read`, `is_mention` |
+| Author identity | `users` | `first_name` → name, `avatar_link` → avatar, `user_handle` |
+
+Not the feed: `sds_groups` are the **Zoom coaching/meeting groups** (coach, meet_time,
+zoom_meeting_id, join_url; General/Men's/Women's/7-Day), gated by
+`subscription_role_groups` — they belong to the **Meetings** feature. `message` /
+`message_replies` is the **email/SMS transactional** system, not in-app chat.
+
+Still to validate before the read views: `comm_channels` columns/rows, the emoji
+map, and that user 11 has real feed/DM rows.
 - **F3 — API seam.** New `PostsApi` + `MessagesApi`, expand `CommunityApi`; mock +
   supabase adapters; migrate store writes to read-through caches.
 - **F4 — Real-time.** No SDK today (plain fetch/PostgREST). MVP = poll active DM
