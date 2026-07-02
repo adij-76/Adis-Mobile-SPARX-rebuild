@@ -22,7 +22,11 @@ export default function Messages() {
 
   const open = (t: Thread) =>
     router.push(
-      `/feed/chat?id=${t.userId}&name=${encodeURIComponent(t.name)}&avatar=${encodeURIComponent(t.avatar)}`,
+      `/feed/chat?id=${t.conversationId}` +
+        `&name=${encodeURIComponent(t.name)}` +
+        `&avatar=${encodeURIComponent(t.avatar)}` +
+        `&group=${t.isGroup ? '1' : ''}` +
+        `&peer=${t.peerId ?? ''}`,
     );
 
   const newMessage = () => router.push('/feed/people');
@@ -40,7 +44,7 @@ export default function Messages() {
       />
       <FlatList
         data={threads}
-        keyExtractor={(t) => t.userId}
+        keyExtractor={(t) => t.conversationId}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={() => <View style={styles.divider} />}
@@ -64,7 +68,13 @@ export default function Messages() {
         }
         renderItem={({ item }) => (
           <Pressable style={styles.row} onPress={() => open(item)}>
-            <Avatar uri={item.avatar} name={item.name} size={48} />
+            {item.isGroup ? (
+              <View style={styles.groupIcon}>
+                <Ionicons name="people" size={22} color={Colors.primary} />
+              </View>
+            ) : (
+              <Avatar uri={item.avatar} name={item.name} size={48} />
+            )}
             <View style={{ flex: 1 }}>
               <View style={styles.top}>
                 <Txt variant="bodySmBold" numberOfLines={1} style={{ flex: 1 }}>
@@ -97,6 +107,14 @@ const styles = StyleSheet.create({
   compose: { padding: Spacing.xs },
   list: { padding: Spacing.lg, flexGrow: 1 },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.md },
+  groupIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: `${Colors.primary}18`,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   divider: { height: 1, backgroundColor: Colors.stroke },
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm },
   badge: {

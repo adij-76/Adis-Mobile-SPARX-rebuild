@@ -768,73 +768,98 @@ export const supabaseFavorites: FavoritesApi = {
 // Reads the RLS-scoped views (mobile_threads / mobile_thread_messages /
 // mobile_directory); writes go to the tables. "DM anyone unless blocked."
 
+/** Call a Postgres function over PostgREST (/rpc/<fn>) and return its result. */
+async function rpc<T>(fn: string, body: unknown): Promise<T> {
+  const res = await fetch(`${BASE}/rest/v1/rpc/${fn}`, {
+    method: 'POST',
+    headers: {
+      apikey: ANON,
+      Authorization: `Bearer ${authToken ?? ANON}`,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  if (res.status === 401 && authToken) onUnauthorized?.();
+  if (!res.ok) throw new Error(`rpc ${fn} → ${res.status}`);
+  return (await res.json()) as T;
+}
+
 export const supabaseMessages: MessagesApi = {
   async threads(): Promise<Thread[]> {
     type Row = {
-      user_id: number | string;
+      conversation_id: number | string;
+      is_group: boolean;
       name: string | null;
       avatar: string | null;
-      handle: string | null;
+      peer_id: number | string | null;
+      other_count: number | null;
       last_message: string | null;
-      last_at: string;
+      last_at: string | null;
       unread: number | null;
     };
     try {
       const rows = await rest<Row[]>('mobile_threads', {});
       return rows.map((r) => ({
-        userId: String(r.user_id),
-        name: r.name || 'Member',
+        conversationId: String(r.conversation_id),
+        name: r.name || 'Conversation',
         avatar: r.avatar || '',
-        handle: r.handle,
+        isGroup: !!r.is_group,
+        otherCount: r.other_count ?? 0,
+        peerId: r.peer_id != null ? String(r.peer_id) : null,
         last: r.last_message ?? '',
-        time: relTime(r.last_at),
+        time: r.last_at ? relTime(r.last_at) : '',
         unread: r.unread ?? 0,
       }));
     } catch {
       return [];
     }
   },
-  async messages(otherUserId): Promise<ChatMessage[]> {
+  async messages(conversationId): Promise<ChatMessage[]> {
     type Row = {
       id: string;
-      other_id: number | string;
+      conversation_id: number | string;
       mine: boolean;
+      sender_id: number | string | null;
+      sender_name: string | null;
+      sender_avatar: string | null;
       content: string | null;
       created_at: string;
-      read_at: string | null;
     };
     try {
       const rows = await rest<Row[]>('mobile_thread_messages', {
-        other_id: `eq.${otherUserId}`,
+        conversation_id: `eq.${conversationId}`,
         order: 'created_at',
       });
       return rows.map((r) => ({
         id: String(r.id),
         mine: !!r.mine,
+        senderId: r.sender_id != null ? String(r.sender_id) : null,
+        senderName: r.sender_name || 'Member',
+        senderAvatar: r.sender_avatar || '',
         text: r.content ?? '',
         time: relTime(r.created_at),
         createdAt: r.created_at,
-        readAt: r.read_at,
       }));
     } catch {
       return [];
     }
   },
-  async send(recipientId, text, senderId) {
+  async send(conversationId, text, senderId) {
     const idNum = Number(senderId);
     // auth_uid fills from the column default auth.uid(); RLS blocks the insert
-    // if the recipient has blocked me.
+    // if a member of the conversation has blocked me.
     await postWrite('mobile_messages', {
       sender_id: Number.isFinite(idNum) ? idNum : null,
-      recipient_id: Number(recipientId),
+      conversation_id: Number(conversationId),
       content: text,
     });
   },
-  async markRead(otherUserId) {
-    // Set read_at on the other person's unread messages to me. RLS only lets me
-    // update rows where I'm the recipient, so this is safe to fire broadly.
+  async markRead(conversationId) {
+    // Set my last_read_at on this conversation. RLS restricts the update to my
+    // own member row, so filtering by conversation_id alone is safe.
     const res = await fetch(
-      `${BASE}/rest/v1/mobile_messages?sender_id=eq.${Number(otherUserId)}&read_at=is.null`,
+      `${BASE}/rest/v1/mobile_conversation_members?conversation_id=eq.${Number(conversationId)}`,
       {
         method: 'PATCH',
         headers: {
@@ -843,11 +868,30 @@ export const supabaseMessages: MessagesApi = {
           'Content-Type': 'application/json',
           Prefer: 'return=minimal',
         },
-        body: JSON.stringify({ read_at: new Date().toISOString() }),
+        body: JSON.stringify({ last_read_at: new Date().toISOString() }),
       },
     );
     if (!res.ok && res.status !== 404) {
       /* best-effort: a failed read-receipt shouldn't surface an error */
+    }
+  },
+  async startDirect(otherUserId) {
+    try {
+      const id = await rpc<number | string>('mobile_start_direct', { other: Number(otherUserId) });
+      return id != null ? String(id) : null;
+    } catch {
+      return null;
+    }
+  },
+  async startGroup(memberIds, title) {
+    try {
+      const id = await rpc<number | string>('mobile_start_group', {
+        members: memberIds.map((m) => Number(m)).filter((n) => Number.isFinite(n)),
+        title: title ?? null,
+      });
+      return id != null ? String(id) : null;
+    } catch {
+      return null;
     }
   },
   async directory(search): Promise<DirectoryUser[]> {

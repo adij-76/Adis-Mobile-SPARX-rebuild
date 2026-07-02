@@ -231,9 +231,12 @@ export const mockFavorites: FavoritesApi = {
   set: () => delay(undefined),
 };
 
-// --- Mock chat: in-memory for the session (offline dev only). ---
-type MockMsg = { id: string; otherId: string; mine: boolean; text: string; at: number; read: boolean };
+// --- Mock chat: in-memory conversation model for the session (offline dev). ---
+type MockConv = { id: string; isGroup: boolean; title: string | null; members: string[] };
+type MockMsg = { id: string; convId: string; mine: boolean; senderId: string | null; text: string; at: number; read: boolean };
+const mockConvs: MockConv[] = [];
 const mockChat: MockMsg[] = [];
+let mockConvSeq = 1;
 let mockChatSeq = 1;
 const mockPeople: DirectoryUser[] = [
   { userId: '1', name: 'Adi Jaffe (Coach)', avatar: '', handle: 'adi' },
@@ -243,52 +246,49 @@ const mockPeople: DirectoryUser[] = [
 ];
 const mockBlocked = new Set<string>();
 const mockPerson = (id: string) => mockPeople.find((p) => p.userId === id);
+const mockNames = (ids: string[]) => ids.map((id) => mockPerson(id)?.name ?? 'Member').join(', ');
 
 export const mockMessages: MessagesApi = {
   threads: (): Promise<Thread[]> => {
-    const byOther = new Map<string, MockMsg[]>();
-    mockChat.forEach((m) => {
-      const arr = byOther.get(m.otherId) ?? [];
-      arr.push(m);
-      byOther.set(m.otherId, arr);
+    const threads = mockConvs.map((c) => {
+      const msgs = mockChat.filter((m) => m.convId === c.id);
+      const last = msgs[msgs.length - 1];
+      return {
+        conversationId: c.id,
+        name: c.isGroup ? c.title || mockNames(c.members) : mockPerson(c.members[0])?.name ?? 'Member',
+        avatar: c.isGroup ? '' : mockPerson(c.members[0])?.avatar ?? '',
+        isGroup: c.isGroup,
+        otherCount: c.members.length,
+        peerId: c.isGroup ? null : c.members[0] ?? null,
+        last: last?.text ?? '',
+        time: last ? 'now' : '',
+        unread: msgs.filter((m) => !m.mine && !m.read).length,
+      } satisfies Thread;
     });
-    const threads = [...byOther.entries()]
-      .map(([otherId, msgs]) => {
-        const last = msgs[msgs.length - 1];
-        const p = mockPerson(otherId);
-        return {
-          userId: otherId,
-          name: p?.name ?? 'Member',
-          avatar: p?.avatar ?? '',
-          handle: p?.handle ?? null,
-          last: last.text,
-          time: 'now',
-          unread: msgs.filter((m) => !m.mine && !m.read).length,
-        } satisfies Thread;
-      })
-      .sort((a, b) => (a.userId < b.userId ? -1 : 1));
     return delay(threads);
   },
-  messages: (otherUserId): Promise<ChatMessage[]> =>
+  messages: (conversationId): Promise<ChatMessage[]> =>
     delay(
       mockChat
-        .filter((m) => m.otherId === otherUserId)
+        .filter((m) => m.convId === conversationId)
         .map((m) => ({
           id: m.id,
           mine: m.mine,
+          senderId: m.senderId,
+          senderName: m.mine ? 'You' : mockPerson(m.senderId ?? '')?.name ?? 'Member',
+          senderAvatar: m.mine ? '' : mockPerson(m.senderId ?? '')?.avatar ?? '',
           text: m.text,
           time: 'now',
           createdAt: new Date(m.at).toISOString(),
-          readAt: m.read ? new Date().toISOString() : null,
         })),
     ),
-  send: (recipientId, text) => {
-    mockChat.push({ id: `m${mockChatSeq++}`, otherId: recipientId, mine: true, text, at: Date.now(), read: true });
+  send: (conversationId, text) => {
+    mockChat.push({ id: `m${mockChatSeq++}`, convId: conversationId, mine: true, senderId: null, text, at: Date.now(), read: true });
     return delay(undefined);
   },
-  markRead: (otherUserId) => {
+  markRead: (conversationId) => {
     mockChat.forEach((m) => {
-      if (m.otherId === otherUserId && !m.mine) m.read = true;
+      if (m.convId === conversationId && !m.mine) m.read = true;
     });
     return delay(undefined);
   },
@@ -307,5 +307,17 @@ export const mockMessages: MessagesApi = {
     if (on) mockBlocked.add(userId);
     else mockBlocked.delete(userId);
     return delay(undefined);
+  },
+  startDirect: (otherUserId) => {
+    const existing = mockConvs.find((c) => !c.isGroup && c.members.length === 1 && c.members[0] === otherUserId);
+    if (existing) return delay(existing.id);
+    const conv: MockConv = { id: `c${mockConvSeq++}`, isGroup: false, title: null, members: [otherUserId] };
+    mockConvs.push(conv);
+    return delay(conv.id);
+  },
+  startGroup: (memberIds, title) => {
+    const conv: MockConv = { id: `c${mockConvSeq++}`, isGroup: true, title: title ?? null, members: [...memberIds] };
+    mockConvs.push(conv);
+    return delay(conv.id);
   },
 };

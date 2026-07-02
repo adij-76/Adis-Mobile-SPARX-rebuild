@@ -28,11 +28,21 @@ const POLL_MS = 5000;
 export default function ChatThread() {
   const goBack = useGoBack('/feed/messages');
   const router = useRouter();
-  const { id, name, avatar } = useLocalSearchParams<{ id: string; name?: string; avatar?: string }>();
+  const { id, name, avatar, group, peer } = useLocalSearchParams<{
+    id: string;
+    name?: string;
+    avatar?: string;
+    group?: string;
+    peer?: string;
+  }>();
   const { appUserId } = useCurrentAuthor();
 
   const personName = name ?? 'Chat';
   const personAvatar = avatar ?? '';
+  const isGroup = group === '1';
+  // Block is a 1:1 concept: it needs the other person's user id (peer), which
+  // only a direct thread carries. Groups have no single "other person".
+  const peerId = !isGroup && peer ? peer : null;
 
   const { data, reload } = useAsync(() => api.messages.messages(id), [id]);
   // Optimistic messages we've sent but haven't seen echoed back by a reload yet.
@@ -52,10 +62,10 @@ export default function ChatThread() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
-  // Mark the other person's messages read on open, and poll for new ones.
+  // Mark the conversation read on open, and poll for new messages.
   useEffect(() => {
     api.messages.markRead(id).catch(() => {});
-    api.messages.blockedIds().then((ids) => setBlocked(ids.includes(id))).catch(() => {});
+    if (peerId) api.messages.blockedIds().then((ids) => setBlocked(ids.includes(peerId))).catch(() => {});
     const t = setInterval(() => {
       reload();
       api.messages.markRead(id).catch(() => {});
@@ -71,10 +81,12 @@ export default function ChatThread() {
     const optimistic: ChatMessage = {
       id: `pending-${Date.now()}`,
       mine: true,
+      senderId: appUserId,
+      senderName: 'You',
+      senderAvatar: '',
       text: body,
       time: 'now',
       createdAt: new Date().toISOString(),
-      readAt: null,
     };
     setPending((p) => [...p, optimistic]);
     api.messages
@@ -84,10 +96,11 @@ export default function ChatThread() {
   };
 
   const toggleBlock = () => {
+    if (!peerId) return;
     const next = !blocked;
     setBlocked(next);
     setMenuOpen(false);
-    api.messages.setBlock(id, next, appUserId).catch(() => setBlocked(!next));
+    api.messages.setBlock(peerId, next, appUserId).catch(() => setBlocked(!next));
     if (next) router.back();
   };
 
@@ -97,16 +110,24 @@ export default function ChatThread() {
         <Pressable onPress={goBack} hitSlop={12}>
           <Ionicons name="arrow-back" size={24} color={Colors.textMain} />
         </Pressable>
-        <Avatar uri={personAvatar} name={personName} size={36} />
+        {isGroup ? (
+          <View style={styles.groupIcon}>
+            <Ionicons name="people" size={20} color={Colors.primary} />
+          </View>
+        ) : (
+          <Avatar uri={personAvatar} name={personName} size={36} />
+        )}
         <Txt variant="titleSm" numberOfLines={1} style={{ flex: 1 }}>
           {personName}
         </Txt>
-        <Pressable onPress={() => setMenuOpen((o) => !o)} hitSlop={12}>
-          <Ionicons name="ellipsis-horizontal" size={22} color={Colors.textMain} />
-        </Pressable>
+        {peerId ? (
+          <Pressable onPress={() => setMenuOpen((o) => !o)} hitSlop={12}>
+            <Ionicons name="ellipsis-horizontal" size={22} color={Colors.textMain} />
+          </Pressable>
+        ) : null}
       </View>
 
-      {menuOpen ? (
+      {menuOpen && peerId ? (
         <Pressable style={styles.menu} onPress={toggleBlock}>
           <Ionicons
             name={blocked ? 'lock-open-outline' : 'ban-outline'}
@@ -135,13 +156,28 @@ export default function ChatThread() {
               </Txt>
             </View>
           ) : (
-            messages.map((m) => (
-              <View key={m.id} style={[styles.bubble, m.mine ? styles.bubbleMe : styles.bubbleThem]}>
-                <Txt variant="bodySm" color={m.mine ? Colors.white : Colors.textMain}>
-                  {m.text}
-                </Txt>
-              </View>
-            ))
+            messages.map((m, i) => {
+              // In a group, label a message with the sender's name when it starts
+              // a new run from that person (keeps consecutive messages clean).
+              const showSender =
+                isGroup && !m.mine && messages[i - 1]?.senderId !== m.senderId;
+              return (
+                <View
+                  key={m.id}
+                  style={[styles.bubbleWrap, m.mine ? styles.alignEnd : styles.alignStart]}>
+                  {showSender ? (
+                    <Txt variant="caption" color={Colors.textSub} style={styles.sender}>
+                      {m.senderName}
+                    </Txt>
+                  ) : null}
+                  <View style={[styles.bubble, m.mine ? styles.bubbleMe : styles.bubbleThem]}>
+                    <Txt variant="bodySm" color={m.mine ? Colors.white : Colors.textMain}>
+                      {m.text}
+                    </Txt>
+                  </View>
+                </View>
+              );
+            })
           )}
         </ScrollView>
 
@@ -206,10 +242,21 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 4,
   },
+  groupIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: `${Colors.primary}18`,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   body: { padding: Spacing.lg, gap: Spacing.sm, flexGrow: 1 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.md, paddingTop: Spacing.xxl },
+  bubbleWrap: { maxWidth: '82%' },
+  alignEnd: { alignSelf: 'flex-end', alignItems: 'flex-end' },
+  alignStart: { alignSelf: 'flex-start', alignItems: 'flex-start' },
+  sender: { marginBottom: 2, marginLeft: Spacing.sm },
   bubble: {
-    maxWidth: '82%',
     borderRadius: Radius.lg,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,

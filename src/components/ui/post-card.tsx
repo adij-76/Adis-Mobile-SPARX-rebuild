@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Platform, Pressable, Share, StyleSheet, View, type GestureResponderEvent } from 'react-native';
 
+import { api } from '@/api';
 import { ActionSheet, type SheetAction } from '@/components/ui/action-sheet';
 import { Avatar } from '@/components/ui/avatar';
 import { ReactionBar, type ReactionKey } from '@/components/ui/reaction-bar';
@@ -52,15 +53,21 @@ export function PostCard({ post, onPress, full }: PostCardProps) {
     }
   };
 
-  // DM the post author by their production user id. Seed posts (and any post
-  // whose author id the view didn't resolve) have no id → send the user to the
-  // messages list instead of a dead thread.
-  const startChat = () =>
+  // DM the post author: find-or-create the 1:1 conversation, then open it. Seed
+  // posts (and any post whose author id the view didn't resolve) have no id, and
+  // a blocked author yields no conversation → fall back to the messages list.
+  const startChat = async () => {
+    if (!post.authorId) {
+      router.push('/feed/messages');
+      return;
+    }
+    const convId = await api.messages.startDirect(post.authorId);
     router.push(
-      post.authorId
-        ? `/feed/chat?id=${post.authorId}&name=${encodeURIComponent(post.author)}&avatar=${encodeURIComponent(post.avatar)}`
+      convId
+        ? `/feed/chat?id=${convId}&name=${encodeURIComponent(post.author)}&avatar=${encodeURIComponent(post.avatar)}&peer=${post.authorId}`
         : '/feed/messages',
     );
+  };
 
   const menuActions: SheetAction[] = isOwn
     ? [
