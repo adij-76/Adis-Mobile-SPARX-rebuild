@@ -1,4 +1,3 @@
-import { Image } from 'expo-image';
 import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -16,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { api } from '@/api';
 import type { PostComment } from '@/api/types';
 import { PostCard } from '@/components/ui/post-card';
+import { Avatar } from '@/components/ui/avatar';
 import { ReactionBar, type ReactionKey } from '@/components/ui/reaction-bar';
 import { RichText } from '@/components/ui/rich-text';
 import { ScreenHeader } from '@/components/ui/screen-header';
@@ -29,7 +29,7 @@ function ReplyBubble({ comment }: { comment: PostComment }) {
   return (
     <View style={styles.replyBlock}>
       <View style={styles.comment}>
-        <Image source={{ uri: comment.avatar }} style={styles.cAvatar} />
+        <Avatar uri={comment.avatar} name={comment.author} size={36} />
         <View style={styles.bubble}>
           <View style={styles.cHead}>
             <Txt variant="bodySmBold">{comment.author}</Txt>
@@ -68,7 +68,7 @@ function CommentItem({
   return (
     <View style={styles.commentBlock}>
       <View style={styles.comment}>
-        <Image source={{ uri: comment.avatar }} style={styles.cAvatar} />
+        <Avatar uri={comment.avatar} name={comment.author} size={36} />
         <View style={styles.bubble}>
           <View style={styles.cHead}>
             <Txt variant="bodySmBold">{comment.author}</Txt>

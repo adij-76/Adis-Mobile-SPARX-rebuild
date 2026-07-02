@@ -83,6 +83,8 @@ export const mockContent: ContentApi = {
       })),
     ),
   recommendedVideos: () => delay(recommendedVideos),
+  favoriteLessons: () => delay<Lesson[]>([]),
+  favoriteVideos: () => delay(recommendedVideos.slice(0, 2)),
   quotes: () => delay(quotes),
   challenges: () => delay(challenges),
 };

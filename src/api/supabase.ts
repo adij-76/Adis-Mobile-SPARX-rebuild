@@ -116,6 +116,7 @@ type SnippetRow = {
   vimeo_url: string | null;
   vimeo_id: number | null;
   ai_generated: boolean;
+  favorite?: boolean;
 };
 
 /** Fall back to constructing a Vimeo watch URL from the numeric id when the
@@ -270,6 +271,40 @@ export const supabaseContent: ContentApi = {
       return snippetVideos();
     }
   },
+  // The user's saved lessons/workshops (mobile_lessons.favorite) — real, from the
+  // production favorites table. Empty on error so the tab just shows nothing.
+  async favoriteLessons() {
+    try {
+      const rows = await rest<LessonRow[]>('mobile_lessons', { favorite: 'is.true', order: 'position' });
+      return rows.map(toLesson);
+    } catch {
+      return [];
+    }
+  },
+  // The user's saved snippet videos (mobile_snippets.favorite).
+  async favoriteVideos() {
+    try {
+      const rows = await rest<SnippetRow[]>('mobile_snippets', {
+        favorite: 'is.true',
+        order: 'created_at.desc',
+      });
+      return rows.map(
+        (r) =>
+          ({
+            id: String(r.id),
+            title: r.title || r.description || 'SPARx video',
+            duration: r.length_seconds ? fmtDuration(r.length_seconds) : '',
+            image: '',
+            presenter: 'SPARx',
+            views: '',
+            description: r.summary || '',
+            vimeoUrl: vimeoUrlFrom(r.vimeo_url, r.vimeo_id) ?? undefined,
+          }) satisfies VideoItem,
+      );
+    } catch {
+      return [];
+    }
+  },
   async quotes() {
     // Read the DB quotes when the view exists; fall back to seed quotes so the
     // app keeps working until `mobile_quotes` is created.
@@ -349,8 +384,8 @@ export const supabaseCommunity: CommunityApi = {
 };
 
 // --- Community feed (mobile_posts / mobile_comments ∪ app-owned writes) ---
-
-const FALLBACK_AVATAR = 'https://i.pravatar.cc/120?img=12';
+// Author avatars are passed through as-is (empty when the user has none); the
+// Avatar component renders a deterministic initials circle in that case.
 
 /** ISO timestamp → short relative label ("now", "5m", "3h", "2d", "4w"). */
 function relTime(iso: string): string {
@@ -398,7 +433,7 @@ async function channelNameMap(): Promise<Map<string, string>> {
 const toPost = (r: PostRow, names: Map<string, string>): Post => ({
   id: String(r.id),
   author: r.author || 'Member',
-  avatar: r.avatar || FALLBACK_AVATAR,
+  avatar: r.avatar || '',
   time: relTime(r.created_at),
   community: (r.comm_channel_id != null && names.get(String(r.comm_channel_id))) || 'Community',
   text: r.content ?? '',
@@ -465,7 +500,7 @@ export const supabasePosts: PostsApi = {
       postRef: r.post_ref,
       parentRef: r.parent_ref,
       author: r.author || 'Member',
-      avatar: r.avatar || FALLBACK_AVATAR,
+      avatar: r.avatar || '',
       handle: r.handle,
       text: r.content ?? '',
       time: relTime(r.created_at),
@@ -629,7 +664,9 @@ export const supabaseCheckins: CheckinsApi = {
       affirmation: string | null;
     };
     try {
-      const rows = await rest<Row[]>('mobile_checkins', { order: 'date.desc', limit: '400' });
+      // Reads the union of app check-ins + production daily_assessments so
+      // streaks/history reflect the full record. Writes still go to the table.
+      const rows = await rest<Row[]>('mobile_checkin_history', { order: 'date.desc', limit: '400' });
       return rows.map((r) => ({
         date: r.date,
         mood: r.mood ?? 0,

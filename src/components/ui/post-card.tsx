@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Platform, Pressable, Share, StyleSheet, View, type GestureResponderEvent } from 'react-native';
 
 import { ActionSheet, type SheetAction } from '@/components/ui/action-sheet';
+import { Avatar } from '@/components/ui/avatar';
 import { ReactionBar, type ReactionKey } from '@/components/ui/reaction-bar';
 import { RichText } from '@/components/ui/rich-text';
 import { Txt } from '@/components/ui/text';
@@ -103,7 +104,7 @@ export function PostCard({ post, onPress, full }: PostCardProps) {
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && onPress && { opacity: 0.95 }]}>
       <View style={styles.head}>
-        <Image source={{ uri: post.avatar }} style={styles.avatar} />
+        <Avatar uri={post.avatar} name={post.author} size={40} />
         <View style={{ flex: 1 }}>
           <Txt variant="bodySmBold">{post.author}</Txt>
           <Txt variant="caption" color={Colors.textSub}>
