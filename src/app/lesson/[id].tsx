@@ -343,6 +343,14 @@ function Intro({
         </Pressable>
       </View>
       <Txt variant="title">{title}</Txt>
+      {lesson.lessonType === 'workshop' ? (
+        <View style={styles.typeBadge}>
+          <Ionicons name="easel" size={13} color={Colors.primary} />
+          <Txt variant="caption" color={Colors.primary}>
+            Workshop
+          </Txt>
+        </View>
+      ) : null}
       <View style={{ gap: Spacing.sm }}>
         <Txt variant="bodyMedium">Introduction</Txt>
         {lesson.description ? (
@@ -359,6 +367,16 @@ const OUTLINE_W = 320;
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.white },
+  typeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: Radius.pill,
+    backgroundColor: `${Colors.primary}18`,
+  },
   topbar: {
     flexDirection: 'row',
     alignItems: 'center',
