@@ -82,11 +82,11 @@ export default function DataScreen() {
           </Card>
         </Pressable>
 
-        {/* Substance use — how much (total uses per period). */}
+        {/* Substance use — how much (total amount used per period). */}
         {useAmountSeries.length > 0 && (
           <Card style={{ gap: Spacing.lg }}>
             <View style={styles.cardHead}>
-              <Txt variant="titleSm">Substance use</Txt>
+              <Txt variant="titleSm">Amount</Txt>
               <Txt variant="caption" color={Colors.textSub}>
                 total uses · lower is better
               </Txt>
@@ -99,9 +99,9 @@ export default function DataScreen() {
         {daysUsedSeries.length > 0 && (
           <Card style={{ gap: Spacing.lg }}>
             <View style={styles.cardHead}>
-              <Txt variant="titleSm">Days used</Txt>
+              <Txt variant="titleSm">% days used</Txt>
               <Txt variant="caption" color={Colors.textSub}>
-                % of days · lower is better
+                share of days · lower is better
               </Txt>
             </View>
             <MetricTrend series={daysUsedSeries} unit="%" higherIsBetter={false} accent={Colors.primary} />
