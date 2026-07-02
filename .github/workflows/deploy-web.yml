@@ -11,10 +11,13 @@ permissions:
   pages: write
   id-token: write
 
-# Allow one concurrent deployment; newer pushes cancel in-progress runs.
+# Serialize Pages deploys: queue overlapping runs instead of cancelling them.
+# cancel-in-progress:true made concurrent deploys supersede each other, which
+# surfaced as "Deployment cancelled" failures when several merges landed close
+# together. Queuing lets each deploy finish.
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
