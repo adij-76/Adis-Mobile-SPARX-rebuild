@@ -26,6 +26,7 @@ import type {
   InsightsApi,
   Lesson,
   MeResult,
+  FavoritesApi,
   MeetingsApi,
   Module,
   PostsApi,
@@ -85,6 +86,9 @@ export const mockContent: ContentApi = {
   recommendedVideos: () => delay(recommendedVideos),
   favoriteLessons: () => delay<Lesson[]>([]),
   favoriteVideos: () => delay(recommendedVideos.slice(0, 2)),
+  lessonsByIds: (ids) =>
+    delay(workshops.map((w, i) => toLesson(w, i, 'lesson')).filter((l) => ids.includes(l.id))),
+  videosByIds: (ids) => delay(recommendedVideos.filter((v) => ids.includes(v.id))),
   quotes: () => delay(quotes),
   challenges: () => delay(challenges),
 };
@@ -215,4 +219,10 @@ export const mockPosts: PostsApi = {
 export const mockCheckins: CheckinsApi = {
   list: () => delay([]),
   save: () => delay(undefined),
+};
+
+// Favorites persist only in the local store offline.
+export const mockFavorites: FavoritesApi = {
+  list: () => delay([]),
+  set: () => delay(undefined),
 };

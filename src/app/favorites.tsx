@@ -21,11 +21,14 @@ export default function Favorites() {
   const router = useRouter();
   const goBack = useGoBack();
   const [tab, setTab] = useState<Tab>('lessons');
-  const { toggleFav } = useStore();
-  // Real saved content from the production favorites table (lessons/workshops via
-  // mobile_lessons.favorite; snippet videos via mobile_snippets.favorite).
-  const savedLessons = useAsync(() => api.content.favoriteLessons(), []).data ?? [];
-  const savedVideos = useAsync(() => api.content.favoriteVideos(), []).data ?? [];
+  const { toggleFav, favoriteIds } = useStore();
+  // Driven by the store's favorite ids (hydrated from server ∪ app-owned favorites
+  // on auth, updated optimistically on toggle), so saves persist and reflect
+  // immediately. Details fetched by id.
+  const lessonIds = favoriteIds('lesson');
+  const videoIds = favoriteIds('video');
+  const savedLessons = useAsync(() => api.content.lessonsByIds(lessonIds), [lessonIds.join(',')]).data ?? [];
+  const savedVideos = useAsync(() => api.content.videosByIds(videoIds), [videoIds.join(',')]).data ?? [];
 
   return (
     <Screen variant="modal" style={styles.safe}>

@@ -49,7 +49,7 @@ function Splash() {
 function Shell() {
   const { isDesktop } = useBreakpoint();
   const { status } = useAuth();
-  const { mergeRemoteCheckins } = useStore();
+  const { mergeRemoteCheckins, hydrateFavorites } = useStore();
   const segments = useSegments();
   const router = useRouter();
   const onLogin = segments[0] === 'login';
@@ -70,6 +70,18 @@ function Shell() {
       .list()
       .then((remote) => {
         if (active && remote.length) mergeRemoteCheckins(remote);
+      })
+      .catch(() => {});
+    // Hydrate favorites: production favorites, overridden by app-owned rows
+    // (active=true adds, active=false is a tombstone / un-save).
+    Promise.all([api.content.favoriteLessons(), api.content.favoriteVideos(), api.favorites.list()])
+      .then(([lessons, videos, app]) => {
+        if (!active) return;
+        const set = new Set<string>();
+        lessons.forEach((l) => set.add(`lesson:${l.id}`));
+        videos.forEach((v) => set.add(`video:${v.id}`));
+        app.forEach((f) => (f.active ? set.add(`${f.kind}:${f.itemId}`) : set.delete(`${f.kind}:${f.itemId}`)));
+        hydrateFavorites([...set]);
       })
       .catch(() => {});
     return () => {

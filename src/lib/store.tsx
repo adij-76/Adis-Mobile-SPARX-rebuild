@@ -16,6 +16,7 @@ import {
   type ReactNode,
 } from 'react';
 
+import { api } from '@/api';
 import { posts as basePosts, type Comment, type Meeting, type Post } from '@/data/content';
 
 const KEY = 'igntd.store.v1';
@@ -85,6 +86,8 @@ type StoreValue = {
   isFav: (k: FavKind, id: string) => boolean;
   toggleFav: (k: FavKind, id: string) => void;
   favoriteIds: (k: FavKind) => string[];
+  /** Replace favorites with the server-computed effective set (on auth). */
+  hydrateFavorites: (keys: string[]) => void;
   // communities
   isJoined: (id: string) => boolean;
   toggleJoined: (id: string) => void;
@@ -180,18 +183,26 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     return {
       ready,
       isFav: (k, id) => state.favorites.includes(favKey(k, id)),
-      toggleFav: (k, id) =>
-        update((s) => {
-          const key = favKey(k, id);
-          return {
-            ...s,
-            favorites: s.favorites.includes(key)
-              ? s.favorites.filter((x) => x !== key)
-              : [...s.favorites, key],
-          };
-        }),
+      toggleFav: (k, id) => {
+        const key = favKey(k, id);
+        const willBeOn = !state.favorites.includes(key);
+        update((s) => ({
+          ...s,
+          favorites: willBeOn ? [...s.favorites, key] : s.favorites.filter((x) => x !== key),
+        }));
+        // Persist to the backend (app-owned mobile_favorites); best-effort.
+        api.favorites.set(k, id, willBeOn).catch(() => {});
+      },
       favoriteIds: (k) =>
         state.favorites.filter((x) => x.startsWith(`${k}:`)).map((x) => x.slice(k.length + 1)),
+      // Replace the favorite set with the server-computed effective favorites
+      // (production favorites, overridden by app-owned rows). Called once on auth.
+      hydrateFavorites: (keys) =>
+        update((s) => {
+          const next = [...new Set(keys)];
+          if (next.length === s.favorites.length && next.every((k) => s.favorites.includes(k))) return s;
+          return { ...s, favorites: next };
+        }),
 
       isJoined: (id) => state.joined.includes(id),
       toggleJoined: (id) =>

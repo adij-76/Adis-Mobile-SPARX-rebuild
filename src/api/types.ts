@@ -84,6 +84,10 @@ export type ContentApi = {
   favoriteLessons(): Promise<Lesson[]>;
   /** The user's saved (favorited) snippet videos. */
   favoriteVideos(): Promise<VideoItem[]>;
+  /** Lessons/workshops by id (for rendering saved items). */
+  lessonsByIds(ids: string[]): Promise<Lesson[]>;
+  /** Snippet videos by id (for rendering saved items). */
+  videosByIds(ids: string[]): Promise<VideoItem[]>;
   /** Shareable daily quotes. */
   quotes(): Promise<Quote[]>;
   /** Home "Challenges" tab. */
@@ -279,6 +283,17 @@ export type CheckinsApi = {
   save(entry: CheckinRecord, appUserId: string | null): Promise<void>;
 };
 
+/** One favorite record from the app-owned store. `active=false` is a tombstone
+ *  that un-saves a production favorite. */
+export type FavoriteRecord = { kind: 'lesson' | 'video'; itemId: string; active: boolean };
+
+export type FavoritesApi = {
+  /** All of the user's app-owned favorite rows (active + tombstones). */
+  list(): Promise<FavoriteRecord[]>;
+  /** Persist a bookmark toggle (upsert on kind+item). */
+  set(kind: 'lesson' | 'video', itemId: string, on: boolean): Promise<void>;
+};
+
 export type Api = {
   /** Which backend is serving requests — handy for debugging. */
   backend: 'mock' | 'supabase';
@@ -288,5 +303,6 @@ export type Api = {
   meetings: MeetingsApi;
   community: CommunityApi;
   posts: PostsApi;
+  favorites: FavoritesApi;
   checkins: CheckinsApi;
 };

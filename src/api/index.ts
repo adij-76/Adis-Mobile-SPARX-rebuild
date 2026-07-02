@@ -10,6 +10,7 @@ import {
   mockCheckins,
   mockCommunity,
   mockContent,
+  mockFavorites,
   mockInsights,
   mockMeetings,
   mockPosts,
@@ -19,6 +20,7 @@ import {
   supabaseCheckins,
   supabaseCommunity,
   supabaseContent,
+  supabaseFavorites,
   supabaseInsights,
   supabaseMeetings,
   supabasePosts,
@@ -35,6 +37,7 @@ export const api: Api = {
   meetings: useSupabase ? supabaseMeetings : mockMeetings,
   community: useSupabase ? supabaseCommunity : mockCommunity,
   posts: useSupabase ? supabasePosts : mockPosts,
+  favorites: useSupabase ? supabaseFavorites : mockFavorites,
   checkins: useSupabase ? supabaseCheckins : mockCheckins,
 };
 
