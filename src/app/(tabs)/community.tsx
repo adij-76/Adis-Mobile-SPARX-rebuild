@@ -61,14 +61,18 @@ export default function CommunityScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ gap: Spacing.md }}
               renderItem={({ item }) => (
-                <View style={styles.commChip}>
+                <Pressable
+                  style={styles.commChip}
+                  onPress={() => router.push(`/feed/room/${item.id}`)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open ${item.name}`}>
                   <View style={[styles.commIcon, { backgroundColor: `${item.color}22` }]}>
                     <Ionicons name={item.icon as never} size={20} color={item.color} />
                   </View>
                   <Txt variant="caption" center numberOfLines={2} style={{ width: 76 }}>
                     {item.name}
                   </Txt>
-                </View>
+                </Pressable>
               )}
             />
             <Txt variant="titleSm" style={{ marginTop: Spacing.sm }}>

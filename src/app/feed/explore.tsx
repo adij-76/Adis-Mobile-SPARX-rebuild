@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -10,6 +11,7 @@ import { useAsync } from '@/hooks/use-async';
 import { useStore } from '@/lib/store';
 
 export default function ExploreCommunities() {
+  const router = useRouter();
   const { isJoined, toggleJoined } = useStore();
   const communities = useAsync(() => api.community.communities(), []).data ?? [];
 
@@ -24,7 +26,11 @@ export default function ExploreCommunities() {
         renderItem={({ item }) => {
           const joined = isJoined(item.id);
           return (
-            <View style={styles.row}>
+            <Pressable
+              style={styles.row}
+              onPress={() => router.push(`/feed/room/${item.id}`)}
+              accessibilityRole="button"
+              accessibilityLabel={`Open ${item.name}`}>
               <View style={[styles.icon, { backgroundColor: `${item.color}22` }]}>
                 <Ionicons name={item.icon as never} size={22} color={item.color} />
               </View>
@@ -41,7 +47,7 @@ export default function ExploreCommunities() {
                   {joined ? 'Joined' : 'Join'}
                 </Txt>
               </Pressable>
-            </View>
+            </Pressable>
           );
         }}
       />
