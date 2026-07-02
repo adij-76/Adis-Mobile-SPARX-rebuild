@@ -14,28 +14,10 @@ import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { user } from '@/data/content';
 import { useAuth } from '@/lib/auth';
+import { computeStreak } from '@/lib/checkin';
 import { useStore } from '@/lib/store';
 
 
-/** Compute a simple streak from local check-in history (days in a row ending today). */
-function computeStreak(dates: string[]): number {
-  if (!dates.length) return 0;
-  const sorted = [...new Set(dates)].sort().reverse();
-  const today = new Date().toISOString().slice(0, 10);
-  let streak = 0;
-  let expected = today;
-  for (const d of sorted) {
-    if (d === expected) {
-      streak++;
-      const prev = new Date(expected);
-      prev.setDate(prev.getDate() - 1);
-      expected = prev.toISOString().slice(0, 10);
-    } else {
-      break;
-    }
-  }
-  return streak;
-}
 
 export default function ProfileScreen() {
   const router = useRouter();

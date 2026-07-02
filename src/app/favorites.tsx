@@ -25,7 +25,11 @@ export default function Favorites() {
   const workshops = useAsync(() => api.content.workshops(), []).data ?? [];
   const recommendedVideos = useAsync(() => api.content.recommendedVideos(), []).data ?? [];
 
-  const savedLessons = workshops.filter((w) => favoriteIds('lesson').includes(w.id));
+  // Lessons: the server-side favorite flag (mobile_lessons.favorite, from the
+  // production favorites table) unioned with any locally-toggled ones, so
+  // previously-saved lessons persist across devices/reloads.
+  const savedLessons = workshops.filter((w) => w.favorite || favoriteIds('lesson').includes(w.id));
+  // Videos: no server favorite flag on snippets yet, so still local-only.
   const savedVideos = recommendedVideos.filter((v) => favoriteIds('video').includes(v.id));
 
   return (

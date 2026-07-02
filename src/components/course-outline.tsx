@@ -7,6 +7,7 @@ import type { Module } from '@/api/types';
 import { Txt } from '@/components/ui/text';
 import { Colors, Spacing } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
+import { useBreakpoint } from '@/hooks/use-breakpoint';
 import { useStore } from '@/lib/store';
 
 /**
@@ -25,6 +26,7 @@ export function CourseOutline({
   currentLessonId: string;
   onPick: (lessonId: string) => void;
 }) {
+  const { isDesktop } = useBreakpoint();
   const { data, loading } = useAsync(
     () => (programId ? api.content.modules(programId) : Promise.resolve([])),
     [programId],
@@ -46,7 +48,10 @@ export function CourseOutline({
             <OutlineModule
               key={m.id}
               module={m}
-              startOpen={m.id === currentModuleId}
+              // On the pinned desktop panel, start every module collapsed so the
+              // outline is a compact index; on the mobile slide-over, open the
+              // current module for quick orientation.
+              startOpen={!isDesktop && m.id === currentModuleId}
               currentLessonId={currentLessonId}
               onPick={onPick}
             />
