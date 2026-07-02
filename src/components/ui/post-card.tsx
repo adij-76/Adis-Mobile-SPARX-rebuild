@@ -6,9 +6,11 @@ import { Platform, Pressable, Share, StyleSheet, View, type GestureResponderEven
 
 import { ActionSheet, type SheetAction } from '@/components/ui/action-sheet';
 import { ReactionBar, type ReactionKey } from '@/components/ui/reaction-bar';
+import { RichText } from '@/components/ui/rich-text';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { type Post } from '@/data/content';
+import { htmlToText } from '@/lib/html';
 import { useCurrentAuthor } from '@/lib/auth';
 import { chatId, useStore } from '@/lib/store';
 
@@ -78,7 +80,7 @@ export function PostCard({ post, onPress, full }: PostCardProps) {
 
   const share = async (e?: GestureResponderEvent) => {
     stop(e);
-    const message = `${post.author} in ${post.community}: ${post.text}`;
+    const message = `${post.author} in ${post.community}: ${htmlToText(post.text)}`;
     if (Platform.OS === 'web') {
       const nav = (globalThis as { navigator?: any }).navigator;
       try {
@@ -120,9 +122,7 @@ export function PostCard({ post, onPress, full }: PostCardProps) {
         </Pressable>
       </View>
 
-      <Txt variant="bodySm" numberOfLines={full ? undefined : 4}>
-        {post.text}
-      </Txt>
+      <RichText html={post.text} numberOfLines={full ? undefined : 4} />
 
       {post.image ? <Image source={{ uri: post.image }} style={styles.image} /> : null}
 
