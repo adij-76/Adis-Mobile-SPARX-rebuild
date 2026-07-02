@@ -15,6 +15,11 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 
+// Tallest bar's pixel height. Bars use explicit px (not %) heights so they
+// render on react-native-web, where a %-height child of a flex-sized parent
+// collapses to nothing (leaving only the labels, no bars).
+const BAR_AREA = 120;
+
 export type TrendPoint = { key: string; label: string; value: number };
 export type TrendPeriodKey = 'recent' | 'weekly' | 'monthly' | 'annual';
 export type TrendSeries = { key: TrendPeriodKey; label: string; points: TrendPoint[] };
@@ -165,19 +170,18 @@ function BarsView({
       <View style={styles.bars}>
         {points.map((p, i) => {
           const isLast = i === points.length - 1;
+          const barHeight = Math.max(6, Math.round((p.value / ceiling) * BAR_AREA));
           return (
             <View key={p.key} style={styles.barCol}>
               <Txt variant="caption" color={Colors.textSub} style={styles.barValue}>
                 {p.value}
               </Txt>
-              <View style={styles.barTrack}>
-                <View
-                  style={[
-                    styles.barFill,
-                    { height: `${Math.max(6, (p.value / ceiling) * 100)}%`, backgroundColor: isLast ? accent : Colors.lightBlue },
-                  ]}
-                />
-              </View>
+              <View
+                style={[
+                  styles.barFill,
+                  { height: barHeight, backgroundColor: isLast ? accent : Colors.lightBlue },
+                ]}
+              />
               <Txt variant="caption" color={isLast ? accent : Colors.textSub} style={styles.barLabel}>
                 {p.label}
               </Txt>
@@ -196,10 +200,9 @@ const styles = StyleSheet.create({
   recentWrap: { alignItems: 'center', gap: Spacing.md },
   ring: { width: 150, height: 150, borderRadius: 75, borderWidth: 14, alignItems: 'center', justifyContent: 'center' },
   summary: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  bars: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 140, gap: Spacing.xs },
+  bars: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: Spacing.xs },
   barCol: { flex: 1, alignItems: 'center', gap: 4 },
   barValue: { fontSize: 10 },
-  barTrack: { flex: 1, width: '100%', justifyContent: 'flex-end', alignItems: 'center' },
   barFill: { width: '72%', minWidth: 8, borderRadius: Radius.sm },
   barLabel: { fontSize: 10 },
 });

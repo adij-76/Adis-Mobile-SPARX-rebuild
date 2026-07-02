@@ -294,11 +294,12 @@ type WheelScoreRow = { month_key: string; label: string; year: number; score: nu
 export const supabaseInsights: InsightsApi = {
   // anchor is ignored — Supabase returns the user's real monthly history (RLS-scoped).
   async wheelHistory() {
-    // Take the most recent 12 months (limit applies after the sort, so sort
-    // descending), then reverse to oldest → newest for the trend charts.
+    // Pull the full monthly history (newest-first, then reverse to oldest →
+    // newest). The Monthly view slices the recent tail; the Annual view rolls
+    // these up per calendar year, so we need more than 12 months here.
     const rows = await rest<WheelScoreRow[]>('mobile_wheel_scores', {
       order: 'month_key.desc',
-      limit: '12',
+      limit: '240',
     });
     return rows
       .map((r) => ({ key: r.month_key, label: r.label, year: r.year, score: r.score }) satisfies WheelPoint)

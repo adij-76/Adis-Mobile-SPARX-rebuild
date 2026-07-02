@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
@@ -41,6 +41,23 @@ export default function WheelOfLife() {
     () => api.insights.wheelHistory({ current: overall, last: lastOverall }),
     [overall, lastOverall],
   ).data ?? [];
+  // Annual view: collapse the monthly history into one average per calendar year.
+  const yearly = useMemo<WheelMonth[]>(() => {
+    const byYear = new Map<number, number[]>();
+    for (const m of history) {
+      const arr = byYear.get(m.year) ?? [];
+      arr.push(m.score);
+      byYear.set(m.year, arr);
+    }
+    return [...byYear.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([year, scores]) => ({
+        key: String(year),
+        label: String(year),
+        year,
+        score: Math.round(scores.reduce((s, v) => s + v, 0) / scores.length),
+      }));
+  }, [history]);
   const periodLabel = PERIODS.find((p) => p.key === period)!.label;
 
   if (scored.length === 0) {
@@ -153,11 +170,11 @@ export default function WheelOfLife() {
               </Txt>
             ))}
           {period === 'annual' &&
-            (history.length > 1 ? (
-              <TrendView months={history} span="12 months" />
+            (yearly.length > 1 ? (
+              <TrendView months={yearly} span={`${yearly.length} years`} unit="years" />
             ) : (
               <Txt variant="bodySm" color={Colors.textSub} center>
-                Not enough history yet — check back after a few monthly retakes.
+                Not enough history yet — check back after a full year of data.
               </Txt>
             ))}
 
@@ -229,11 +246,26 @@ function DeltaChip({ value, suffix, compact }: { value: number; suffix?: string;
   );
 }
 
-function TrendView({ months, span, rows }: { months: WheelMonth[]; span: string; rows?: boolean }) {
+// Tallest bar's pixel height. Bars use explicit px (not %) heights so they
+// render on react-native-web, where a %-height child of a flex-sized parent
+// collapses to nothing.
+const BAR_AREA = 120;
+
+function TrendView({
+  months,
+  span,
+  rows,
+  unit = 'months',
+}: {
+  months: WheelMonth[];
+  span: string;
+  rows?: boolean;
+  unit?: string;
+}) {
   const first = months[0].score;
   const last = months[months.length - 1].score;
   const net = last - first;
-  const improvedMonths = months.filter((m, i) => i > 0 && m.score > months[i - 1].score).length;
+  const improved = months.filter((m, i) => i > 0 && m.score > months[i - 1].score).length;
   const max = Math.max(...months.map((m) => m.score), 100);
   const trend = net > 2 ? 'Trending up' : net < -2 ? 'Trending down' : 'Holding steady';
 
@@ -243,7 +275,7 @@ function TrendView({ months, span, rows }: { months: WheelMonth[]; span: string;
         <View style={{ flex: 1, gap: 2 }}>
           <Txt variant="bodySmBold">{trend}</Txt>
           <Txt variant="caption" color={Colors.textSub}>
-            {improvedMonths} of {months.length - 1} months improved over the last {span}
+            {improved} of {months.length - 1} {unit} improved over the last {span}
           </Txt>
         </View>
         <DeltaChip value={net} />
@@ -252,19 +284,18 @@ function TrendView({ months, span, rows }: { months: WheelMonth[]; span: string;
       <View style={styles.bars}>
         {months.map((m, i) => {
           const isLast = i === months.length - 1;
+          const barHeight = Math.max(6, Math.round((m.score / max) * BAR_AREA));
           return (
             <View key={m.key} style={styles.barCol}>
               <Txt variant="caption" color={Colors.textSub} style={styles.barValue}>
                 {m.score}
               </Txt>
-              <View style={styles.barTrack}>
-                <View
-                  style={[
-                    styles.barFill,
-                    { height: `${Math.max(6, (m.score / max) * 100)}%`, backgroundColor: isLast ? Colors.primary : Colors.lightBlue },
-                  ]}
-                />
-              </View>
+              <View
+                style={[
+                  styles.barFill,
+                  { height: barHeight, backgroundColor: isLast ? Colors.primary : Colors.lightBlue },
+                ]}
+              />
               <Txt variant="caption" color={isLast ? Colors.primary : Colors.textSub} style={styles.barLabel}>
                 {m.label}
               </Txt>
@@ -376,12 +407,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    height: 140,
     gap: Spacing.xs,
   },
   barCol: { flex: 1, alignItems: 'center', gap: 4 },
   barValue: { fontSize: 10 },
-  barTrack: { flex: 1, width: '100%', justifyContent: 'flex-end', alignItems: 'center' },
   barFill: { width: '72%', minWidth: 8, borderRadius: Radius.sm },
   barLabel: { fontSize: 10 },
   monthRows: {
