@@ -5,17 +5,20 @@ import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { api } from '@/api';
 import { Button } from '@/components/ui/button';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { wheelAreas } from '@/data/content';
+import { useAuth } from '@/lib/auth';
 import { useStore } from '@/lib/store';
 
 export default function WheelAssessment() {
   const router = useRouter();
   const { saveWheel } = useStore();
+  const { user: authUser } = useAuth();
   const [step, setStep] = useState(0);
   const [done, setDone] = useState(false);
   const [values, setValues] = useState<Record<string, number>>(() => {
@@ -113,6 +116,11 @@ export default function WheelAssessment() {
             onPress={() => {
               if (isLast) {
                 saveWheel(values);
+                // Persist to the backend too. life_area_id 1..10 maps by order
+                // to the seed wheelAreas; best-effort so a write failure never
+                // blocks the local save / success screen.
+                const entries = wheelAreas.map((a, i) => ({ lifeAreaId: i + 1, score: values[a.id] }));
+                api.insights.saveWheel(entries, authUser?.appUserId ?? null).catch(() => {});
                 setDone(true);
               } else {
                 setStep((s) => s + 1);

@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Circle } from 'react-native-svg';
 
 import { api } from '@/api';
 import { Button } from '@/components/ui/button';
@@ -103,9 +104,12 @@ export default function WheelOfLife() {
         <InsightCard title="Most Improved" item={improved.label} color={improved.color} />
 
         <Card style={{ gap: Spacing.lg }}>
-          <View style={styles.cardHead}>
+          {/* The header (and its absolutely-positioned menu) must paint ABOVE the
+              ring/trend below it, or the lower menu items overlap the ring and
+              their taps get swallowed. zIndex + elevation lift the whole row. */}
+          <View style={[styles.cardHead, styles.headStack]}>
             <Txt variant="titleSm">Wheel of life</Txt>
-            <View>
+            <View style={styles.menuAnchor}>
               <Pressable style={styles.daily} onPress={() => setMenuOpen((o) => !o)}>
                 <Txt variant="caption" color={Colors.textSub}>
                   {periodLabel}
@@ -135,21 +139,27 @@ export default function WheelOfLife() {
 
           {period === 'recent' && (
             <View style={styles.ringWrap}>
-              <View style={styles.ring}>
-                <Txt variant="titleLg" color={Colors.primary}>
-                  {overall}%
-                </Txt>
-              </View>
+              <ProgressRing pct={overall} />
               <DeltaChip value={overall - lastOverall} suffix="vs last month" />
             </View>
           )}
 
-          {period === 'monthly' && history.length > 0 && (
-            <TrendView months={history.slice(-6)} span="6 months" rows />
-          )}
-          {period === 'annual' && history.length > 0 && (
-            <TrendView months={history} span="12 months" />
-          )}
+          {period === 'monthly' &&
+            (history.length > 1 ? (
+              <TrendView months={history.slice(-6)} span="6 months" rows />
+            ) : (
+              <Txt variant="bodySm" color={Colors.textSub} center>
+                Not enough history yet — check back after a few monthly retakes.
+              </Txt>
+            ))}
+          {period === 'annual' &&
+            (history.length > 1 ? (
+              <TrendView months={history} span="12 months" />
+            ) : (
+              <Txt variant="bodySm" color={Colors.textSub} center>
+                Not enough history yet — check back after a few monthly retakes.
+              </Txt>
+            ))}
 
           <Button
             title="Contact my coach"
@@ -169,6 +179,37 @@ export default function WheelOfLife() {
         </Pressable>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+/** A real progress ring: a grey track with a primary arc filled to `pct` (0-100),
+ *  starting at 12 o'clock and sweeping clockwise, with the value in the centre. */
+function ProgressRing({ pct, size = 150, stroke = 14 }: { pct: number; size?: number; stroke?: number }) {
+  const clamped = Math.max(0, Math.min(100, Math.round(pct)));
+  const r = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * r;
+  const filled = (clamped / 100) * circumference;
+  const c = size / 2;
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
+        <Circle cx={c} cy={c} r={r} stroke={Colors.soft} strokeWidth={stroke} fill="none" />
+        <Circle
+          cx={c}
+          cy={c}
+          r={r}
+          stroke={Colors.primary}
+          strokeWidth={stroke}
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={`${filled} ${circumference - filled}`}
+          transform={`rotate(-90 ${c} ${c})`}
+        />
+      </Svg>
+      <Txt variant="titleLg" color={Colors.primary}>
+        {clamped}%
+      </Txt>
+    </View>
   );
 }
 
@@ -284,6 +325,9 @@ const styles = StyleSheet.create({
   rowDivider: { borderBottomWidth: 1, borderBottomColor: Colors.stroke },
   dot: { width: 12, height: 12, borderRadius: 3 },
   cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  // Lift the header above the ring/trend so the open menu isn't covered by them.
+  headStack: { zIndex: 30, elevation: 30 },
+  menuAnchor: { position: 'relative', zIndex: 30 },
   daily: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -355,15 +399,6 @@ const styles = StyleSheet.create({
   },
   monthRowDivider: { borderBottomWidth: 1, borderBottomColor: Colors.stroke },
   ringWrap: { alignItems: 'center', gap: Spacing.md },
-  ring: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    borderWidth: 14,
-    borderColor: Colors.soft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   insight: {
     borderRadius: Radius.md,
     overflow: 'hidden',

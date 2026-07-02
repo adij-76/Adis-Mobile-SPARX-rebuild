@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Txt } from '@/components/ui/text';
 import { Colors, Spacing } from '@/constants/theme';
+import { useGoBack } from '@/hooks/use-go-back';
 
 export type ScreenHeaderProps = {
   title?: string;
@@ -16,12 +16,12 @@ export type ScreenHeaderProps = {
 
 /** Shared back-header used across stack screens. */
 export function ScreenHeader({ title, largeTitle, right, onBack }: ScreenHeaderProps) {
-  const router = useRouter();
+  const goBack = useGoBack();
   return (
     <View style={styles.wrap}>
       <View style={styles.row}>
         <Pressable
-          onPress={onBack ?? (() => router.back())}
+          onPress={onBack ?? goBack}
           hitSlop={12}
           accessibilityRole="button"
           accessibilityLabel="Go back"

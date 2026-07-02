@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -15,10 +15,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
+import { useGoBack } from '@/hooks/use-go-back';
 import { useStore } from '@/lib/store';
 
 export default function ChatThread() {
-  const router = useRouter();
+  const goBack = useGoBack('/feed/messages');
   const { id, name, avatar } = useLocalSearchParams<{ id: string; name?: string; avatar?: string }>();
   const { chatFor, sendDm } = useStore();
 
@@ -37,7 +38,7 @@ export default function ChatThread() {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
+        <Pressable onPress={goBack} hitSlop={12}>
           <Ionicons name="arrow-back" size={24} color={Colors.textMain} />
         </Pressable>
         {personAvatar ? <Image source={{ uri: personAvatar }} style={styles.avatar} /> : null}

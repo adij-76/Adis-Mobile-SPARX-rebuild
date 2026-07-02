@@ -109,6 +109,10 @@ export type UseTrackingPoint = { at: string; usage: number | null; audit: number
  *  Life, …), with its most recent score. `score` is null for unscored ones. */
 export type AssessmentResult = { id: string; name: string; takenAt: string | null; score: number | null };
 
+/** One area's score in a Wheel of Life retake. `lifeAreaId` is the production
+ *  life_areas.id (1..10, same order as the app's wheel areas); `score` is 0-100. */
+export type WheelEntryInput = { lifeAreaId: number; score: number };
+
 export type InsightsApi = {
   /**
    * Trailing months of the user's overall Wheel score, oldest → newest.
@@ -127,6 +131,10 @@ export type InsightsApi = {
   useTracking(): Promise<UseTrackingPoint[]>;
   /** Assessments the user has completed (latest result per assessment), newest first. */
   assessments(): Promise<AssessmentResult[]>;
+  /** Persist a Wheel of Life retake — one entry per area (score 0-100). Writes to
+   *  the app-owned mobile_wheel_entries store so the retake becomes the current
+   *  value in wheelAreas()/wheelHistory(). Best-effort; a no-op on the mock. */
+  saveWheel(entries: WheelEntryInput[], appUserId: string | null): Promise<void>;
 };
 
 /** The signed-in user. `id` is the Supabase auth user id; `appUserId` (when

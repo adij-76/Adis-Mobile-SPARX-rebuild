@@ -9,6 +9,7 @@ import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { type MeetingStatus } from '@/data/content';
 import { useAsync } from '@/hooks/use-async';
+import { useGoBack } from '@/hooks/use-go-back';
 import { useStore } from '@/lib/store';
 
 const TABS: { key: MeetingStatus; label: string }[] = [
@@ -19,6 +20,7 @@ const TABS: { key: MeetingStatus; label: string }[] = [
 
 export default function ManageMeetings() {
   const router = useRouter();
+  const goBack = useGoBack();
   const { bookings, isBooked } = useStore();
   const params = useLocalSearchParams<{ tab?: MeetingStatus }>();
   const [tab, setTab] = useState<MeetingStatus>(params.tab ?? 'upcoming');
@@ -34,7 +36,7 @@ export default function ManageMeetings() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <Pressable
-          onPress={() => router.back()}
+          onPress={goBack}
           hitSlop={12}
           accessibilityRole="button"
           accessibilityLabel="Go back"

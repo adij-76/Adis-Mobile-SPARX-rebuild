@@ -15,6 +15,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { api } from '@/api';
+import { BottomNav } from '@/components/nav/bottom-nav';
 import { DesktopSidebar } from '@/components/nav/desktop-sidebar';
 import { Colors } from '@/constants/theme';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
@@ -105,12 +106,28 @@ function Shell() {
   // routes, never on the login screen, nav-locked routes, or phone/tablet.
   const navLocked = NAV_LOCKED.some((r) => segments[0] && `/${segments[0]}`.startsWith(r));
   const showSidebar = isDesktop && !navLocked && !onLogin && status === 'authed';
+  // Phone/tablet: the (tabs) navigator draws its own bottom bar, but screens
+  // pushed on top of it (mydata, lesson, settings, …) cover it. Render a
+  // persistent bottom nav on those pushed routes so no page is a dead end. The
+  // fullscreen share modal (quotes) and the nav-locked check-in keep their own
+  // close controls, so they're excluded.
+  const onTabs = segments[0] === '(tabs)' || segments[0] == null;
+  const showBottomNav =
+    !isDesktop &&
+    status === 'authed' &&
+    !onLogin &&
+    !navLocked &&
+    !onTabs &&
+    segments[0] !== 'quotes';
   // Cover protected content while loading or during the guest→login redirect.
   const covering = status === 'loading' || (status === 'guest' && !onLogin);
   return (
     <View style={{ flex: 1, flexDirection: 'row' }}>
       {showSidebar && <DesktopSidebar />}
-      <View style={{ flex: 1 }}>{stack}</View>
+      <View style={{ flex: 1 }}>
+        <View style={{ flex: 1 }}>{stack}</View>
+        {showBottomNav && <BottomNav />}
+      </View>
       {covering && <Splash />}
     </View>
   );

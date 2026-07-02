@@ -167,6 +167,8 @@ export const mockInsights: InsightsApi = {
       { id: 'qol', name: 'Quality of Life Assessment', takenAt: '2026-06-20', score: 72 },
       { id: 'assist', name: 'The ASSIST', takenAt: '2026-06-10', score: 14 },
     ]),
+  // Offline: the retake persists to the local store only (no backend to write to).
+  saveWheel: () => delay(undefined),
 };
 
 export const mockMeetings: MeetingsApi = {
