@@ -14,8 +14,9 @@ import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
 import { useGoBack } from '@/hooks/use-go-back';
 import { useStore } from '@/lib/store';
+import type { Lesson } from '@/api';
 
-type Tab = 'lessons' | 'videos';
+type Tab = 'lessons' | 'workshops' | 'videos';
 
 export default function Favorites() {
   const router = useRouter();
@@ -27,116 +28,144 @@ export default function Favorites() {
   // immediately. Details fetched by id.
   const lessonIds = favoriteIds('lesson');
   const videoIds = favoriteIds('video');
-  const savedLessons = useAsync(() => api.content.lessonsByIds(lessonIds), [lessonIds.join(',')]).data ?? [];
+  // Lessons + workshops share the 'lesson' favorite kind (workshops are lessons
+  // with lesson_type='workshop'); split them by type for the two tabs.
+  const savedContent = useAsync(() => api.content.lessonsByIds(lessonIds), [lessonIds.join(',')]).data ?? [];
+  const savedLessons = savedContent.filter((l) => l.lessonType !== 'workshop');
+  const savedWorkshops = savedContent.filter((l) => l.lessonType === 'workshop');
   const savedVideos = useAsync(() => api.content.videosByIds(videoIds), [videoIds.join(',')]).data ?? [];
 
   return (
     <Screen variant="modal" style={styles.safe}>
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.header}>
-        <Pressable onPress={goBack} hitSlop={12} style={styles.back}>
-          <Ionicons name="arrow-back" size={22} color={Colors.textMain} />
-          <Txt variant="bodyMedium">Back</Txt>
-        </Pressable>
-        <Txt variant="titleLg">Favorites</Txt>
-        <View style={{ marginTop: Spacing.md }}>
-          <Segmented<Tab>
-            options={[
-              { key: 'lessons', label: 'Lessons' },
-              { key: 'videos', label: 'Videos' },
-            ]}
-            value={tab}
-            onChange={setTab}
-          />
-        </View>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-        {tab === 'lessons' ? (
-          savedLessons.length === 0 ? (
-            <EmptyState
-              icon="bookmark-outline"
-              text="No saved lessons yet. Tap the bookmark on any lesson to save it here."
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <View style={styles.header}>
+          <Pressable onPress={goBack} hitSlop={12} style={styles.back}>
+            <Ionicons name="arrow-back" size={22} color={Colors.textMain} />
+            <Txt variant="bodyMedium">Back</Txt>
+          </Pressable>
+          <Txt variant="titleLg">Favorites</Txt>
+          <View style={{ marginTop: Spacing.md }}>
+            <Segmented<Tab>
+              options={[
+                { key: 'lessons', label: 'Lessons' },
+                { key: 'workshops', label: 'Workshops' },
+                { key: 'videos', label: 'Videos' },
+              ]}
+              value={tab}
+              onChange={setTab}
             />
+          </View>
+        </View>
+
+        <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+          {tab === 'lessons' ? (
+            savedLessons.length === 0 ? (
+              <EmptyState text="No saved lessons yet. Tap the bookmark on any lesson to save it here." />
+            ) : (
+              savedLessons.map((l) => (
+                <ContentRow
+                  key={l.id}
+                  item={l}
+                  onOpen={() => router.push(`/lesson/${l.id}`)}
+                  onUnsave={() => toggleFav('lesson', l.id)}
+                />
+              ))
+            )
+          ) : tab === 'workshops' ? (
+            savedWorkshops.length === 0 ? (
+              <EmptyState text="No saved workshops yet. Tap the bookmark on any workshop to save it here." />
+            ) : (
+              savedWorkshops.map((w) => (
+                <ContentRow
+                  key={w.id}
+                  item={w}
+                  workshop
+                  onOpen={() => router.push(`/lesson/${w.id}`)}
+                  onUnsave={() => toggleFav('lesson', w.id)}
+                />
+              ))
+            )
+          ) : savedVideos.length === 0 ? (
+            <EmptyState text="No saved videos yet. Tap the bookmark on any video to save it here." />
           ) : (
-            savedLessons.map((w) => (
+            savedVideos.map((v) => (
               <Pressable
-                key={w.id}
+                key={v.id}
                 style={styles.lessonRow}
-                onPress={() => router.push(`/lesson/${w.id}`)}>
-                {w.thumbnail ? (
-                  <Image source={{ uri: w.thumbnail }} style={styles.lessonThumb} />
-                ) : (
-                  <VideoThumb url={w.vimeoUrl} width={96} height={64} />
-                )}
-                <View style={{ flex: 1, gap: 4 }}>
-                  <Txt variant="bodySmBold" numberOfLines={2}>
-                    {w.title || w.navTitle}
-                  </Txt>
-                  {w.lessonType === 'workshop' ? (
-                    <View style={styles.badge}>
-                      <Ionicons name="easel" size={12} color={Colors.primary} />
-                      <Txt variant="caption" color={Colors.primary}>
-                        Workshop
-                      </Txt>
-                    </View>
+                onPress={() => router.push(`/videos/${v.id}`)}>
+                <View>
+                  {v.image ? (
+                    <Image source={{ uri: v.image }} style={styles.lessonThumb} />
                   ) : (
-                    <Txt variant="caption" color={Colors.textSub}>
-                      Lesson
-                    </Txt>
+                    <VideoThumb url={v.vimeoUrl ?? null} width={96} height={64} />
                   )}
+                  <View style={styles.play}>
+                    <Ionicons name="play" size={14} color={Colors.primaryDark} />
+                  </View>
                 </View>
-                <Pressable onPress={() => toggleFav('lesson', w.id)} hitSlop={10}>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Txt variant="bodySmBold" numberOfLines={2}>
+                    {v.title}
+                  </Txt>
+                  <Txt variant="caption" color={Colors.textSub}>
+                    {v.presenter} · {v.duration}
+                  </Txt>
+                </View>
+                <Pressable onPress={() => toggleFav('video', v.id)} hitSlop={10}>
                   <Ionicons name="bookmark" size={20} color={Colors.primary} />
                 </Pressable>
               </Pressable>
             ))
-          )
-        ) : savedVideos.length === 0 ? (
-          <EmptyState
-            icon="bookmark-outline"
-            text="No saved videos yet. Tap the bookmark on any video to save it here."
-          />
-        ) : (
-          savedVideos.map((v) => (
-            <Pressable
-              key={v.id}
-              style={styles.lessonRow}
-              onPress={() => router.push(`/videos/${v.id}`)}>
-              <View>
-                {v.image ? (
-                  <Image source={{ uri: v.image }} style={styles.lessonThumb} />
-                ) : (
-                  <VideoThumb url={v.vimeoUrl ?? null} width={96} height={64} />
-                )}
-                <View style={styles.play}>
-                  <Ionicons name="play" size={14} color={Colors.primaryDark} />
-                </View>
-              </View>
-              <View style={{ flex: 1, gap: 2 }}>
-                <Txt variant="bodySmBold" numberOfLines={2}>
-                  {v.title}
-                </Txt>
-                <Txt variant="caption" color={Colors.textSub}>
-                  {v.presenter} · {v.duration}
-                </Txt>
-              </View>
-              <Pressable onPress={() => toggleFav('video', v.id)} hitSlop={10}>
-                <Ionicons name="bookmark" size={20} color={Colors.primary} />
-              </Pressable>
-            </Pressable>
-          ))
-        )}
-      </ScrollView>
-    </SafeAreaView>
+          )}
+        </ScrollView>
+      </SafeAreaView>
     </Screen>
   );
 }
 
-function EmptyState({ icon, text }: { icon: 'bookmark-outline'; text: string }) {
+/** A saved lesson/workshop row (shared by the Lessons and Workshops tabs). */
+function ContentRow({
+  item,
+  workshop,
+  onOpen,
+  onUnsave,
+}: {
+  item: Lesson;
+  workshop?: boolean;
+  onOpen: () => void;
+  onUnsave: () => void;
+}) {
+  return (
+    <Pressable style={styles.lessonRow} onPress={onOpen}>
+      {item.thumbnail ? (
+        <Image source={{ uri: item.thumbnail }} style={styles.lessonThumb} />
+      ) : (
+        <VideoThumb url={item.vimeoUrl} width={96} height={64} />
+      )}
+      <View style={{ flex: 1, gap: 4 }}>
+        <Txt variant="bodySmBold" numberOfLines={2}>
+          {item.title || item.navTitle}
+        </Txt>
+        {workshop ? (
+          <View style={styles.badge}>
+            <Ionicons name="easel" size={12} color={Colors.primary} />
+            <Txt variant="caption" color={Colors.primary}>
+              Workshop
+            </Txt>
+          </View>
+        ) : null}
+      </View>
+      <Pressable onPress={onUnsave} hitSlop={10}>
+        <Ionicons name="bookmark" size={20} color={Colors.primary} />
+      </Pressable>
+    </Pressable>
+  );
+}
+
+function EmptyState({ text }: { text: string }) {
   return (
     <View style={styles.empty}>
-      <Ionicons name={icon} size={40} color={Colors.strokeStrong} />
+      <Ionicons name="bookmark-outline" size={40} color={Colors.strokeStrong} />
       <Txt variant="bodySm" color={Colors.textSub} center>
         {text}
       </Txt>
