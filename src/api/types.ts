@@ -80,6 +80,10 @@ export type ContentApi = {
   snippets(): Promise<Snippet[]>;
   /** Curated "recommended videos" rail (home + check-in + favorites). */
   recommendedVideos(): Promise<VideoItem[]>;
+  /** The user's saved (favorited) lessons + workshops. */
+  favoriteLessons(): Promise<Lesson[]>;
+  /** The user's saved (favorited) snippet videos. */
+  favoriteVideos(): Promise<VideoItem[]>;
   /** Shareable daily quotes. */
   quotes(): Promise<Quote[]>;
   /** Home "Challenges" tab. */

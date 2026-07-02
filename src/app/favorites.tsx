@@ -21,16 +21,11 @@ export default function Favorites() {
   const router = useRouter();
   const goBack = useGoBack();
   const [tab, setTab] = useState<Tab>('lessons');
-  const { favoriteIds, toggleFav } = useStore();
-  const workshops = useAsync(() => api.content.workshops(), []).data ?? [];
-  const recommendedVideos = useAsync(() => api.content.recommendedVideos(), []).data ?? [];
-
-  // Lessons: the server-side favorite flag (mobile_lessons.favorite, from the
-  // production favorites table) unioned with any locally-toggled ones, so
-  // previously-saved lessons persist across devices/reloads.
-  const savedLessons = workshops.filter((w) => w.favorite || favoriteIds('lesson').includes(w.id));
-  // Videos: no server favorite flag on snippets yet, so still local-only.
-  const savedVideos = recommendedVideos.filter((v) => favoriteIds('video').includes(v.id));
+  const { toggleFav } = useStore();
+  // Real saved content from the production favorites table (lessons/workshops via
+  // mobile_lessons.favorite; snippet videos via mobile_snippets.favorite).
+  const savedLessons = useAsync(() => api.content.favoriteLessons(), []).data ?? [];
+  const savedVideos = useAsync(() => api.content.favoriteVideos(), []).data ?? [];
 
   return (
     <Screen variant="modal" style={styles.safe}>
@@ -94,7 +89,11 @@ export default function Favorites() {
               style={styles.lessonRow}
               onPress={() => router.push(`/videos/${v.id}`)}>
               <View>
-                <Image source={{ uri: v.image }} style={styles.lessonThumb} />
+                {v.image ? (
+                  <Image source={{ uri: v.image }} style={styles.lessonThumb} />
+                ) : (
+                  <VideoThumb url={v.vimeoUrl ?? null} width={96} height={64} />
+                )}
                 <View style={styles.play}>
                   <Ionicons name="play" size={14} color={Colors.primaryDark} />
                 </View>

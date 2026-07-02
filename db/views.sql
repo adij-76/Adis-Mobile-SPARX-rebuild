@@ -108,7 +108,15 @@ create or replace view mobile_snippets as
          description,                          -- the DB "title" text
          length_seconds, vimeo_url, vimeo_id, ai_generated, created_at,
          title,                               -- DB title column (usually empty)
-         ai_summary as summary                -- generated long description
+         ai_summary as summary,               -- generated long description
+         -- Per-user favorite (favorites is polymorphic; snippets = 'Snippet').
+         -- Anon → no email → false. Powers the Favorites → Videos tab.
+         exists (
+           select 1 from public.favorites f
+           join public.users u on u.id = f.user_id
+           where f.favoritable_type = 'Snippet' and f.favoritable_id = snippets.id
+             and lower(u.email) = lower(auth.jwt() ->> 'email')
+         ) as favorite
   from snippets
   where classified = true;
 
