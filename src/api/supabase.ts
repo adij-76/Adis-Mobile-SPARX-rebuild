@@ -214,12 +214,36 @@ export const supabaseContent: ContentApi = {
       vimeo_url: string | null;
       vimeo_id: number | null;
     };
+    // When the per-user recommendation view is empty/unavailable, fall back to
+    // REAL snippets (newest first) — not the stock seed videos — so the home rail
+    // shows genuine content with Vimeo thumbnails, never placeholder stock.
+    const snippetVideos = async (): Promise<VideoItem[]> => {
+      try {
+        const rows = await rest<SnippetRow[]>('mobile_snippets', { order: 'created_at.desc', limit: '12' });
+        if (!rows.length) return recommendedVideos;
+        return rows.map(
+          (r) =>
+            ({
+              id: String(r.id),
+              title: r.title || r.description || 'SPARx video',
+              duration: r.length_seconds ? fmtDuration(r.length_seconds) : '',
+              image: '',
+              presenter: 'SPARx',
+              views: '',
+              description: r.summary || '',
+              vimeoUrl: vimeoUrlFrom(r.vimeo_url, r.vimeo_id) ?? undefined,
+            }) satisfies VideoItem,
+        );
+      } catch {
+        return recommendedVideos;
+      }
+    };
     try {
       const rows = await rest<RecRow[]>('mobile_recommended_videos', {
         order: 'recommended_at.desc',
         limit: '40',
       });
-      if (!rows.length) return recommendedVideos;
+      if (!rows.length) return snippetVideos();
       // De-duplicate by snippet id (a snippet can be recommended more than once),
       // keeping the first = newest since rows arrive recommended_at.desc.
       const seen = new Set<string>();
@@ -243,7 +267,7 @@ export const supabaseContent: ContentApi = {
           }) satisfies VideoItem,
       );
     } catch {
-      return recommendedVideos;
+      return snippetVideos();
     }
   },
   async quotes() {

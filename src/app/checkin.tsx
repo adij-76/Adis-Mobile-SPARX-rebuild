@@ -37,7 +37,7 @@ const TOTAL = 5;
 
 export default function CheckinScreen() {
   const router = useRouter();
-  const { addCheckin } = useStore();
+  const { addCheckin, checkins } = useStore();
   const { user: authUser } = useAuth();
   const struggle = addictionStruggle(authUser?.addictionLabel);
   const [step, setStep] = useState(0);
@@ -67,7 +67,8 @@ export default function CheckinScreen() {
     addCheckin(entry); // optimistic local save
     // Persist to the server too (best-effort — local save already succeeded).
     api.checkins.save(entry, authUser?.appUserId ?? null).catch(() => {});
-    const r = await recordCheckin();
+    // Streak from the real history (today + all hydrated check-in dates).
+    const r = await recordCheckin(checkins.map((c) => c.date));
     setResult(r);
   };
 
@@ -533,11 +534,13 @@ function CheckinSummary({
             {question}
           </Txt>
         </View>
-      </ScrollView>
 
-      <View style={styles.summaryFooter}>
-        <Button title="Done" variant="primary" onPress={onDone} />
-      </View>
+        {/* Done sits right below the summary content (not pinned to the bottom of
+            a tall/wide screen) so it reads as the end of the output. */}
+        <View style={styles.summaryDone}>
+          <Button title="Done" variant="primary" onPress={onDone} />
+        </View>
+      </ScrollView>
     </SafeAreaView>
     </Screen>
   );
@@ -690,7 +693,7 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.lg,
     marginTop: Spacing.sm,
   },
-  summaryFooter: { padding: Spacing.lg },
+  summaryDone: { marginTop: Spacing.sm },
   vCard: { width: 180, gap: Spacing.sm },
   vThumbWrap: {
     width: 180,
