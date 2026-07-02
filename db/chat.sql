@@ -11,6 +11,9 @@
 --
 -- RLS scopes rows to the participants. On the final sync these reconcile into
 -- production community_conversations/community_messages. Idempotent.
+--
+-- ORDER: helper → mobile_blocks → mobile_messages (its insert policy references
+-- mobile_blocks, so blocks must exist first) → read views.
 -- =============================================================================
 
 -- --- caller's production id -------------------------------------------------
@@ -29,6 +32,31 @@ as $$
   select id from public.users where lower(email) = lower(auth.jwt() ->> 'email') limit 1
 $$;
 grant execute on function public.mobile_uid() to authenticated;
+
+-- --- blocks -----------------------------------------------------------------
+-- Created before mobile_messages because the messages insert policy references it.
+create table if not exists public.mobile_blocks (
+  id         bigint generated always as identity primary key,
+  auth_uid   uuid        not null default auth.uid(),
+  blocker_id integer,                                     -- me (production id)
+  blocked_id integer     not null,                        -- them
+  active     boolean     not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create unique index if not exists mobile_blocks_uniq on public.mobile_blocks (auth_uid, blocked_id);
+
+alter table public.mobile_blocks enable row level security;
+drop policy if exists mobile_blocks_select on public.mobile_blocks;
+create policy mobile_blocks_select on public.mobile_blocks
+  for select to authenticated using (auth_uid = auth.uid());
+drop policy if exists mobile_blocks_insert on public.mobile_blocks;
+create policy mobile_blocks_insert on public.mobile_blocks
+  for insert to authenticated with check (auth_uid = auth.uid());
+drop policy if exists mobile_blocks_update on public.mobile_blocks;
+create policy mobile_blocks_update on public.mobile_blocks
+  for update to authenticated using (auth_uid = auth.uid());
+grant select, insert, update on public.mobile_blocks to authenticated;
 
 -- --- messages ---------------------------------------------------------------
 create table if not exists public.mobile_messages (
@@ -74,30 +102,6 @@ create policy mobile_messages_update on public.mobile_messages
   );
 
 grant select, insert, update on public.mobile_messages to authenticated;
-
--- --- blocks -----------------------------------------------------------------
-create table if not exists public.mobile_blocks (
-  id         bigint generated always as identity primary key,
-  auth_uid   uuid        not null default auth.uid(),
-  blocker_id integer,                                     -- me (production id)
-  blocked_id integer     not null,                        -- them
-  active     boolean     not null default true,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-create unique index if not exists mobile_blocks_uniq on public.mobile_blocks (auth_uid, blocked_id);
-
-alter table public.mobile_blocks enable row level security;
-drop policy if exists mobile_blocks_select on public.mobile_blocks;
-create policy mobile_blocks_select on public.mobile_blocks
-  for select to authenticated using (auth_uid = auth.uid());
-drop policy if exists mobile_blocks_insert on public.mobile_blocks;
-create policy mobile_blocks_insert on public.mobile_blocks
-  for insert to authenticated with check (auth_uid = auth.uid());
-drop policy if exists mobile_blocks_update on public.mobile_blocks;
-create policy mobile_blocks_update on public.mobile_blocks
-  for update to authenticated using (auth_uid = auth.uid());
-grant select, insert, update on public.mobile_blocks to authenticated;
 
 -- --- read views -------------------------------------------------------------
 
