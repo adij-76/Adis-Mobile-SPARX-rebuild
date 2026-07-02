@@ -240,3 +240,21 @@ export function useFirstName(): string {
   const { user } = useAuth();
   return (user?.name?.trim() || user?.email?.split('@')[0] || 'there').split(' ')[0];
 }
+
+/** Neutral fallback face when a user hasn't set an avatar (matches the header). */
+export const DEFAULT_AVATAR = 'https://i.pravatar.cc/120?img=12';
+
+/**
+ * The signed-in user's public authoring identity — the name + avatar attached to
+ * anything they create (posts, comments, replies, DMs). Replaces the old
+ * hardcoded seed "Okei" author so community content is attributed to the real
+ * user. `appUserId` is the production users.id for later server-side ownership.
+ */
+export function useCurrentAuthor(): { name: string; avatar: string; appUserId: string | null } {
+  const { user } = useAuth();
+  return {
+    name: user?.name?.trim() || user?.email?.split('@')[0] || 'You',
+    avatar: user?.avatarUrl || DEFAULT_AVATAR,
+    appUserId: user?.appUserId ?? null,
+  };
+}

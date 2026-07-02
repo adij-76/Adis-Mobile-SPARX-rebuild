@@ -16,7 +16,7 @@ import {
   type ReactNode,
 } from 'react';
 
-import { posts as basePosts, user, type Comment, type Meeting, type Post } from '@/data/content';
+import { posts as basePosts, type Comment, type Meeting, type Post } from '@/data/content';
 
 const KEY = 'igntd.store.v1';
 
@@ -91,7 +91,12 @@ type StoreValue = {
   joinedCount: number;
   // posts (user posts + seed posts, with merged comments)
   allPosts: Post[];
-  addPost: (input: { community: string; text: string; image?: string }) => string;
+  addPost: (input: {
+    community: string;
+    text: string;
+    image?: string;
+    author: { name: string; avatar: string };
+  }) => string;
   // reactions
   reactionFor: (postId: string) => string | null;
   setReaction: (postId: string, key: string | null) => void;
@@ -196,12 +201,12 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       joinedCount: state.joined.length,
 
       allPosts,
-      addPost: ({ community, text, image }) => {
+      addPost: ({ community, text, image, author }) => {
         const id = `u${Date.now()}`;
         const np: Post = {
           id,
-          author: user.name,
-          avatar: user.avatar,
+          author: author.name,
+          avatar: author.avatar,
           time: 'now',
           community,
           text,
