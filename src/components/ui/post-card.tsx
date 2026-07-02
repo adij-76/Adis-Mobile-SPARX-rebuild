@@ -57,7 +57,17 @@ export function PostCard({ post, onPress, full }: PostCardProps) {
   const menuActions: SheetAction[] = isOwn
     ? [
         { label: 'Copy link', icon: 'link-outline', onPress: copyLink },
-        { label: 'Delete post', icon: 'trash-outline', destructive: true, onPress: () => deletePost(post.id) },
+        {
+          label: 'Delete post',
+          icon: 'trash-outline',
+          destructive: true,
+          // Local delete for seed posts; hide removes a real (server) post from
+          // view until server-side soft-delete lands.
+          onPress: () => {
+            deletePost(post.id);
+            hidePost(post.id);
+          },
+        },
       ]
     : [
         { label: `Start chat with ${post.author}`, icon: 'chatbubble-ellipses-outline', onPress: startChat },
@@ -127,7 +137,7 @@ export function PostCard({ post, onPress, full }: PostCardProps) {
         <View style={styles.action}>
           <Ionicons name="chatbubble-outline" size={18} color={Colors.textSub} />
           <Txt variant="caption" color={Colors.textSub}>
-            {post.comments.length}
+            {post.commentsCount ?? post.comments.length}
           </Txt>
         </View>
         <Pressable style={styles.action} onPress={share} hitSlop={6}>

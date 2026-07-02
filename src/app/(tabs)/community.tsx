@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppHeader } from '@/components/app-header';
@@ -13,8 +14,12 @@ import { useStore } from '@/lib/store';
 
 export default function CommunityScreen() {
   const router = useRouter();
-  const { allPosts } = useStore();
+  const { isHidden } = useStore();
   const communities = useAsync(() => api.community.communities(), []).data ?? [];
+  const feed = useAsync(() => api.posts.feed(), []);
+  // Refetch when returning to the tab so a just-created post appears.
+  useFocusEffect(useCallback(() => void feed.reload(), [])); // eslint-disable-line react-hooks/exhaustive-deps
+  const allPosts = (feed.data ?? []).filter((p) => !isHidden(p.id));
 
   return (
     <Screen style={styles.root}>
@@ -58,7 +63,7 @@ export default function CommunityScreen() {
               renderItem={({ item }) => (
                 <View style={styles.commChip}>
                   <View style={[styles.commIcon, { backgroundColor: `${item.color}22` }]}>
-                    <Ionicons name={item.icon} size={20} color={item.color} />
+                    <Ionicons name={item.icon as never} size={20} color={item.color} />
                   </View>
                   <Txt variant="caption" center numberOfLines={2} style={{ width: 76 }}>
                     {item.name}

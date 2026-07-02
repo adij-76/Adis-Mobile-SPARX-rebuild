@@ -12,6 +12,7 @@ import type {
   AuthUser,
   CheckinRecord,
   CheckinsApi,
+  Community,
   CommunityApi,
   ContentApi,
   InsightsApi,
@@ -20,6 +21,8 @@ import type {
   MeResult,
   MeetingsApi,
   Module,
+  Post,
+  PostsApi,
   Program,
   Quote,
   Snippet,
@@ -38,6 +41,7 @@ import {
   communities,
   leaderboard,
   meetings,
+  posts,
   quotes,
   recommendedVideos,
   reports,
@@ -282,10 +286,185 @@ export const supabaseMeetings: MeetingsApi = {
   },
 };
 
+// comm_channels has no icon column, so assign an Ionicons name + colour by the
+// channel's name (deterministic, stable). Falls back to a palette by index.
+const CHANNEL_PALETTE = ['#166890', '#38C793', '#FF9D4B', '#7A5AF8', '#E5739B', '#F7C948'];
+function channelStyle(name: string, i: number): { icon: string; color: string } {
+  const n = name.toLowerCase();
+  if (n.includes('women')) return { icon: 'female', color: '#E5739B' };
+  if (n.includes('men')) return { icon: 'male', color: '#5B8DEF' };
+  if (n.includes('youth')) return { icon: 'happy', color: '#F2A65A' };
+  if (n.includes('sober') || n.includes('day')) return { icon: 'leaf', color: '#38C793' };
+  if (n.includes('general')) return { icon: 'people', color: '#166890' };
+  return { icon: 'chatbubbles', color: CHANNEL_PALETTE[i % CHANNEL_PALETTE.length] };
+}
+
 export const supabaseCommunity: CommunityApi = {
-  // TODO: back with a mobile_communities view.
+  // Real feed communities from mobile_channels (comm_channels). Falls back to the
+  // seed set if the view is missing/empty so the tab is never blank.
   async communities() {
-    return communities;
+    type Row = { id: number | string; name: string; description: string | null; member_count: number | null };
+    try {
+      const rows = await rest<Row[]>('mobile_channels', { order: 'id' });
+      if (!rows.length) return communities;
+      return rows.map((r, i) => {
+        const { icon, color } = channelStyle(r.name, i);
+        return {
+          id: String(r.id),
+          name: r.name,
+          members: r.member_count != null ? String(r.member_count) : '',
+          icon,
+          color,
+          description: r.description ?? undefined,
+        } satisfies Community;
+      });
+    } catch {
+      return communities;
+    }
+  },
+};
+
+// --- Community feed (mobile_posts / mobile_comments ∪ app-owned writes) ---
+
+const FALLBACK_AVATAR = 'https://i.pravatar.cc/120?img=12';
+
+/** ISO timestamp → short relative label ("now", "5m", "3h", "2d", "4w"). */
+function relTime(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (isNaN(then)) return '';
+  const s = Math.max(0, (Date.now() - then) / 1000);
+  if (s < 60) return 'now';
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `${d}d`;
+  const w = Math.floor(d / 7);
+  if (w < 5) return `${w}w`;
+  const mo = Math.floor(d / 30);
+  if (mo < 12) return `${mo}mo`;
+  return `${Math.floor(d / 365)}y`;
+}
+
+type PostRow = {
+  id: string;
+  comm_channel_id: number | null;
+  author: string | null;
+  avatar: string | null;
+  handle: string | null;
+  title: string | null;
+  content: string | null;
+  image_url: string | null;
+  created_at: string;
+  comments_count: number | null;
+  reactions_count: number | null;
+  reacted: boolean | null;
+};
+
+async function channelNameMap(): Promise<Map<string, string>> {
+  try {
+    const rows = await rest<{ id: number | string; name: string }[]>('mobile_channels', { order: 'id' });
+    return new Map(rows.map((r) => [String(r.id), r.name]));
+  } catch {
+    return new Map();
+  }
+}
+
+const toPost = (r: PostRow, names: Map<string, string>): Post => ({
+  id: String(r.id),
+  author: r.author || 'Member',
+  avatar: r.avatar || FALLBACK_AVATAR,
+  time: relTime(r.created_at),
+  community: (r.comm_channel_id != null && names.get(String(r.comm_channel_id))) || 'Community',
+  text: r.content ?? '',
+  image: r.image_url ?? undefined,
+  likes: r.reactions_count ?? 0,
+  commentsCount: r.comments_count ?? 0,
+  channelId: r.comm_channel_id != null ? String(r.comm_channel_id) : null,
+  comments: [],
+});
+
+async function postWrite(table: string, body: unknown): Promise<void> {
+  const res = await fetch(`${BASE}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: {
+      apikey: ANON,
+      Authorization: `Bearer ${authToken ?? ANON}`,
+      'Content-Type': 'application/json',
+      Prefer: 'return=minimal',
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`${table} write failed (${res.status})`);
+}
+
+export const supabasePosts: PostsApi = {
+  async feed(channelId) {
+    // Falls back to seed posts if mobile_posts is missing/errors, so the tab is
+    // never blank. If you see the Maya/David seed posts, the view errored.
+    try {
+      const [rows, names] = await Promise.all([
+        rest<PostRow[]>('mobile_posts', {
+          order: 'created_at.desc',
+          limit: '100',
+          ...(channelId ? { comm_channel_id: `eq.${channelId}` } : {}),
+        }),
+        channelNameMap(),
+      ]);
+      return rows.map((r) => toPost(r, names));
+    } catch {
+      return posts;
+    }
+  },
+  async post(id) {
+    const [rows, names] = await Promise.all([
+      rest<PostRow[]>('mobile_posts', { id: `eq.${id}`, limit: '1' }),
+      channelNameMap(),
+    ]);
+    return rows.length ? toPost(rows[0], names) : null;
+  },
+  async comments(postRef) {
+    type Row = {
+      id: string;
+      post_ref: string;
+      parent_ref: string | null;
+      author: string | null;
+      avatar: string | null;
+      handle: string | null;
+      content: string | null;
+      created_at: string;
+    };
+    const rows = await rest<Row[]>('mobile_comments', { post_ref: `eq.${postRef}`, order: 'created_at' });
+    return rows.map((r) => ({
+      id: String(r.id),
+      postRef: r.post_ref,
+      parentRef: r.parent_ref,
+      author: r.author || 'Member',
+      avatar: r.avatar || FALLBACK_AVATAR,
+      handle: r.handle,
+      text: r.content ?? '',
+      time: relTime(r.created_at),
+    }));
+  },
+  async createPost({ channelId, title, text, image, appUserId }) {
+    const idNum = Number(appUserId);
+    await postWrite('mobile_feed_posts', {
+      comm_channel_id: channelId != null ? Number(channelId) : null,
+      title: title ?? null,
+      content: text,
+      image_url: image ?? null,
+      app_user_id: Number.isFinite(idNum) ? idNum : null,
+    });
+  },
+  async createComment({ postRef, parentRef, text, appUserId }) {
+    const idNum = Number(appUserId);
+    await postWrite('mobile_feed_comments', {
+      post_ref: postRef,
+      parent_ref: parentRef ?? null,
+      content: text,
+      app_user_id: Number.isFinite(idNum) ? idNum : null,
+    });
   },
 };
 

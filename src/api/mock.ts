@@ -8,6 +8,7 @@ import {
   communities,
   leaderboard,
   meetings,
+  posts,
   quotes,
   recommendedVideos,
   reports,
@@ -27,6 +28,7 @@ import type {
   MeResult,
   MeetingsApi,
   Module,
+  PostsApi,
   Program,
   Snippet,
   Workshop,
@@ -184,6 +186,27 @@ export const mockMeetings: MeetingsApi = {
 
 export const mockCommunity: CommunityApi = {
   communities: () => delay(communities),
+};
+
+// Offline feed from the seed posts; writes are no-ops (no backend to persist to).
+export const mockPosts: PostsApi = {
+  feed: () => delay(posts.map((p) => ({ ...p, commentsCount: p.comments.length }))),
+  post: (id) => delay(posts.find((p) => p.id === id) ?? null),
+  comments: (postRef) =>
+    delay(
+      (posts.find((p) => p.id === postRef)?.comments ?? []).map((c) => ({
+        id: c.id,
+        postRef,
+        parentRef: null,
+        author: c.author,
+        avatar: c.avatar,
+        handle: null,
+        text: c.text,
+        time: c.time,
+      })),
+    ),
+  createPost: () => delay(undefined),
+  createComment: () => delay(undefined),
 };
 
 // Mock keeps check-ins device-local (the store handles persistence offline).

@@ -18,13 +18,14 @@ import type {
   Community,
   LeaderboardEntry,
   Meeting,
+  Post,
   Quote,
   Report,
   VideoItem,
   WheelArea,
 } from '@/data/content';
 
-export type { Challenge, Coach, Community, LeaderboardEntry, Meeting, Quote, Report, VideoItem, WheelArea };
+export type { Challenge, Coach, Community, LeaderboardEntry, Meeting, Post, Quote, Report, VideoItem, WheelArea };
 
 export type LessonType = 'lesson' | 'workshop';
 
@@ -96,6 +97,44 @@ export type MeetingsApi = {
 export type CommunityApi = {
   /** The user's communities / groups. */
   communities(): Promise<Community[]>;
+};
+
+/** A comment or reply on a feed post. `parentRef` set = it's a reply to that
+ *  comment; null = top-level. `postRef`/`id` are opaque ('p'/'a', 'c'/'ac'). */
+export type PostComment = {
+  id: string;
+  postRef: string;
+  parentRef: string | null;
+  author: string;
+  avatar: string;
+  handle: string | null;
+  text: string;
+  /** Short relative label for display ("2h", "3d"). */
+  time: string;
+};
+
+export type PostsApi = {
+  /** The community feed, newest first; optionally filtered to one channel. */
+  feed(channelId?: string): Promise<Post[]>;
+  /** A single post by opaque id. */
+  post(id: string): Promise<Post | null>;
+  /** Comments + replies for a post (by its opaque ref). */
+  comments(postRef: string): Promise<PostComment[]>;
+  /** Create a post in a channel (writes to the app-owned table). */
+  createPost(input: {
+    channelId: string | null;
+    title?: string | null;
+    text: string;
+    image?: string | null;
+    appUserId: string | null;
+  }): Promise<void>;
+  /** Add a comment or reply (parentRef set = reply). */
+  createComment(input: {
+    postRef: string;
+    parentRef?: string | null;
+    text: string;
+    appUserId: string | null;
+  }): Promise<void>;
 };
 
 /** One month's overall Wheel of Life score (for the Monthly/Annual trend views). */
@@ -244,5 +283,6 @@ export type Api = {
   insights: InsightsApi;
   meetings: MeetingsApi;
   community: CommunityApi;
+  posts: PostsApi;
   checkins: CheckinsApi;
 };

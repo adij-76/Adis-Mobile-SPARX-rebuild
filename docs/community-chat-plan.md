@@ -27,10 +27,81 @@ Classification of every piece: see the inventory in the session notes. Summary:
   attributes posts/comments/replies to the signed-in user (name + avatar +
   appUserId) instead of the seed "Okei". `isOwn` (delete gating) now compares to
   the real user.
-- **F2 — Storage strategy.** App-owned tables, RLS by `auth.uid()`, reconciled on
-  re-import (the `mobile_checkins` / `mobile_wheel_entries` pattern). If production
-  has community/message tables, read history via email-scoped views and UNION
-  app-owned new rows (the wheel pattern). Gated on DB introspection.
+- **F2 — Storage strategy.** ✅ **DECIDED: app-owned write tables unioned into
+  read views** (the wheel/check-in pattern). Read existing content from the real
+  production tables; write new mobile content to app-owned `mobile_*` tables and
+  UNION them in. Never mutates the production copy; nothing lost on re-import;
+  mobile-only until a shared production write API exists. App-owned write tables
+  are built in `db/community.sql`.
+
+### Confirmed production schema (introspected)
+
+| Feature | Production table(s) | Key columns |
+|---|---|---|
+| Feed posts | `comm_posts` | `user_id`, `comm_channel_id`, `title`, `content`, `active`, `is_profane`, `comments_count` |
+| Communities (feed) | `comm_channels` | ⚠️ shape TBD — the feed's channels (distinct from meeting groups) |
+| Comments | `comments` | `comm_post_id` + polymorphic `commentable_*` (nests), `is_profane`, `active` |
+| Reactions | `reactions` | emoji-based (`emoji_id`) + polymorphic `reactionable_*`, `comm_post_id` |
+| DM chat (1:1) | `community_conversations` (`user_one_id`/`user_two_id`) + `community_messages` (`sender_id`, `content`, `read_at`) | — |
+| Notifications | `notifications` | per-user, polymorphic `notifiable_*`, `read`, `is_mention` |
+| Author identity | `users` | `first_name` → name, `avatar_link` → avatar, `user_handle` |
+
+Not the feed: `sds_groups` are the **Zoom coaching/meeting groups** (34 rows —
+coach, meet_time, zoom_meeting_id, join_url; Gratitude, Men's/Women's, Hero Code,
+Peer-Led…), gated by `subscription_role_groups` — they belong to the **Meetings**
+feature. `message` / `message_replies` is the **email/SMS transactional** system,
+not in-app chat.
+
+**Feed communities are separate from meeting groups** (owner's call): the feed's
+communities (`comm_channels`) keep their own icons + community presence and are NOT
+tied to `sds_groups`. Parallel groups may exist but they're modeled separately.
+
+### Data facts (from row counts)
+- Feed is real & rich: **comm_posts 751, comments 918, reactions 804**.
+- **`community_messages` = 0** — 9 conversation shells, zero messages. In-app DM
+  chat is effectively **greenfield**: history is empty, so chat is app-owned going
+  forward (`mobile_dm_*`), with the 9 prod conversation shells unioned in.
+- `comm_posts` has **no image column** (text-only in prod); app posts carry images
+  via `mobile_feed_posts.image_url`.
+
+**Feed communities** (`comm_channels`, 5 rows): General, Inclusive Women's Group,
+Inclusive Men's Group, Youth, 7 Day Sober Experiment. Columns: id, name,
+description — **no icon column**, so the app assigns icon + colour deterministically
+by id/name. `member_count` is derived as distinct authors per channel.
+
+**Reactions** are emoji-based: `reactions.emoji_id → emojis.e_character` (the emoji
+glyph). The app shows a single count for now; per-emoji breakdown is available later
+via `e_character`.
+
+User 11 (adijaffe+1) has real activity to test: **21 posts, 51 comments, 90
+reactions, 2 conversations, 0 messages**.
+
+## Migration & continuity — app-owned → production (for ALL users)
+
+The app-owned tables are a **bridge**, not the destination. Everything written to
+them is shaped to reconcile cleanly into the production Rails tables once a shared
+production write API exists, so mobile-created content becomes visible to **web
+users too** and survives re-imports. The carry-over keys:
+
+| App-owned table | → Production table | Reconciliation keys |
+|---|---|---|
+| `mobile_feed_posts` | `comm_posts` | `app_user_id`→user_id, `comm_channel_id`, `content`/`title`, `created_at` |
+| `mobile_feed_comments` | `comments` | `app_user_id`, `post_ref`→`comm_post_id`, `parent_ref`→`commentable_*`, `content` |
+| `mobile_feed_reactions` | `reactions` | `app_user_id`, `target_ref`→`comm_post_id`/polymorphic, `reaction`→`emoji_id` |
+| `mobile_dm_conversations` | `community_conversations` | `app_user_id`→`user_one_id`, `other_user_id`→`user_two_id` |
+| `mobile_dm_messages` | `community_messages` | `app_user_id`→`sender_id`, `conversation_ref`, `content`, `read_at` |
+
+Cutover = a one-time job that INSERTs app-owned rows into the prod tables (mapping
+the ref scheme back to real FKs), then the app reads/writes prod directly and the
+`mobile_*` write tables become a cache (or are retired). Until then the read views
+UNION both so mobile users have full continuity with each other immediately. This
+must be documented in `db/README.md` at cutover time.
+
+## DB files
+- `db/community.sql` — app-owned write tables (RLS). ✅ built.
+- `db/community-views.sql` — read views: `mobile_posts`, `mobile_comments`,
+  `mobile_notifications` (prod ∪ app). ✅ built. TODO: `mobile_channels`,
+  `mobile_threads`/`mobile_thread_messages`.
 - **F3 — API seam.** New `PostsApi` + `MessagesApi`, expand `CommunityApi`; mock +
   supabase adapters; migrate store writes to read-through caches.
 - **F4 — Real-time.** No SDK today (plain fetch/PostgREST). MVP = poll active DM

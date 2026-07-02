@@ -108,6 +108,7 @@ type StoreValue = {
   repliesFor: (commentId: string) => Comment[];
   addReply: (parentCommentId: string, c: Comment) => void;
   // moderation
+  isHidden: (postId: string) => boolean;
   hidePost: (postId: string) => void;
   deletePost: (postId: string) => void;
   // direct messages
@@ -248,6 +249,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
           replies: { ...s.replies, [parentCommentId]: [...(s.replies[parentCommentId] ?? []), c] },
         })),
 
+      isHidden: (postId) => state.hidden.includes(postId),
       hidePost: (postId) =>
         update((s) => (s.hidden.includes(postId) ? s : { ...s, hidden: [...s.hidden, postId] })),
       deletePost: (postId) =>
