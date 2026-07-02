@@ -17,6 +17,7 @@ import { api } from '@/api';
 import type { PostComment } from '@/api/types';
 import { PostCard } from '@/components/ui/post-card';
 import { ReactionBar, type ReactionKey } from '@/components/ui/reaction-bar';
+import { RichText } from '@/components/ui/rich-text';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
@@ -36,7 +37,7 @@ function ReplyBubble({ comment }: { comment: PostComment }) {
               {comment.time}
             </Txt>
           </View>
-          <Txt variant="bodySm">{comment.text}</Txt>
+          <RichText html={comment.text} />
         </View>
       </View>
     </View>
@@ -75,7 +76,7 @@ function CommentItem({
               {comment.time}
             </Txt>
           </View>
-          <Txt variant="bodySm">{comment.text}</Txt>
+          <RichText html={comment.text} />
         </View>
       </View>
 
