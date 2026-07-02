@@ -15,6 +15,7 @@ import type {
   Community,
   CommunityApi,
   ContentApi,
+  FavoritesApi,
   InsightsApi,
   Lesson,
   LessonType,
@@ -144,6 +145,28 @@ const toLesson = (r: LessonRow): Lesson => ({
   favorite: r.favorite,
   accessible: r.accessible,
 });
+
+/** Query mobile_snippets and map to VideoItem[] (thumbnails derive from Vimeo). */
+async function snippetsToVideos(query: Record<string, string>): Promise<VideoItem[]> {
+  try {
+    const rows = await rest<SnippetRow[]>('mobile_snippets', query);
+    return rows.map(
+      (r) =>
+        ({
+          id: String(r.id),
+          title: r.title || r.description || 'SPARx video',
+          duration: r.length_seconds ? fmtDuration(r.length_seconds) : '',
+          image: '',
+          presenter: 'SPARx',
+          views: '',
+          description: r.summary || '',
+          vimeoUrl: vimeoUrlFrom(r.vimeo_url, r.vimeo_id) ?? undefined,
+        }) satisfies VideoItem,
+    );
+  } catch {
+    return [];
+  }
+}
 
 export const supabaseContent: ContentApi = {
   async programs() {
@@ -283,27 +306,20 @@ export const supabaseContent: ContentApi = {
   },
   // The user's saved snippet videos (mobile_snippets.favorite).
   async favoriteVideos() {
+    return snippetsToVideos({ favorite: 'is.true', order: 'created_at.desc' });
+  },
+  async lessonsByIds(ids) {
+    if (!ids.length) return [];
     try {
-      const rows = await rest<SnippetRow[]>('mobile_snippets', {
-        favorite: 'is.true',
-        order: 'created_at.desc',
-      });
-      return rows.map(
-        (r) =>
-          ({
-            id: String(r.id),
-            title: r.title || r.description || 'SPARx video',
-            duration: r.length_seconds ? fmtDuration(r.length_seconds) : '',
-            image: '',
-            presenter: 'SPARx',
-            views: '',
-            description: r.summary || '',
-            vimeoUrl: vimeoUrlFrom(r.vimeo_url, r.vimeo_id) ?? undefined,
-          }) satisfies VideoItem,
-      );
+      const rows = await rest<LessonRow[]>('mobile_lessons', { id: `in.(${ids.join(',')})` });
+      return rows.map(toLesson);
     } catch {
       return [];
     }
+  },
+  async videosByIds(ids) {
+    if (!ids.length) return [];
+    return snippetsToVideos({ id: `in.(${ids.join(',')})` });
   },
   async quotes() {
     // Read the DB quotes when the view exists; fall back to seed quotes so the
@@ -708,6 +724,37 @@ export const supabaseCheckins: CheckinsApi = {
       body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error(`Check-in save failed (${res.status})`);
+  },
+};
+
+// --- Favorites (app-owned mobile_favorites; merged with prod favorites client-side) ---
+
+export const supabaseFavorites: FavoritesApi = {
+  async list() {
+    type Row = { kind: string; item_id: string; active: boolean };
+    try {
+      const rows = await rest<Row[]>('mobile_favorites', { order: 'updated_at.desc' });
+      return rows.map((r) => ({
+        kind: (r.kind === 'video' ? 'video' : 'lesson') as 'lesson' | 'video',
+        itemId: String(r.item_id),
+        active: r.active,
+      }));
+    } catch {
+      return [];
+    }
+  },
+  async set(kind, itemId, on) {
+    const res = await fetch(`${BASE}/rest/v1/mobile_favorites?on_conflict=auth_uid,kind,item_id`, {
+      method: 'POST',
+      headers: {
+        apikey: ANON,
+        Authorization: `Bearer ${authToken ?? ANON}`,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates,return=minimal',
+      },
+      body: JSON.stringify({ kind, item_id: itemId, active: on, updated_at: new Date().toISOString() }),
+    });
+    if (!res.ok) throw new Error(`Favorite save failed (${res.status})`);
   },
 };
 

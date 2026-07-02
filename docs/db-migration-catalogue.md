@@ -36,6 +36,7 @@ production tables leaves them untouched.
 - `mobile_wheel_entries` — Wheel of Life retakes
 - `mobile_feed_posts` / `mobile_feed_comments` / `mobile_feed_reactions` — community feed
 - `mobile_dm_conversations` / `mobile_dm_messages` — direct messages
+- `mobile_favorites` — bookmark toggles (kind/item_id, `active` tombstones un-saves)
 - *(future)* notification read-state, block list
 
 ## C. Reconciliation jobs — app-owned → production (write for cutover) ⚠️
