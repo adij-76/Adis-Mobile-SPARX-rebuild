@@ -26,7 +26,7 @@ export default function ExploreCommunities() {
           return (
             <View style={styles.row}>
               <View style={[styles.icon, { backgroundColor: `${item.color}22` }]}>
-                <Ionicons name={item.icon} size={22} color={item.color} />
+                <Ionicons name={item.icon as never} size={22} color={item.color} />
               </View>
               <View style={{ flex: 1 }}>
                 <Txt variant="bodyMedium">{item.name}</Txt>

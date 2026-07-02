@@ -12,6 +12,7 @@ import type {
   AuthUser,
   CheckinRecord,
   CheckinsApi,
+  Community,
   CommunityApi,
   ContentApi,
   InsightsApi,
@@ -282,10 +283,41 @@ export const supabaseMeetings: MeetingsApi = {
   },
 };
 
+// comm_channels has no icon column, so assign an Ionicons name + colour by the
+// channel's name (deterministic, stable). Falls back to a palette by index.
+const CHANNEL_PALETTE = ['#166890', '#38C793', '#FF9D4B', '#7A5AF8', '#E5739B', '#F7C948'];
+function channelStyle(name: string, i: number): { icon: string; color: string } {
+  const n = name.toLowerCase();
+  if (n.includes('women')) return { icon: 'female', color: '#E5739B' };
+  if (n.includes('men')) return { icon: 'male', color: '#5B8DEF' };
+  if (n.includes('youth')) return { icon: 'happy', color: '#F2A65A' };
+  if (n.includes('sober') || n.includes('day')) return { icon: 'leaf', color: '#38C793' };
+  if (n.includes('general')) return { icon: 'people', color: '#166890' };
+  return { icon: 'chatbubbles', color: CHANNEL_PALETTE[i % CHANNEL_PALETTE.length] };
+}
+
 export const supabaseCommunity: CommunityApi = {
-  // TODO: back with a mobile_communities view.
+  // Real feed communities from mobile_channels (comm_channels). Falls back to the
+  // seed set if the view is missing/empty so the tab is never blank.
   async communities() {
-    return communities;
+    type Row = { id: number | string; name: string; description: string | null; member_count: number | null };
+    try {
+      const rows = await rest<Row[]>('mobile_channels', { order: 'id' });
+      if (!rows.length) return communities;
+      return rows.map((r, i) => {
+        const { icon, color } = channelStyle(r.name, i);
+        return {
+          id: String(r.id),
+          name: r.name,
+          members: r.member_count != null ? String(r.member_count) : '',
+          icon,
+          color,
+          description: r.description ?? undefined,
+        } satisfies Community;
+      });
+    } catch {
+      return communities;
+    }
   },
 };
 

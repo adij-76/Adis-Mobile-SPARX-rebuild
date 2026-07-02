@@ -58,7 +58,7 @@ export default function CommunityScreen() {
               renderItem={({ item }) => (
                 <View style={styles.commChip}>
                   <View style={[styles.commIcon, { backgroundColor: `${item.color}22` }]}>
-                    <Ionicons name={item.icon} size={20} color={item.color} />
+                    <Ionicons name={item.icon as never} size={20} color={item.color} />
                   </View>
                   <Txt variant="caption" center numberOfLines={2} style={{ width: 76 }}>
                     {item.name}

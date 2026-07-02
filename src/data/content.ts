@@ -481,8 +481,11 @@ export type Community = {
   id: string;
   name: string;
   members: string;
-  icon: 'hand-left' | 'leaf' | 'people' | 'sparkles';
+  /** Ionicons name — seed set uses a few, real channels get one assigned by name. */
+  icon: string;
   color: string;
+  /** Optional blurb (real channels carry a description). */
+  description?: string;
 };
 
 export const communities: Community[] = [
