@@ -20,18 +20,22 @@ import {
 import type {
   AuthApi,
   AuthSession,
+  ChatMessage,
   CheckinsApi,
   CommunityApi,
   ContentApi,
+  DirectoryUser,
   InsightsApi,
   Lesson,
   MeResult,
   FavoritesApi,
   MeetingsApi,
+  MessagesApi,
   Module,
   PostsApi,
   Program,
   Snippet,
+  Thread,
   Workshop,
 } from '@/api/types';
 
@@ -225,4 +229,83 @@ export const mockCheckins: CheckinsApi = {
 export const mockFavorites: FavoritesApi = {
   list: () => delay([]),
   set: () => delay(undefined),
+};
+
+// --- Mock chat: in-memory for the session (offline dev only). ---
+type MockMsg = { id: string; otherId: string; mine: boolean; text: string; at: number; read: boolean };
+const mockChat: MockMsg[] = [];
+let mockChatSeq = 1;
+const mockPeople: DirectoryUser[] = [
+  { userId: '1', name: 'Adi Jaffe (Coach)', avatar: '', handle: 'adi' },
+  { userId: '2', name: 'James K.', avatar: '', handle: 'jamesk' },
+  { userId: '3', name: 'Maya R.', avatar: '', handle: 'maya' },
+  { userId: '4', name: 'Sam P.', avatar: '', handle: 'samp' },
+];
+const mockBlocked = new Set<string>();
+const mockPerson = (id: string) => mockPeople.find((p) => p.userId === id);
+
+export const mockMessages: MessagesApi = {
+  threads: (): Promise<Thread[]> => {
+    const byOther = new Map<string, MockMsg[]>();
+    mockChat.forEach((m) => {
+      const arr = byOther.get(m.otherId) ?? [];
+      arr.push(m);
+      byOther.set(m.otherId, arr);
+    });
+    const threads = [...byOther.entries()]
+      .map(([otherId, msgs]) => {
+        const last = msgs[msgs.length - 1];
+        const p = mockPerson(otherId);
+        return {
+          userId: otherId,
+          name: p?.name ?? 'Member',
+          avatar: p?.avatar ?? '',
+          handle: p?.handle ?? null,
+          last: last.text,
+          time: 'now',
+          unread: msgs.filter((m) => !m.mine && !m.read).length,
+        } satisfies Thread;
+      })
+      .sort((a, b) => (a.userId < b.userId ? -1 : 1));
+    return delay(threads);
+  },
+  messages: (otherUserId): Promise<ChatMessage[]> =>
+    delay(
+      mockChat
+        .filter((m) => m.otherId === otherUserId)
+        .map((m) => ({
+          id: m.id,
+          mine: m.mine,
+          text: m.text,
+          time: 'now',
+          createdAt: new Date(m.at).toISOString(),
+          readAt: m.read ? new Date().toISOString() : null,
+        })),
+    ),
+  send: (recipientId, text) => {
+    mockChat.push({ id: `m${mockChatSeq++}`, otherId: recipientId, mine: true, text, at: Date.now(), read: true });
+    return delay(undefined);
+  },
+  markRead: (otherUserId) => {
+    mockChat.forEach((m) => {
+      if (m.otherId === otherUserId && !m.mine) m.read = true;
+    });
+    return delay(undefined);
+  },
+  directory: (search) => {
+    const term = search?.trim().toLowerCase();
+    return delay(
+      mockPeople.filter(
+        (p) =>
+          !mockBlocked.has(p.userId) &&
+          (!term || p.name.toLowerCase().includes(term) || (p.handle ?? '').includes(term)),
+      ),
+    );
+  },
+  blockedIds: () => delay([...mockBlocked]),
+  setBlock: (userId, on) => {
+    if (on) mockBlocked.add(userId);
+    else mockBlocked.delete(userId);
+    return delay(undefined);
+  },
 };

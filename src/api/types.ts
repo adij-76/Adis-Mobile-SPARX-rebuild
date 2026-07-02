@@ -145,6 +145,53 @@ export type PostsApi = {
   }): Promise<void>;
 };
 
+/** A conversation summary in the messages list. `userId` is the other
+ *  participant's production users.id — used to open the thread. */
+export type Thread = {
+  userId: string;
+  name: string;
+  avatar: string;
+  handle: string | null;
+  /** Preview of the most recent message. */
+  last: string;
+  /** Short relative label of the last activity ("2m", "3h"). */
+  time: string;
+  /** Count of their messages to me I haven't read. */
+  unread: number;
+};
+
+/** One message in a thread. `mine` picks the bubble side. */
+export type ChatMessage = {
+  id: string;
+  mine: boolean;
+  text: string;
+  /** Short relative label for display. */
+  time: string;
+  /** ISO timestamp, for ordering + dedupe. */
+  createdAt: string;
+  readAt: string | null;
+};
+
+/** A person you can start a DM with (from mobile_directory). */
+export type DirectoryUser = { userId: string; name: string; avatar: string; handle: string | null };
+
+export type MessagesApi = {
+  /** The user's conversations, newest activity first. */
+  threads(): Promise<Thread[]>;
+  /** All messages in the thread with `otherUserId`, oldest → newest. */
+  messages(otherUserId: string): Promise<ChatMessage[]>;
+  /** Send a DM to `recipientId`. `senderId` is the caller's production id. */
+  send(recipientId: string, text: string, senderId: string | null): Promise<void>;
+  /** Mark the other person's messages to me as read. */
+  markRead(otherUserId: string): Promise<void>;
+  /** People you can message (optionally filtered by a name/handle search). */
+  directory(search?: string): Promise<DirectoryUser[]>;
+  /** Production ids of people I've blocked (active blocks). */
+  blockedIds(): Promise<string[]>;
+  /** Block/unblock a user. `blockerId` is the caller's production id. */
+  setBlock(userId: string, on: boolean, blockerId: string | null): Promise<void>;
+};
+
 /** One month's overall Wheel of Life score (for the Monthly/Annual trend views). */
 export type WheelPoint = { key: string; label: string; year: number; score: number };
 
@@ -305,4 +352,5 @@ export type Api = {
   posts: PostsApi;
   favorites: FavoritesApi;
   checkins: CheckinsApi;
+  messages: MessagesApi;
 };

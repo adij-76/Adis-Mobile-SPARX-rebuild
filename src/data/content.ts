@@ -474,6 +474,8 @@ export type Post = {
   text: string;
   image?: string;
   likes: number;
+  /** Real feed: the author's production users.id, for starting a DM from a post. */
+  authorId?: string | null;
   /** Real feed: comment count from the view (comments[] is fetched on demand). */
   commentsCount?: number;
   /** Real feed: the comm_channels id this post belongs to. */

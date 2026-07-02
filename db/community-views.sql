@@ -81,7 +81,11 @@ begin
                         where r.src = 'p' and rx.comm_post_id = r.raw_id and rx.user_id = (select id from me))
                or exists (select 1 from public.mobile_feed_reactions mr
                         where mr.target_ref = r.id and mr.auth_uid = auth.uid())
-             )                         as reacted
+             )                         as reacted,
+             -- author's production users.id, so the app can open a DM from a post.
+             -- (Appended last so CREATE OR REPLACE VIEW replaces cleanly — new
+             --  view columns must come after the existing ones.)
+             r.user_id                 as author_id
       from raw r
       left join public.users u on u.id = r.user_id
       order by r.created_at desc
@@ -173,10 +177,10 @@ create or replace view mobile_channels as
 grant select on mobile_channels to authenticated;
 
 -- =============================================================================
--- STILL TO ADD (chat):
---   mobile_threads / mobile_thread_messages — DM conversations + messages.
---   community_messages is EMPTY in the copy, so chat is app-owned going forward
---   (mobile_dm_conversations / mobile_dm_messages), with the production
---   community_conversations shells unioned in for the existing threads. The
---   "who can I message" recipient directory is the remaining design question.
+-- CHAT lives in db/chat.sql now (mobile_messages + mobile_blocks, with the
+-- mobile_threads / mobile_thread_messages / mobile_directory read views).
+-- community_messages was EMPTY in the copy, so chat is app-owned going forward
+-- using a plain sender→recipient model (no conversation table). "DM anyone
+-- unless they've blocked you." The mobile_dm_* tables in db/community.sql are
+-- superseded by that simpler model.
 -- =============================================================================

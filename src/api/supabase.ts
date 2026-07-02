@@ -13,20 +13,24 @@ import type {
   CheckinRecord,
   CheckinsApi,
   Community,
+  ChatMessage,
   CommunityApi,
   ContentApi,
+  DirectoryUser,
   FavoritesApi,
   InsightsApi,
   Lesson,
   LessonType,
   MeResult,
   MeetingsApi,
+  MessagesApi,
   Module,
   Post,
   PostsApi,
   Program,
   Quote,
   Snippet,
+  Thread,
   VideoItem,
   WheelEntryInput,
   WheelPoint,
@@ -425,6 +429,7 @@ function relTime(iso: string): string {
 type PostRow = {
   id: string;
   comm_channel_id: number | null;
+  author_id: number | string | null;
   author: string | null;
   avatar: string | null;
   handle: string | null;
@@ -449,6 +454,7 @@ async function channelNameMap(): Promise<Map<string, string>> {
 const toPost = (r: PostRow, names: Map<string, string>): Post => ({
   id: String(r.id),
   author: r.author || 'Member',
+  authorId: r.author_id != null ? String(r.author_id) : null,
   avatar: r.avatar || '',
   time: relTime(r.created_at),
   community: (r.comm_channel_id != null && names.get(String(r.comm_channel_id))) || 'Community',
@@ -755,6 +761,139 @@ export const supabaseFavorites: FavoritesApi = {
       body: JSON.stringify({ kind, item_id: itemId, active: on, updated_at: new Date().toISOString() }),
     });
     if (!res.ok) throw new Error(`Favorite save failed (${res.status})`);
+  },
+};
+
+// --- Chat / direct messages (app-owned mobile_messages + mobile_blocks) ---
+// Reads the RLS-scoped views (mobile_threads / mobile_thread_messages /
+// mobile_directory); writes go to the tables. "DM anyone unless blocked."
+
+export const supabaseMessages: MessagesApi = {
+  async threads(): Promise<Thread[]> {
+    type Row = {
+      user_id: number | string;
+      name: string | null;
+      avatar: string | null;
+      handle: string | null;
+      last_message: string | null;
+      last_at: string;
+      unread: number | null;
+    };
+    try {
+      const rows = await rest<Row[]>('mobile_threads', {});
+      return rows.map((r) => ({
+        userId: String(r.user_id),
+        name: r.name || 'Member',
+        avatar: r.avatar || '',
+        handle: r.handle,
+        last: r.last_message ?? '',
+        time: relTime(r.last_at),
+        unread: r.unread ?? 0,
+      }));
+    } catch {
+      return [];
+    }
+  },
+  async messages(otherUserId): Promise<ChatMessage[]> {
+    type Row = {
+      id: string;
+      other_id: number | string;
+      mine: boolean;
+      content: string | null;
+      created_at: string;
+      read_at: string | null;
+    };
+    try {
+      const rows = await rest<Row[]>('mobile_thread_messages', {
+        other_id: `eq.${otherUserId}`,
+        order: 'created_at',
+      });
+      return rows.map((r) => ({
+        id: String(r.id),
+        mine: !!r.mine,
+        text: r.content ?? '',
+        time: relTime(r.created_at),
+        createdAt: r.created_at,
+        readAt: r.read_at,
+      }));
+    } catch {
+      return [];
+    }
+  },
+  async send(recipientId, text, senderId) {
+    const idNum = Number(senderId);
+    // auth_uid fills from the column default auth.uid(); RLS blocks the insert
+    // if the recipient has blocked me.
+    await postWrite('mobile_messages', {
+      sender_id: Number.isFinite(idNum) ? idNum : null,
+      recipient_id: Number(recipientId),
+      content: text,
+    });
+  },
+  async markRead(otherUserId) {
+    // Set read_at on the other person's unread messages to me. RLS only lets me
+    // update rows where I'm the recipient, so this is safe to fire broadly.
+    const res = await fetch(
+      `${BASE}/rest/v1/mobile_messages?sender_id=eq.${Number(otherUserId)}&read_at=is.null`,
+      {
+        method: 'PATCH',
+        headers: {
+          apikey: ANON,
+          Authorization: `Bearer ${authToken ?? ANON}`,
+          'Content-Type': 'application/json',
+          Prefer: 'return=minimal',
+        },
+        body: JSON.stringify({ read_at: new Date().toISOString() }),
+      },
+    );
+    if (!res.ok && res.status !== 404) {
+      /* best-effort: a failed read-receipt shouldn't surface an error */
+    }
+  },
+  async directory(search): Promise<DirectoryUser[]> {
+    type Row = { id: number | string; name: string | null; avatar: string | null; handle: string | null };
+    try {
+      const q: Record<string, string> = { order: 'name', limit: '200' };
+      const term = search?.trim();
+      if (term) q.or = `(name.ilike.*${term}*,handle.ilike.*${term}*)`;
+      const rows = await rest<Row[]>('mobile_directory', q);
+      return rows.map((r) => ({
+        userId: String(r.id),
+        name: r.name || 'Member',
+        avatar: r.avatar || '',
+        handle: r.handle,
+      }));
+    } catch {
+      return [];
+    }
+  },
+  async blockedIds() {
+    type Row = { blocked_id: number | string };
+    try {
+      const rows = await rest<Row[]>('mobile_blocks', { active: 'is.true', select: 'blocked_id' });
+      return rows.map((r) => String(r.blocked_id));
+    } catch {
+      return [];
+    }
+  },
+  async setBlock(userId, on, blockerId) {
+    const idNum = Number(blockerId);
+    const res = await fetch(`${BASE}/rest/v1/mobile_blocks?on_conflict=auth_uid,blocked_id`, {
+      method: 'POST',
+      headers: {
+        apikey: ANON,
+        Authorization: `Bearer ${authToken ?? ANON}`,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates,return=minimal',
+      },
+      body: JSON.stringify({
+        blocker_id: Number.isFinite(idNum) ? idNum : null,
+        blocked_id: Number(userId),
+        active: on,
+        updated_at: new Date().toISOString(),
+      }),
+    });
+    if (!res.ok) throw new Error(`Block save failed (${res.status})`);
   },
 };
 

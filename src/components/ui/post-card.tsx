@@ -13,7 +13,7 @@ import { Colors, Radius, Spacing } from '@/constants/theme';
 import { type Post } from '@/data/content';
 import { htmlToText } from '@/lib/html';
 import { useCurrentAuthor } from '@/lib/auth';
-import { chatId, useStore } from '@/lib/store';
+import { useStore } from '@/lib/store';
 
 export type PostCardProps = {
   post: Post;
@@ -52,9 +52,14 @@ export function PostCard({ post, onPress, full }: PostCardProps) {
     }
   };
 
+  // DM the post author by their production user id. Seed posts (and any post
+  // whose author id the view didn't resolve) have no id → send the user to the
+  // messages list instead of a dead thread.
   const startChat = () =>
     router.push(
-      `/feed/chat?id=${chatId(post.author)}&name=${encodeURIComponent(post.author)}&avatar=${encodeURIComponent(post.avatar)}`,
+      post.authorId
+        ? `/feed/chat?id=${post.authorId}&name=${encodeURIComponent(post.author)}&avatar=${encodeURIComponent(post.avatar)}`
+        : '/feed/messages',
     );
 
   const menuActions: SheetAction[] = isOwn
@@ -73,7 +78,9 @@ export function PostCard({ post, onPress, full }: PostCardProps) {
         },
       ]
     : [
-        { label: `Start chat with ${post.author}`, icon: 'chatbubble-ellipses-outline', onPress: startChat },
+        ...(post.authorId
+          ? [{ label: `Start chat with ${post.author}`, icon: 'chatbubble-ellipses-outline' as const, onPress: startChat }]
+          : []),
         { label: 'Copy link', icon: 'link-outline', onPress: copyLink },
         { label: 'Hide post', icon: 'eye-off-outline', onPress: () => hidePost(post.id) },
         { label: 'Report post', icon: 'flag-outline', destructive: true, onPress: () => hidePost(post.id) },
