@@ -33,11 +33,12 @@ export default function NewPost() {
   const router = useRouter();
   const { addPost } = useStore();
   const author = useCurrentAuthor();
-  const { text: prefill } = useLocalSearchParams<{ text?: string }>();
+  const { text: prefill, channel } = useLocalSearchParams<{ text?: string; channel?: string }>();
   // Coming from a shared quote → skip the rules gate and prefill the text.
   const [agreed, setAgreed] = useState(!!prefill);
   const communities = useAsync(() => api.community.communities(), []).data ?? [];
-  const [community, setCommunity] = useState<string | null>(null);
+  // Preselect the channel when composing from inside a room.
+  const [community, setCommunity] = useState<string | null>(channel ?? null);
   const selectedCommunity = community ?? communities[0]?.id ?? null;
   const [text, setText] = useState(prefill ?? '');
   const [photo, setPhoto] = useState<string | null>(null);
