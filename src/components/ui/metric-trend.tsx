@@ -13,7 +13,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Txt } from '@/components/ui/text';
-import { Colors, Radius, Spacing } from '@/constants/theme';
+import { Colors, FontFamily, Radius, Spacing } from '@/constants/theme';
 
 // Tallest bar's pixel height. Bars use explicit px (not %) heights so they
 // render on react-native-web, where a %-height child of a flex-sized parent
@@ -195,7 +195,9 @@ function BarsView({
                 <View
                   style={[
                     styles.barFill,
-                    { height: barHeight, backgroundColor: isLast ? accent : Colors.lightBlue },
+                    // The bar carries the same good/bad/at-average colour as its
+                    // value; the current period keeps a subtle darker edge.
+                    { height: barHeight, backgroundColor: valueColor(p.value), opacity: isLast ? 1 : 0.85 },
                   ]}
                 />
               </View>
@@ -244,11 +246,11 @@ const styles = StyleSheet.create({
     height: BAR_AREA + 16,
   },
   barCol: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', gap: 4 },
-  barValue: { fontSize: 10 },
+  barValue: { fontSize: 11, fontFamily: FontFamily.bold },
   barFill: { width: '72%', minWidth: 8, borderRadius: Radius.sm },
   avgLine: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: Colors.textSub, opacity: 0.55 },
   avgTag: { position: 'absolute', right: 0, paddingHorizontal: 4, backgroundColor: Colors.white, borderRadius: 4 },
-  avgTagTxt: { fontSize: 9, color: Colors.textSub },
+  avgTagTxt: { fontSize: 10, fontFamily: FontFamily.bold, color: Colors.textSub },
   plotLabels: { flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.xs, marginTop: 4 },
-  barLabel: { fontSize: 10, flex: 1, textAlign: 'center' },
+  barLabel: { fontSize: 11, fontFamily: FontFamily.semibold, flex: 1, textAlign: 'center' },
 });

@@ -197,18 +197,54 @@ export function vimeoEmbedUrl(url: string): string | null {
  * oEmbed endpoint. Returns null if it's not a Vimeo URL, the video doesn't
  * exist, or Vimeo can't be reached — callers fall back to whatever they have.
  */
-export async function fetchVimeoMeta(
-  url: string,
-): Promise<{ title?: string; thumbnail?: string } | null> {
+// Session cache of resolved oEmbed metadata, keyed by watch URL. Vimeo's oEmbed
+// endpoint rate-limits, so without this a rail of videos re-fetches on every
+// mount and a few requests intermittently 429 → gradient placeholder. Once a
+// video resolves we keep it for the session so it never flickers back.
+export type VimeoMeta = { title?: string; thumbnail?: string };
+const vimeoMetaCache = new Map<string, VimeoMeta>();
+// Share one in-flight request across all cards pointing at the same URL.
+const vimeoMetaInflight = new Map<string, Promise<VimeoMeta | null>>();
+
+/** Synchronous cache peek, so a remounting card shows its thumbnail with no flash. */
+export function cachedVimeoMeta(url: string): VimeoMeta | null {
+  const watch = vimeoWatchUrl(url);
+  return watch ? vimeoMetaCache.get(watch) ?? null : null;
+}
+
+async function fetchVimeoOnce(watch: string): Promise<VimeoMeta> {
+  const res = await fetch(`https://vimeo.com/api/oembed.json?url=${encodeURIComponent(watch)}`);
+  if (!res.ok) throw new Error(`oembed ${res.status}`);
+  const data = (await res.json()) as { title?: string; thumbnail_url?: string };
+  return { title: data.title, thumbnail: data.thumbnail_url };
+}
+
+export async function fetchVimeoMeta(url: string): Promise<VimeoMeta | null> {
   const watch = vimeoWatchUrl(url);
   if (!watch) return null;
+  const cached = vimeoMetaCache.get(watch);
+  if (cached) return cached;
+  const pending = vimeoMetaInflight.get(watch);
+  if (pending) return pending;
+
+  const run = (async (): Promise<VimeoMeta | null> => {
+    // One retry with a short backoff smooths over transient 429s / blips.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const meta = await fetchVimeoOnce(watch);
+        if (meta.thumbnail || meta.title) vimeoMetaCache.set(watch, meta);
+        return meta;
+      } catch {
+        if (attempt === 0) await new Promise((r) => setTimeout(r, 400));
+      }
+    }
+    return null; // leave uncached so a later mount can retry
+  })();
+  vimeoMetaInflight.set(watch, run);
   try {
-    const res = await fetch(`https://vimeo.com/api/oembed.json?url=${encodeURIComponent(watch)}`);
-    if (!res.ok) return null;
-    const data = (await res.json()) as { title?: string; thumbnail_url?: string };
-    return { title: data.title, thumbnail: data.thumbnail_url };
-  } catch {
-    return null;
+    return await run;
+  } finally {
+    vimeoMetaInflight.delete(watch);
   }
 }
 
