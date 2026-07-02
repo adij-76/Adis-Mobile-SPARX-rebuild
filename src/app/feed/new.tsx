@@ -44,7 +44,18 @@ export default function NewPost() {
 
   const submit = () => {
     const name = communities.find((c) => c.id === selectedCommunity)?.name ?? 'Community';
-    addPost({ community: name, text: text.trim(), image: photo ?? undefined, author });
+    const body = text.trim();
+    // Optimistic local insert (keeps the seed/offline path working) + persist to
+    // the backend so it shows for everyone; the feed refetches on focus.
+    addPost({ community: name, text: body, image: photo ?? undefined, author });
+    api.posts
+      .createPost({
+        channelId: selectedCommunity,
+        text: body,
+        image: photo ?? null,
+        appUserId: author.appUserId,
+      })
+      .catch(() => {});
     router.back();
   };
 

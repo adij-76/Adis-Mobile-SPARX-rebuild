@@ -2,6 +2,7 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -12,38 +13,59 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { api } from '@/api';
+import type { PostComment } from '@/api/types';
 import { PostCard } from '@/components/ui/post-card';
 import { ReactionBar, type ReactionKey } from '@/components/ui/reaction-bar';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
-import { type Comment } from '@/data/content';
+import { useAsync } from '@/hooks/use-async';
 import { useCurrentAuthor } from '@/lib/auth';
 import { useStore } from '@/lib/store';
 
-function CommentItem({ comment, isReply = false }: { comment: Comment; isReply?: boolean }) {
-  const { commentReactionFor, setCommentReaction, repliesFor, addReply } = useStore();
-  const author = useCurrentAuthor();
+function ReplyBubble({ comment }: { comment: PostComment }) {
+  return (
+    <View style={styles.replyBlock}>
+      <View style={styles.comment}>
+        <Image source={{ uri: comment.avatar }} style={styles.cAvatar} />
+        <View style={styles.bubble}>
+          <View style={styles.cHead}>
+            <Txt variant="bodySmBold">{comment.author}</Txt>
+            <Txt variant="caption" color={Colors.textSub}>
+              {comment.time}
+            </Txt>
+          </View>
+          <Txt variant="bodySm">{comment.text}</Txt>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function CommentItem({
+  comment,
+  replies,
+  onReply,
+}: {
+  comment: PostComment;
+  replies: PostComment[];
+  onReply: (parentRef: string, text: string) => void;
+}) {
+  const { commentReactionFor, setCommentReaction } = useStore();
   const reaction = commentReactionFor(comment.id) as ReactionKey | null;
-  const replies = isReply ? [] : repliesFor(comment.id);
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
 
   const submit = () => {
     if (!text.trim()) return;
-    addReply(comment.id, {
-      id: `r${Date.now()}`,
-      author: author.name,
-      avatar: author.avatar,
-      time: 'now',
-      text: text.trim(),
-    });
+    onReply(comment.id, text.trim());
     setText('');
     setOpen(false);
   };
 
   return (
-    <View style={[styles.commentBlock, isReply && styles.replyBlock]}>
+    <View style={styles.commentBlock}>
       <View style={styles.comment}>
         <Image source={{ uri: comment.avatar }} style={styles.cAvatar} />
         <View style={styles.bubble}>
@@ -64,13 +86,11 @@ function CommentItem({ comment, isReply = false }: { comment: Comment; isReply?:
           count={reaction ? 1 : 0}
           onChange={(k) => setCommentReaction(comment.id, k)}
         />
-        {!isReply && (
-          <Pressable onPress={() => setOpen((o) => !o)} hitSlop={6}>
-            <Txt variant="caption" color={Colors.textSub}>
-              Reply
-            </Txt>
-          </Pressable>
-        )}
+        <Pressable onPress={() => setOpen((o) => !o)} hitSlop={6}>
+          <Txt variant="caption" color={Colors.textSub}>
+            Reply
+          </Txt>
+        </Pressable>
       </View>
 
       {open && (
@@ -92,7 +112,7 @@ function CommentItem({ comment, isReply = false }: { comment: Comment; isReply?:
       )}
 
       {replies.map((r) => (
-        <CommentItem key={r.id} comment={r} isReply />
+        <ReplyBubble key={r.id} comment={r} />
       ))}
     </View>
   );
@@ -100,23 +120,48 @@ function CommentItem({ comment, isReply = false }: { comment: Comment; isReply?:
 
 export default function PostDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { allPosts, addComment } = useStore();
   const author = useCurrentAuthor();
-  const post = allPosts.find((p) => p.id === id) ?? allPosts[0];
-  const comments = post.comments;
+  const postQ = useAsync(() => api.posts.post(id), [id]);
+  const commentsQ = useAsync(() => api.posts.comments(id), [id]);
+  const post = postQ.data;
+  const comments = commentsQ.data ?? [];
   const [text, setText] = useState('');
 
+  const topLevel = comments.filter((c) => !c.parentRef);
+  const repliesOf = (cid: string) => comments.filter((c) => c.parentRef === cid);
+
+  const addReply = (parentRef: string, body: string) => {
+    api.posts
+      .createComment({ postRef: id, parentRef, text: body, appUserId: author.appUserId })
+      .then(() => commentsQ.reload())
+      .catch(() => {});
+  };
   const send = () => {
     if (!text.trim()) return;
-    addComment(post.id, {
-      id: `c${Date.now()}`,
-      author: author.name,
-      avatar: author.avatar,
-      time: 'now',
-      text: text.trim(),
-    });
+    const body = text.trim();
     setText('');
+    api.posts
+      .createComment({ postRef: id, text: body, appUserId: author.appUserId })
+      .then(() => commentsQ.reload())
+      .catch(() => {});
   };
+
+  if (!post) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <ScreenHeader title="Post" />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          {postQ.loading ? (
+            <ActivityIndicator color={Colors.primary} />
+          ) : (
+            <Txt variant="bodySm" color={Colors.textSub}>
+              Post not found.
+            </Txt>
+          )}
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -128,8 +173,8 @@ export default function PostDetail() {
           <PostCard post={post} full />
 
           <Txt variant="titleSm">Comments ({comments.length})</Txt>
-          {comments.map((c) => (
-            <CommentItem key={c.id} comment={c} />
+          {topLevel.map((c) => (
+            <CommentItem key={c.id} comment={c} replies={repliesOf(c.id)} onReply={addReply} />
           ))}
         </ScrollView>
 

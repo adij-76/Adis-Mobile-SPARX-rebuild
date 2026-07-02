@@ -5,7 +5,15 @@
  * (your own tRPC/Drizzle API) later = adding `./trpc` and switching here — no
  * screen changes.
  */
-import { mockAuth, mockCheckins, mockCommunity, mockContent, mockInsights, mockMeetings } from '@/api/mock';
+import {
+  mockAuth,
+  mockCheckins,
+  mockCommunity,
+  mockContent,
+  mockInsights,
+  mockMeetings,
+  mockPosts,
+} from '@/api/mock';
 import {
   supabaseAuth,
   supabaseCheckins,
@@ -13,6 +21,7 @@ import {
   supabaseContent,
   supabaseInsights,
   supabaseMeetings,
+  supabasePosts,
 } from '@/api/supabase';
 import type { Api } from '@/api/types';
 
@@ -25,6 +34,7 @@ export const api: Api = {
   insights: useSupabase ? supabaseInsights : mockInsights,
   meetings: useSupabase ? supabaseMeetings : mockMeetings,
   community: useSupabase ? supabaseCommunity : mockCommunity,
+  posts: useSupabase ? supabasePosts : mockPosts,
   checkins: useSupabase ? supabaseCheckins : mockCheckins,
 };
 
