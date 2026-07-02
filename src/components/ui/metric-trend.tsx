@@ -20,6 +20,9 @@ import { Colors, Radius, Spacing } from '@/constants/theme';
 // collapses to nothing (leaving only the labels, no bars).
 const BAR_AREA = 120;
 
+/** One-decimal round so small real values (1.8) survive. */
+const round1 = (n: number) => Math.round(n * 10) / 10;
+
 export type TrendPoint = { key: string; label: string; value: number };
 export type TrendPeriodKey = 'recent' | 'weekly' | 'monthly' | 'annual';
 export type TrendSeries = { key: TrendPeriodKey; label: string; points: TrendPoint[] };
@@ -155,6 +158,17 @@ function BarsView({
   const improved = points.filter((p, i) => i > 0 && (higherIsBetter ? p.value > points[i - 1].value : p.value < points[i - 1].value)).length;
   const dirWord = net === 0 ? 'Holding steady' : (higherIsBetter ? net > 0 : net < 0) ? 'Improving' : 'Needs attention';
 
+  // Average across THIS period's points, drawn as a reference line.
+  const avg = points.reduce((s, p) => s + p.value, 0) / points.length;
+  const avgY = Math.max(0, Math.min(BAR_AREA, (avg / (ceiling || 1)) * BAR_AREA));
+  // Colour each value by where it sits vs the average, in the metric's "good"
+  // direction: better-than-average green, worse orange, on the line teal.
+  const valueColor = (v: number) => {
+    if (Math.abs(v - avg) < 0.05) return accent;
+    const good = higherIsBetter ? v > avg : v < avg;
+    return good ? Colors.success : Colors.orange;
+  };
+
   return (
     <View style={{ gap: Spacing.lg }}>
       <View style={styles.summary}>
@@ -167,27 +181,46 @@ function BarsView({
         <DeltaChip value={net} unit={unit} higherIsBetter={higherIsBetter} />
       </View>
 
-      <View style={styles.bars}>
-        {points.map((p, i) => {
-          const isLast = i === points.length - 1;
-          const barHeight = Math.max(6, Math.round((p.value / ceiling) * BAR_AREA));
-          return (
-            <View key={p.key} style={styles.barCol}>
-              <Txt variant="caption" color={Colors.textSub} style={styles.barValue}>
-                {p.value}
-              </Txt>
-              <View
-                style={[
-                  styles.barFill,
-                  { height: barHeight, backgroundColor: isLast ? accent : Colors.lightBlue },
-                ]}
-              />
-              <Txt variant="caption" color={isLast ? accent : Colors.textSub} style={styles.barLabel}>
-                {p.label}
-              </Txt>
-            </View>
-          );
-        })}
+      <View>
+        <View style={styles.plotArea}>
+          {points.map((p, i) => {
+            const isLast = i === points.length - 1;
+            const barHeight = Math.max(6, Math.round((p.value / (ceiling || 1)) * BAR_AREA));
+            return (
+              <View key={p.key} style={styles.barCol}>
+                <Txt variant="caption" style={[styles.barValue, { color: valueColor(p.value) }]}>
+                  {p.value}
+                  {unit}
+                </Txt>
+                <View
+                  style={[
+                    styles.barFill,
+                    { height: barHeight, backgroundColor: isLast ? accent : Colors.lightBlue },
+                  ]}
+                />
+              </View>
+            );
+          })}
+          {/* Average reference line for this period. */}
+          <View style={[styles.avgLine, { bottom: avgY }]} pointerEvents="none" />
+          <View style={[styles.avgTag, { bottom: avgY + 1 }]} pointerEvents="none">
+            <Txt variant="caption" style={styles.avgTagTxt}>
+              avg {round1(avg)}
+              {unit}
+            </Txt>
+          </View>
+        </View>
+        <View style={styles.plotLabels}>
+          {points.map((p, i) => (
+            <Txt
+              key={p.key}
+              variant="caption"
+              color={i === points.length - 1 ? accent : Colors.textSub}
+              style={styles.barLabel}>
+              {p.label}
+            </Txt>
+          ))}
+        </View>
       </View>
     </View>
   );
@@ -200,9 +233,22 @@ const styles = StyleSheet.create({
   recentWrap: { alignItems: 'center', gap: Spacing.md },
   ring: { width: 150, height: 150, borderRadius: 75, borderWidth: 14, alignItems: 'center', justifyContent: 'center' },
   summary: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  bars: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: Spacing.xs },
-  barCol: { flex: 1, alignItems: 'center', gap: 4 },
+  // Fixed-height plot so the average line and bars share one baseline. Extra
+  // headroom above BAR_AREA leaves room for the value label atop a full bar.
+  plotArea: {
+    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: Spacing.xs,
+    height: BAR_AREA + 16,
+  },
+  barCol: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', gap: 4 },
   barValue: { fontSize: 10 },
   barFill: { width: '72%', minWidth: 8, borderRadius: Radius.sm },
-  barLabel: { fontSize: 10 },
+  avgLine: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: Colors.textSub, opacity: 0.55 },
+  avgTag: { position: 'absolute', right: 0, paddingHorizontal: 4, backgroundColor: Colors.white, borderRadius: 4 },
+  avgTagTxt: { fontSize: 9, color: Colors.textSub },
+  plotLabels: { flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.xs, marginTop: 4 },
+  barLabel: { fontSize: 10, flex: 1, textAlign: 'center' },
 });
