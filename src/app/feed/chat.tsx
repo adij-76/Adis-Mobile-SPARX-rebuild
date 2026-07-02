@@ -53,12 +53,40 @@ export default function ChatThread() {
   const scrollRef = useRef<ScrollView>(null);
 
   const server = data ?? [];
-  const serverIds = new Set(server.map((m) => m.id));
-  const messages = [...server, ...pending.filter((p) => !serverIds.has(p.id))];
+  // The server assigns real ids ('m<n>') that never match our optimistic
+  // 'pending-*' ids, so we can't dedupe by id. Instead, hide an optimistic
+  // message once the server has echoed back one of MY messages with the same
+  // text — consuming each echo once so repeated identical sends still show.
+  const echoes: Record<string, number> = {};
+  server.forEach((m) => {
+    if (m.mine) echoes[m.text] = (echoes[m.text] ?? 0) + 1;
+  });
+  const visiblePending = pending.filter((p) => {
+    if (echoes[p.text] > 0) {
+      echoes[p.text] -= 1;
+      return false;
+    }
+    return true;
+  });
+  const messages = [...server, ...visiblePending];
 
-  // Clear optimistic messages once the server catches up (avoids duplicates).
+  // Once the server echoes our optimistic messages back, drop them from pending
+  // so the list stays bounded (same sender+text matching as the render filter).
   useEffect(() => {
-    if (data) setPending((p) => p.filter((m) => !serverIds.has(m.id)));
+    if (!data) return;
+    const seen: Record<string, number> = {};
+    data.forEach((m) => {
+      if (m.mine) seen[m.text] = (seen[m.text] ?? 0) + 1;
+    });
+    setPending((prev) =>
+      prev.filter((p) => {
+        if (seen[p.text] > 0) {
+          seen[p.text] -= 1;
+          return false;
+        }
+        return true;
+      }),
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
