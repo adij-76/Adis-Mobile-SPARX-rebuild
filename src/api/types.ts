@@ -101,9 +101,10 @@ export type CommunityApi = {
 /** One month's overall Wheel of Life score (for the Monthly/Annual trend views). */
 export type WheelPoint = { key: string; label: string; year: number; score: number };
 
-/** One recorded substance-use assessment: usage + AUDIT score at a point in time.
- *  Higher = more use, so the UI treats a drop as improvement. */
-export type UseTrackingPoint = { at: string; usage: number | null; audit: number | null };
+/** One day's substance-use entry from the daily assessment: how much was used
+ *  (`amount`, 0 on clean days) and whether any use happened (`used`). Higher =
+ *  more use, so the UI treats a drop as improvement. */
+export type UseTrackingPoint = { at: string; amount: number | null; used: boolean };
 
 /** A clinical/self assessment the user has completed (AUDIT, ASSIST, Quality of
  *  Life, …), with its most recent score. `score` is null for unscored ones. */

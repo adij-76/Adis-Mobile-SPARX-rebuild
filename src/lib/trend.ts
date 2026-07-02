@@ -7,7 +7,21 @@ import type { TrendPoint, TrendSeries } from '@/components/ui/metric-trend';
 
 export type DatedValue = { at: string; value: number };
 
+/** How to combine values that fall in the same bucket. `avg` = mean (rates,
+ *  %-used), `sum` = total (how much used in the period). */
+export type TrendAggregate = 'avg' | 'sum';
+
+export type BuildTrendOptions = {
+  aggregate?: TrendAggregate;
+  /** Include the per-entry "Most recent" series (off for %-style series where a
+   *  single day is just 0 or 100). */
+  includeRecent?: boolean;
+};
+
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** Round to one decimal so small real values (e.g. 1.8 uses/month) survive. */
+const round1 = (n: number) => Math.round(n * 10) / 10;
 
 /** ISO-ish week key (year + week number) for weekly bucketing. */
 function weekInfo(d: Date): { key: string; label: string } {
@@ -20,8 +34,13 @@ function weekInfo(d: Date): { key: string; label: string } {
   return { key: `${day.getUTCFullYear()}-W${String(week).padStart(2, '0')}`, label: `W${week}` };
 }
 
-/** Average the values sharing a bucket key, keep chronological order, take last N. */
-function bucket(points: DatedValue[], keyFn: (d: Date) => { key: string; label: string }, limit: number): TrendPoint[] {
+/** Combine the values sharing a bucket key, keep chronological order, take last N. */
+function bucket(
+  points: DatedValue[],
+  keyFn: (d: Date) => { key: string; label: string },
+  limit: number,
+  aggregate: TrendAggregate,
+): TrendPoint[] {
   const groups = new Map<string, { label: string; sum: number; n: number; order: number }>();
   points.forEach((p, i) => {
     const d = new Date(p.at);
@@ -39,11 +58,12 @@ function bucket(points: DatedValue[], keyFn: (d: Date) => { key: string; label: 
   return [...groups.entries()]
     .sort((a, b) => a[1].order - b[1].order)
     .slice(-limit)
-    .map(([key, g]) => ({ key, label: g.label, value: Math.round(g.sum / g.n) }));
+    .map(([key, g]) => ({ key, label: g.label, value: round1(aggregate === 'sum' ? g.sum : g.sum / g.n) }));
 }
 
 /** Build the recent/weekly/monthly/annual series from dated values (any order). */
-export function buildTrendSeries(input: DatedValue[]): TrendSeries[] {
+export function buildTrendSeries(input: DatedValue[], opts: BuildTrendOptions = {}): TrendSeries[] {
+  const { aggregate = 'avg', includeRecent = true } = opts;
   const points = [...input]
     .filter((p) => p.value != null && !isNaN(new Date(p.at).getTime()))
     .sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
@@ -51,14 +71,14 @@ export function buildTrendSeries(input: DatedValue[]): TrendSeries[] {
 
   const recent: TrendPoint[] = points.slice(-6).map((p, i) => {
     const d = new Date(p.at);
-    return { key: `${p.at}-${i}`, label: `${d.getMonth() + 1}/${d.getDate()}`, value: Math.round(p.value) };
+    return { key: `${p.at}-${i}`, label: `${d.getMonth() + 1}/${d.getDate()}`, value: round1(p.value) };
   });
-  const weekly = bucket(points, weekInfo, 8);
-  const monthly = bucket(points, (d) => ({ key: `${d.getFullYear()}-${d.getMonth()}`, label: MONTHS[d.getMonth()] }), 12);
-  const annual = bucket(points, (d) => ({ key: `${d.getFullYear()}`, label: `${d.getFullYear()}` }), 5);
+  const weekly = bucket(points, weekInfo, 8, aggregate);
+  const monthly = bucket(points, (d) => ({ key: `${d.getFullYear()}-${d.getMonth()}`, label: MONTHS[d.getMonth()] }), 12, aggregate);
+  const annual = bucket(points, (d) => ({ key: `${d.getFullYear()}`, label: `${d.getFullYear()}` }), 5, aggregate);
 
   const series: TrendSeries[] = [
-    { key: 'recent', label: 'Most recent', points: recent },
+    ...(includeRecent ? [{ key: 'recent' as const, label: 'Most recent', points: recent }] : []),
     { key: 'weekly', label: 'Weekly', points: weekly },
     { key: 'monthly', label: 'Monthly', points: monthly },
     { key: 'annual', label: 'Annual', points: annual },

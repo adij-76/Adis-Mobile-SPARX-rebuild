@@ -21,8 +21,16 @@ export default function DataScreen() {
   const wheelAreas = useAsync(() => api.insights.wheelAreas(), []).data ?? [];
   const reports = useAsync(() => api.insights.reports(), []).data ?? [];
   const useTracking = useAsync(() => api.insights.useTracking(), []).data ?? [];
-  const useSeries = buildTrendSeries(
-    useTracking.filter((p) => p.usage != null).map((p) => ({ at: p.at, value: p.usage as number })),
+  // How much: total amount used per period (0 on clean days). Sum, not average,
+  // so a couple of uses in a month don't round away to nothing.
+  const useAmountSeries = buildTrendSeries(
+    useTracking.filter((p) => p.amount != null).map((p) => ({ at: p.at, value: p.amount as number })),
+    { aggregate: 'sum' },
+  );
+  // How often: share of days with any use, as a percentage per period.
+  const daysUsedSeries = buildTrendSeries(
+    useTracking.map((p) => ({ at: p.at, value: p.used ? 100 : 0 })),
+    { aggregate: 'avg', includeRecent: false },
   );
   const assessments = useAsync(() => api.insights.assessments(), []).data ?? [];
   const scored = wheelAreas.map((c) => ({ ...c, score: c.current }));
@@ -74,16 +82,29 @@ export default function DataScreen() {
           </Card>
         </Pressable>
 
-        {/* Substance-use tracking */}
-        {useSeries.length > 0 && (
+        {/* Substance use — how much (total uses per period). */}
+        {useAmountSeries.length > 0 && (
           <Card style={{ gap: Spacing.lg }}>
             <View style={styles.cardHead}>
               <Txt variant="titleSm">Substance use</Txt>
               <Txt variant="caption" color={Colors.textSub}>
-                lower is better
+                total uses · lower is better
               </Txt>
             </View>
-            <MetricTrend series={useSeries} higherIsBetter={false} accent={Colors.primary} />
+            <MetricTrend series={useAmountSeries} higherIsBetter={false} accent={Colors.primary} />
+          </Card>
+        )}
+
+        {/* Substance use — how often (share of days with any use). */}
+        {daysUsedSeries.length > 0 && (
+          <Card style={{ gap: Spacing.lg }}>
+            <View style={styles.cardHead}>
+              <Txt variant="titleSm">Days used</Txt>
+              <Txt variant="caption" color={Colors.textSub}>
+                % of days · lower is better
+              </Txt>
+            </View>
+            <MetricTrend series={daysUsedSeries} unit="%" higherIsBetter={false} accent={Colors.primary} />
           </Card>
         )}
 

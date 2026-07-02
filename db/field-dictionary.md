@@ -58,7 +58,24 @@ is the legacy Rails source the view reads from; it never leaks past the view.
 | `mobile_modules` | `id, program_id, title, order` | `Module { id, programId, title, order }` |
 | `mobile_programs` | `id, name, active` | `Program { id, name, active }` |
 | `mobile_wheel_scores` | `month_key, label, year, score` | `WheelPoint { key, label, year, score }` |
+| `mobile_use_tracking` | `recorded_at, amount, used, usage_score` | `UseTrackingPoint { at, amount, used }` |
 | `mobile_quotes` | `id, text, author, mood` | `Quote { id, text, author, mood }` |
+
+### Substance-use tracking — source of truth ⚠️
+
+`mobile_use_tracking` reads the **daily assessment**, not the intake/overall one:
+
+- `amount` ← `daily_assessments.tracking_amount` (integer, `0` on clean days) — the
+  real per-day "how much" the user entered.
+- `used` ← `daily_assessments.tracking_used` (boolean) — whether any use happened.
+- `usage_score` is a **back-compat alias = `tracking_amount`**, kept only so the app
+  build on `main` keeps rendering while the switch deploys. Drop it once the app
+  reading `amount`/`used` has shipped.
+
+Do **NOT** use `answer_headers.usage_score` here — that's a computed *weekly index*
+(e.g. `14.328…`), never a user-entered value. It was the original (wrong) source.
+The app sums `amount` per period for the "how much" trend and averages `used` for
+the "% days used" trend (both: lower = better).
 
 ## Conventions for new fields
 
