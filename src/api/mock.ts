@@ -148,12 +148,16 @@ export const mockAuth: AuthApi = {
   updateAvatar: (dataUrl) => delay(dataUrl),
 };
 
-// A few months of a gently-declining usage trend for offline/dev.
-const mockUseTracking = Array.from({ length: 8 }, (_, i) => ({
-  at: new Date(2026, i, 15).toISOString(),
-  usage: Math.max(4, 30 - i * 3),
-  audit: Math.max(0, 8 - i),
-}));
+// A few months of daily entries for offline/dev — mostly clean days with the
+// occasional 1-2 uses, gently declining over time.
+const mockUseTracking = Array.from({ length: 90 }, (_, i) => {
+  const used = i % 7 === 0 || i % 11 === 0; // sparse use days
+  return {
+    at: new Date(2026, 3, 1 + i).toISOString(),
+    amount: used ? ((i % 3) + 1) : 0,
+    used,
+  };
+});
 
 export const mockInsights: InsightsApi = {
   wheelHistory: (anchor) => delay(wheelHistory(anchor?.current ?? 71, anchor?.last ?? 67)),

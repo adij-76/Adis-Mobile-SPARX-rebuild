@@ -160,19 +160,27 @@ create view mobile_recommended_videos as
 
 grant select on mobile_recommended_videos to authenticated;
 
--- Substance-use tracking — the recurring usage assessment writes a row per
--- attempt to answer_headers with a usage_score (and audit_score). Email-scoped;
--- the app buckets these into recent / weekly / monthly / annual trends. Higher
--- score = more use, so the client treats a DROP as improvement.
-create or replace view mobile_use_tracking as
-  select ah.id,
-         coalesce(ah.complete_date, ah.start_date, ah.created_at) as recorded_at,
-         ah.usage_score,
-         ah.audit_score
-  from public.answer_headers ah
-  join public.users u on u.id = ah.user_id
+-- Substance-use tracking — the REAL per-day "did you use / how much" entry lives
+-- on daily_assessments (tracking_used bool, tracking_amount int; amount is 0 on
+-- clean days). We surface the raw per-day amount + used flag; the app buckets
+-- these into recent / weekly / monthly / annual and sums per period. Higher =
+-- more use, so the client treats a DROP as improvement.
+--
+-- Earlier this view exposed answer_headers.usage_score — a computed *weekly index*
+-- (e.g. 14.328…), not something a user ever entered. That was the wrong source.
+-- `usage_score` is kept here as a back-compat alias (= tracking_amount) so the app
+-- build currently on main keeps rendering a number across the switch. See
+-- db/field-dictionary.md.
+drop view if exists mobile_use_tracking;   -- source + column set changed
+create view mobile_use_tracking as
+  select da.id,
+         da.created_at                     as recorded_at,
+         da.tracking_amount                as amount,
+         coalesce(da.tracking_used, false) as used,
+         da.tracking_amount                as usage_score  -- back-compat alias
+  from public.daily_assessments da
+  join public.users u on u.id = da.user_id
   where lower(u.email) = lower(auth.jwt() ->> 'email')
-    and ah.usage_score is not null
   order by recorded_at;
 
 grant select on mobile_use_tracking to authenticated;

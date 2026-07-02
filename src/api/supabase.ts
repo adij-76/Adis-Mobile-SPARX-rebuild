@@ -344,10 +344,21 @@ export const supabaseInsights: InsightsApi = {
     }
   },
   async useTracking() {
-    type Row = { recorded_at: string; usage_score: number | null; audit_score: number | null };
+    // amount/used are the real daily entry; usage_score is the back-compat alias
+    // (= amount) so this still works if the view hasn't been updated yet.
+    type Row = {
+      recorded_at: string;
+      amount: number | null;
+      used: boolean | null;
+      usage_score: number | null;
+    };
     try {
-      const rows = await rest<Row[]>('mobile_use_tracking', { order: 'recorded_at.asc', limit: '400' });
-      return rows.map((r) => ({ at: r.recorded_at, usage: r.usage_score, audit: r.audit_score }));
+      const rows = await rest<Row[]>('mobile_use_tracking', { order: 'recorded_at.asc', limit: '3000' });
+      return rows.map((r) => ({
+        at: r.recorded_at,
+        amount: r.amount ?? r.usage_score,
+        used: !!r.used,
+      }));
     } catch {
       return [];
     }
