@@ -75,7 +75,16 @@ Derived from `db/views.sql` and `src/api/supabase.ts`:
   the SOAP workflow already produces structured, QA'd notes. The engine reads
   the assessment/plan narratives + `summary_tags` + `a_risk` (never raw
   transcripts or quotes) for the 5 most recent notes.
-- **The treatment plan is the top-priority signal.** Only clinician-APPROVED
+- **Every signal always flows in; priority is conditional, not exclusive.**
+  Check-ins (app + legacy assessments), the Wheel of Life, and lesson history
+  are ranked for every user on every run. Two explicit prompt rules govern
+  the edges: **acute-state override** — a crisis-level or heavy-slip check-in
+  outranks the treatment plan, steering that run toward stabilising,
+  shame-free content first; and **missing data is neutral** — empty notes or
+  an empty plan (client hasn't done 1:1/group sessions) is treated as "no
+  information", never as a negative signal, and never reduces pick count or
+  quality.
+- **The treatment plan is the top-priority signal (when present).** Only clinician-APPROVED
   items (`status_id in (254183, 254184)`), latest per goal code, resolved via
   the same `get_or_create_ai_treatment_plan_id(user_id)` function the
   Treatment Plan workflow uses. Recommendations are prompted to *serve the
