@@ -11,6 +11,7 @@ import {
   mockCommunity,
   mockContent,
   mockFavorites,
+  mockGame,
   mockGroups,
   mockInsights,
   mockMeetings,
@@ -23,6 +24,7 @@ import {
   supabaseCommunity,
   supabaseContent,
   supabaseFavorites,
+  supabaseGame,
   supabaseGroups,
   supabaseInsights,
   supabaseMeetings,
@@ -45,6 +47,7 @@ export const api: Api = {
   checkins: useSupabase ? supabaseCheckins : mockCheckins,
   messages: useSupabase ? supabaseMessages : mockMessages,
   groups: useSupabase ? supabaseGroups : mockGroups,
+  game: useSupabase ? supabaseGame : mockGame,
 };
 
 export { setSupabaseToken, setOnUnauthorized } from '@/api/supabase';
