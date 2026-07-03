@@ -59,16 +59,40 @@ const ID_MAP: Record<string, string> = {
 
 const FALLBACK = { verb: 'engage in your compulsive behavior', noun: 'compulsive behavior' };
 
-/** Returns the verb/noun pair for the given addiction label (case-insensitive).
- *  Accepts the addictions.title text ("Alcohol") or the raw integer id ("45"). */
-export function addictionStruggle(label: string | number | null | undefined): { verb: string; noun: string } {
-  if (label == null || label === '') return FALLBACK;
+/** Addiction categories that are BEHAVIORAL (a count of times), as opposed to
+ *  substance use (an amount). Everything else in MAP is a substance. Used to
+ *  phrase the check-in's usage question ("How much?" vs "How many times?"). */
+const BEHAVIORAL_KEYS = new Set([
+  'gambling',
+  'sex',
+  'porn',
+  'pornography',
+  'food',
+  'eating',
+  'shopping',
+  'gaming',
+  'social media',
+  'work',
+  'codependency',
+]);
+
+export type AddictionKind = 'substance' | 'behavioral';
+
+/** Returns the verb/noun pair + kind for the given addiction label
+ *  (case-insensitive). Accepts the addictions.title text ("Alcohol") or the raw
+ *  integer id ("45"). `kind` distinguishes substance use (amount) from a
+ *  behavioral addiction (count of times); an unknown label defaults to
+ *  behavioral (the generic "compulsive behavior"). */
+export function addictionStruggle(
+  label: string | number | null | undefined,
+): { verb: string; noun: string; kind: AddictionKind } {
+  if (label == null || label === '') return { ...FALLBACK, kind: 'behavioral' };
   // Resolve numeric IDs (integer FK from public.users.addiction) to title text.
   const resolved = ID_MAP[String(label)] ?? String(label);
   const key = resolved.toLowerCase().trim();
-  if (MAP[key]) return MAP[key];
-  for (const [k, v] of Object.entries(MAP)) {
-    if (key.includes(k)) return v;
+  const matchKey = MAP[key] ? key : Object.keys(MAP).find((k) => key.includes(k));
+  if (matchKey) {
+    return { ...MAP[matchKey], kind: BEHAVIORAL_KEYS.has(matchKey) ? 'behavioral' : 'substance' };
   }
-  return FALLBACK;
+  return { ...FALLBACK, kind: 'behavioral' };
 }
