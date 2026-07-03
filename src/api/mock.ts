@@ -97,7 +97,19 @@ export const mockContent: ContentApi = {
   videosByIds: (ids) => delay(recommendedVideos.filter((v) => ids.includes(v.id))),
   quotes: () => delay(quotes),
   challenges: () => delay(challenges),
+  markVideoWatched: (videoId, _appUserId, percent) => {
+    const id = String(videoId);
+    const pct = Math.max(0, Math.min(100, Math.round(percent)));
+    mockWatched.set(id, Math.max(mockWatched.get(id) ?? 0, pct)); // keep furthest
+    return delay(undefined);
+  },
+  // Only completed videos (≥95%) count as watched for the checklist.
+  watchedVideoIds: () =>
+    delay([...mockWatched.entries()].filter(([, p]) => p >= 95).map(([id]) => id)),
 };
+
+// In-memory watch progress for the mock adapter (video id → furthest percent).
+const mockWatched = new Map<string, number>();
 
 const nameFromEmail = (email: string) =>
   email

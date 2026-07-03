@@ -28,6 +28,7 @@ import {
 } from '@/data/content';
 import { api } from '@/api';
 import { recordCheckin, type CheckinResult } from '@/lib/checkin';
+import { type StreakMilestone } from '@/lib/streaks';
 import { useAsync } from '@/hooks/use-async';
 import { useAuth, useFirstName } from '@/lib/auth';
 import { addictionStruggle } from '@/lib/addiction';
@@ -37,11 +38,12 @@ const TOTAL = 5;
 
 export default function CheckinScreen() {
   const router = useRouter();
-  const { addCheckin, checkins } = useStore();
+  const { addCheckin, checkins, creditStreak } = useStore();
   const { user: authUser } = useAuth();
   const struggle = addictionStruggle(authUser?.addictionLabel);
   const [step, setStep] = useState(0);
   const [result, setResult] = useState<CheckinResult | null>(null);
+  const [milestone, setMilestone] = useState<ReturnType<typeof creditStreak> | null>(null);
   const [showSummary, setShowSummary] = useState(false);
 
   // answers
@@ -69,6 +71,8 @@ export default function CheckinScreen() {
     api.checkins.save(entry, authUser?.appUserId ?? null).catch(() => {});
     // Streak from the real history (today + all hydrated check-in dates).
     const r = await recordCheckin(checkins.map((c) => c.date));
+    // Credit any streak milestones newly reached today (badge + chunky bonus).
+    setMilestone(creditStreak());
     setResult(r);
   };
 
@@ -95,7 +99,9 @@ export default function CheckinScreen() {
   }
 
   if (result) {
-    return <Acknowledgement result={result} onDone={() => setShowSummary(true)} />;
+    return (
+      <Acknowledgement result={result} milestone={milestone} onDone={() => setShowSummary(true)} />
+    );
   }
 
   return (
@@ -348,7 +354,16 @@ function EmotionPicker({
   );
 }
 
-function Acknowledgement({ result, onDone }: { result: CheckinResult; onDone: () => void }) {
+function Acknowledgement({
+  result,
+  milestone,
+  onDone,
+}: {
+  result: CheckinResult;
+  milestone: { milestones: StreakMilestone[]; bonus: number } | null;
+  onDone: () => void;
+}) {
+  const badge = milestone?.milestones.at(-1) ?? null; // the highest reached today
   return (
     <View style={styles.ackRoot}>
       <Confetti />
@@ -384,13 +399,26 @@ function Acknowledgement({ result, onDone }: { result: CheckinResult; onDone: ()
             </View>
           </View>
 
-          {result.streak < 7 ? (
+          {badge ? (
+            <View style={styles.milestone}>
+              <Txt variant="titleSm" color={Colors.white} center>
+                {badge.emoji} {badge.label} streak milestone!
+              </Txt>
+              <Txt variant="bodySm" color={Colors.tealLight} center style={{ marginTop: 2 }}>
+                Badge unlocked · +{milestone?.bonus} bonus points
+              </Txt>
+            </View>
+          ) : result.streak < 7 ? (
             <Txt variant="bodySm" color={Colors.tealLight} center style={{ marginTop: Spacing.lg }}>
-              Keep it going — a 7-day streak earns 10 points a day!
+              Keep it going — a 7-day streak earns a 1.5× points boost!
+            </Txt>
+          ) : result.streak < 14 ? (
+            <Txt variant="bodySm" color={Colors.tealLight} center style={{ marginTop: Spacing.lg }}>
+              🔥 1.5× points active. Hit 14 days for the full 2× boost.
             </Txt>
           ) : (
             <Txt variant="bodySm" color={Colors.tealLight} center style={{ marginTop: Spacing.lg }}>
-              You&apos;re maxing your streak bonus. Incredible consistency. 🌟
+              You&apos;re at the 2× points boost. Incredible consistency. 🌟
             </Txt>
           )}
 
@@ -678,6 +706,14 @@ const styles = StyleSheet.create({
   },
   reward: { alignItems: 'center' },
   rewardDivider: { width: 1, height: 40, backgroundColor: 'rgba(255,255,255,0.2)' },
+  milestone: {
+    marginTop: Spacing.lg,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: Radius.lg,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    alignSelf: 'stretch',
+  },
   ackButtonWrap: { marginTop: Spacing.xxl, width: '100%', maxWidth: 280, alignSelf: 'center' },
   // check-in summary
   summaryBody: { padding: Spacing.lg, gap: Spacing.lg },

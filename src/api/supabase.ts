@@ -353,6 +353,41 @@ export const supabaseContent: ContentApi = {
   async challenges() {
     return challenges;
   },
+  // Record watch progress (app-owned mobile_video_watches) via the
+  // mobile_record_watch RPC, which upserts on (auth_uid, video_id) keeping the
+  // MAX percent — a partial re-watch never lowers a higher recorded value.
+  async markVideoWatched(videoId, appUserId, percent) {
+    const idNum = Number(appUserId);
+    const pct = Math.max(0, Math.min(100, Math.round(percent)));
+    const res = await fetch(`${BASE}/rest/v1/rpc/mobile_record_watch`, {
+      method: 'POST',
+      headers: {
+        apikey: ANON,
+        Authorization: `Bearer ${authToken ?? ANON}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({
+        p_video_id: String(videoId),
+        p_percent: pct,
+        p_app_user_id: Number.isFinite(idNum) ? idNum : null,
+      }),
+    });
+    if (!res.ok) throw new Error(`Video watch save failed (${res.status})`);
+  },
+  async watchedVideoIds() {
+    try {
+      // Only completed videos (≥95%) tick the checklist; partial progress is
+      // stored but doesn't count as watched here.
+      const rows = await rest<{ video_id: string }[]>('mobile_video_watches', {
+        select: 'video_id',
+        percent: 'gte.95',
+      });
+      return rows.map((r) => String(r.video_id));
+    } catch {
+      return [];
+    }
+  },
 };
 
 export const supabaseMeetings: MeetingsApi = {

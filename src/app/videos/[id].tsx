@@ -5,11 +5,13 @@ import { ActivityIndicator, Platform, Pressable, ScrollView, Share, StyleSheet, 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { api } from '@/api';
+import { Confetti } from '@/components/confetti';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { VideoPlayerModal } from '@/components/video-player-modal';
 import { VideoThumbnail } from '@/components/video-thumbnail';
 import { Colors, Radius, Spacing } from '@/constants/theme';
+import { useCurrentAuthor } from '@/lib/auth';
 import { DEMO_VIDEO_URL } from '@/data/content';
 import { useAsync } from '@/hooks/use-async';
 import { useStore } from '@/lib/store';
@@ -24,15 +26,38 @@ export default function VideoDetail() {
   const byId = useAsync(() => (id ? api.content.videosByIds([id]) : Promise.resolve([])), [id]).data ?? [];
   const video = recommendedVideos.find((v) => v.id === id) ?? byId[0] ?? recommendedVideos[0];
 
-  const { isFav, toggleFav, markVideoWatched } = useStore();
+  const { isFav, toggleFav, markVideoWatched, isVideoWatched, awardVideoProgress } = useStore();
+  const { appUserId } = useCurrentAuthor();
   const [liked, setLiked] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const [celebrate, setCelebrate] = useState(false);
+  const [earned, setEarned] = useState(0); // points banked this video
 
-  // Web: mark watched when the player reports the video ended (onEnded below).
-  // Native: the fallback opens an external browser we can't observe, so mark it
-  // watched on open instead.
+  // Advance the video's furthest-watched to `percent`: bank streak-scaled points
+  // for any new tier crossed (local) and persist the percent (server, best-effort).
+  const progressTo = (percent: number) => {
+    if (!video) return;
+    const pts = awardVideoProgress(video.id, percent);
+    if (pts > 0) setEarned((e) => e + pts);
+    api.content.markVideoWatched(video.id, appUserId, percent).catch(() => {});
+  };
+
+  // Finished: tick the checklist (local), bank points up to 100%, and celebrate
+  // the first time it's completed (not on a re-watch).
+  const complete = () => {
+    if (!video) return;
+    const firstTime = !isVideoWatched(video.id);
+    markVideoWatched(video.id);
+    progressTo(100);
+    if (firstTime) setCelebrate(true);
+  };
+
+  // Web: starting the video banks the first point; milestones + completion are
+  // reported by the player (onProgress/onEnded below). Native: the fallback opens
+  // an external browser we can't observe, so count it complete on open.
   const play = () => {
-    if (Platform.OS !== 'web' && video) markVideoWatched(video.id);
+    if (Platform.OS === 'web') progressTo(1);
+    else complete();
     setPlaying(true);
   };
 
@@ -139,8 +164,40 @@ export default function VideoDetail() {
       <VideoPlayerModal
         video={playing ? { url: playUrl, title: video.title, thumbnail: video.image } : null}
         onClose={() => setPlaying(false)}
-        onEnded={() => markVideoWatched(video.id)}
+        onEnded={complete}
+        onProgress={progressTo}
       />
+
+      {celebrate && (
+        <>
+          <Confetti count={70} />
+          <Pressable style={styles.celebrate} onPress={() => setCelebrate(false)}>
+            <View style={styles.celebrateCard}>
+              <Ionicons name="checkmark-circle" size={34} color={Colors.success} />
+              <Txt variant="titleSm" style={{ textAlign: 'center' }}>
+                Video complete!
+              </Txt>
+              {earned > 0 && (
+                <View style={styles.pointsPill}>
+                  <Ionicons name="star" size={15} color={Colors.star} />
+                  <Txt variant="bodySmBold" color={Colors.primaryDark}>
+                    +{earned} {earned === 1 ? 'point' : 'points'}
+                  </Txt>
+                </View>
+              )}
+              <Txt variant="bodySm" color={Colors.textSub} style={{ textAlign: 'center' }}>
+                Nice work — this is checked off your program. Keep your streak up to
+                earn more per video.
+              </Txt>
+              <View style={styles.celebrateBtn}>
+                <Txt variant="bodySmBold" color={Colors.white}>
+                  Keep going
+                </Txt>
+              </View>
+            </View>
+          </Pressable>
+        </>
+      )}
     </SafeAreaView>
   );
 }
@@ -178,4 +235,40 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', gap: Spacing.md, alignItems: 'center' },
   moreRow: { flexDirection: 'row', gap: Spacing.md, alignItems: 'center' },
   moreThumb: { width: 110, height: 70, borderRadius: Radius.sm, backgroundColor: Colors.soft },
+  celebrate: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(10,13,20,0.45)',
+    padding: Spacing.xl,
+  },
+  celebrateCard: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: Colors.white,
+    borderRadius: Radius.lg,
+    padding: Spacing.xl,
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  pointsPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.soft,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderRadius: Radius.pill,
+  },
+  celebrateBtn: {
+    marginTop: Spacing.sm,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.md,
+  },
 });
