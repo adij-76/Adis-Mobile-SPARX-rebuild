@@ -1,0 +1,301 @@
+{
+  "name": "Recommendation Engine",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=# Recommendation Agent Prompt\n\nProvide timely, emotionally resonant suggestions (videos, lessons, or group events) based on the user's current needs or conversation context—used only when the main agent deems it appropriate.\n\n## 🗂️ Data Inputs\n* `tool:video_library` → vectorized table containing videos with summary, short descriptions, and URLs.\n* `tool:lesson_library` → contains lessons with:\n  * title\n  * description\n  * video_url (must be an embedded link)\n  * worksheet_url (link to accompanying worksheet)\n* `tool:upcoming_events` → call this tool to get current group sessions with names, topics, time/day, and optional details.\n\n## 💡 Your Job\n* You don't speak directly to the user.\n* You return a short and emotionally attuned suggestion the main agent can weave naturally into conversation.\n* Prioritize IGNTD's tone, methods, and relevance to the user's state.\n* Be gentle, warm, and motivating.\n* **CRITICAL**: All videos and lessons MUST be linked directly with the provided URLs using exact titles in markdown.\n* Always provide the exact title that is provided when recommending.\n\n## 🎯 Output Format\nReturn up to 2 suggestions total. Choose from:\n* One video\n* One lesson  \n* One group event\n* Or a natural pairing of 2 different types (e.g., one lesson + one group event)\n\n**Format:**\n\n**Video Suggestion:**\n```\n[Exact Title]: [1-sentence emotional, conversational summary of why this is relevant]\n[Video URL]\n```\n\n**Lesson Suggestion:**\n```\n[Exact Title]: [1-sentence emotional, conversational summary of why this lesson may help]\nVideo: [Video URL]\nWorksheet: [Worksheet URL]\n```\n\n**Group Suggestion:**\n```\n[Group Name]: [Day, Time] – [1-sentence context for why it may help]\n```\n\n## ✨ If nothing is a good fit, respond:\n```\nNo relevant suggestion at this time.\n```\n\n## 🧭 Selection Criteria\n* **Relevance over quantity** – Suggest only what directly relates to the user's current emotions, goals, or questions.\n* **Tone-matching** – Align phrasing with IGNTD's voice: warm, supportive, empowering.\n* **No repeats** – Never recommend the same video or lesson twice in a session (unless specifically requested).\n* **Avoid clinical phrasing** – Focus on motivation, growth, and emotional resonance.\n* **Search strategy** – Always search video and lesson libraries first, then consider if group events would add value.\n\n## ✅ Examples\n\n**Scenario 1: User feeling anxious, overwhelmed**\n\nVideo Suggestion:\n```\nHow to Reset When You're Spinning Out: A short video on calming your nervous system when everything feels like too much.\nhttps://igntd.com/video/reset-spinning-out\n```\n\nLesson Suggestion:\n```\nFinding Calm in Chaos: A guided lesson to help ground yourself when life feels overwhelming.\nVideo: https://igntd.com/lesson/calm-chaos-video\nWorksheet: https://igntd.com/worksheet/calm-chaos.pdf\n```\n\n**Scenario 2: User asks for help but isn't specific**\n\nLesson Suggestion:\n```\nStuck but Want to Move Forward: A lesson designed to help you reconnect with motivation and start small steps forward.\nVideo: https://igntd.com/lesson/momentum-video\nWorksheet: https://igntd.com/worksheet/momentum.pdf\n```\n\nGroup Suggestion:\n```\nEvening Wind-Down Group: Wednesdays at 8pm – Great if you're looking for shared space to reflect and recharge.\n```\n\n## ❌ Avoid These Formats\n* Missing URLs: \"Check out the Reset video\" \n* Vague titles: \"That anxiety lesson\"\n* Non-embedded links: \"Here's a link: https://example.com\"\n* Generic descriptions: \"This might help\"\n\n## 🔄 Process Steps\n1. **Assess user context** – What are they struggling with emotionally?\n2. **Search relevant tools based on user needs:**\n   - **Always search `video_library`** for relevant videos\n   - **Always search `lesson_library`** for relevant lessons  \n   - **Call `upcoming_events`** if group support would be beneficial\n3. **Select best matches** – Choose 1-2 most relevant resources from your searches\n4. **Craft response** – Use exact titles, embed URLs, write emotionally resonant descriptions\n5. **Verify** – Ensure all suggested resources include proper URLs and exact titles",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.8,
+      "position": [
+        384,
+        0
+      ],
+      "id": "b084023e-b793-47b5-8d9b-93800f50e1e6",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "chat-latest",
+          "mode": "list",
+          "cachedResultName": "chat-latest"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        192,
+        224
+      ],
+      "id": "17dec061-146d-4f59-8544-5f7c7957663e",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "42PJb5TBKvC0IGmD",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "e22f49e1-2790-4834-89b5-77464d84fc56",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "model": "text-embedding-3-large",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        560,
+        432
+      ],
+      "id": "a43e12da-fa8f-49e8-9863-6879e9a6bf0a",
+      "name": "Embeddings OpenAI1",
+      "credentials": {
+        "openAiApi": {
+          "id": "42PJb5TBKvC0IGmD",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "text-embedding-3-large",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        848,
+        432
+      ],
+      "id": "13b8ec85-81e3-49b4-87cc-3feb30a72c10",
+      "name": "Embeddings OpenAI",
+      "credentials": {
+        "openAiApi": {
+          "id": "42PJb5TBKvC0IGmD",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolName": "video_library",
+        "toolDescription": "A vector database containing summarized transcripts, topics, and metadata for all videos.  \nUse this tool to recommend videos, find related clips, or retrieve content that matches the user’s current question or conversation context.  \nIdeal for situations where the user is asking for a video on a specific topic, looking for similar videos, or needs a recommendation based on their interests or prior messages.",
+        "tableName": "=snippet_vectors",
+        "options": {
+          "columnNames": {
+            "values": {
+              "contentColumnName": "ai_summary",
+              "metadataColumnName": "meta_data"
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePGVector",
+      "typeVersion": 1,
+      "position": [
+        480,
+        224
+      ],
+      "id": "5cce8c54-12b3-4160-9932-08feecd151d1",
+      "name": "Video_Library",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolName": "lesson_library",
+        "toolDescription": "A vector database containing summarized transcripts, topics, and metadata for all videos.  \nUse this tool to recommend videos, find related clips, or retrieve content that matches the user’s current question or conversation context.  \nIdeal for situations where the user is asking for a video on a specific topic, looking for similar videos, or needs a recommendation based on their interests or prior messages.",
+        "tableName": "=lessons_vectors",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePGVector",
+      "typeVersion": 1,
+      "position": [
+        768,
+        224
+      ],
+      "id": "e67d087b-649d-43b1-84ba-83c41b49e33e",
+      "name": "Lesson_Library",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "sds_groups",
+          "mode": "list",
+          "cachedResultName": "sds_groups"
+        },
+        "where": {
+          "values": [
+            {
+              "column": "active",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {
+          "outputColumns": [
+            "title",
+            "coach",
+            "meet_day",
+            "meet_time_char",
+            "meet_length_char",
+            "description",
+            "join_url"
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.5,
+      "position": [
+        352,
+        224
+      ],
+      "id": "d1cdb42d-fa4d-4ddd-b19e-fc08dadb91a3",
+      "name": "Upcoming_Events",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "AI Agent": {
+      "main": [
+        []
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI1": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Video_Library",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Lesson_Library",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Video_Library": {
+      "ai_vectorStore": [
+        []
+      ],
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lesson_Library": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upcoming_Events": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "06fb4988-ab17-4857-b2af-a39edef79190",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c4b298009b5b41f8b263357298a8611fdac884d785e3435c590e16943d468aac"
+  },
+  "nodeGroups": [],
+  "id": "IW5vDhQrNWwx9f2A",
+  "tags": []
+}

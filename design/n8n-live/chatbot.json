@@ -1,0 +1,2612 @@
+{
+  "name": "chatbot",
+  "nodes": [
+    {
+      "parameters": {
+        "public": true,
+        "mode": "webhook",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -176,
+        -784
+      ],
+      "id": "974751b6-1a35-43eb-9a85-eab5c5eb20bb",
+      "name": "When chat message received",
+      "webhookId": "379d0b07-747b-4c3e-bbb5-6413b5620288"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=user_message: {{$('Consolidate Data').first().json.body.message  }}\n{{ $('Markdown - User Main').first().json.user_prompt }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "={{ $('Markdown - System Main').first().json.system_prompt }}\n\nUser Context:\n{{ $json.user_context }}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.8,
+      "position": [
+        3632,
+        -784
+      ],
+      "id": "2f92fb16-da8e-4fe7-8758-12c76a7c5ee3",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5.4",
+          "mode": "list",
+          "cachedResultName": "gpt-5.4"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        3536,
+        -560
+      ],
+      "id": "777aaab4-773d-425c-aafc-a2e393851ea2",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "42PJb5TBKvC0IGmD",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Consolidate Data').first().json.body.sessionId }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [
+        3664,
+        -560
+      ],
+      "id": "347e3891-59e9-4492-8b05-aa02cbe4aca1",
+      "name": "Postgres Chat Memory",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ai_chat_responses",
+          "mode": "list",
+          "cachedResultName": "ai_chat_responses"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "user_input": "={{ $('Consolidate Data').first().json.body.message }}",
+            "ai_output": "={{ $('AI Agent').first().json.output.message }}",
+            "user_id": "={{ $('Consolidate Data').first().json.body.userId }}",
+            "session_id": "={{ $('Consolidate Data').item.json.body.sessionId }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ai_prompt_id",
+              "displayName": "ai_prompt_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "user_input",
+              "displayName": "user_input",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ai_output",
+              "displayName": "ai_output",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "grading_id",
+              "displayName": "grading_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "grading_reason",
+              "displayName": "grading_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "session_id",
+              "displayName": "session_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        7536,
+        -784
+      ],
+      "id": "71791fd9-6790-4485-aa1b-a52e7562062f",
+      "name": "AI Chat Responses",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        7088,
+        -880
+      ],
+      "id": "fe7303dc-d8c8-46b1-ba74-6709f4755780",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        4160,
+        -144
+      ],
+      "id": "8fe49bb3-aefb-47c0-8e3b-12806764429d",
+      "name": "Embeddings OpenAI",
+      "credentials": {
+        "openAiApi": {
+          "id": "42PJb5TBKvC0IGmD",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolName": "video_library",
+        "toolDescription": "A vector database containing summarized transcripts, topics, and metadata for all videos.  \nUse this tool to recommend videos, find related clips, or retrieve content that matches the user’s current question or conversation context.  \nIdeal for situations where the user is asking for a video on a specific topic, looking for similar videos, or needs a recommendation based on their interests or prior messages.",
+        "tableName": "=snippet_vectors",
+        "options": {
+          "columnNames": {
+            "values": {
+              "contentColumnName": "ai_summary",
+              "metadataColumnName": "meta_data"
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePGVector",
+      "typeVersion": 1,
+      "position": [
+        3792,
+        -352
+      ],
+      "id": "9a9bc524-1f09-4eb6-91d7-1eed91e9cabc",
+      "name": "Video_Library",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolName": "lesson_library",
+        "toolDescription": "=A vector database containing summarized transcripts, topics, and metadata for all videos.  \nUse this tool to recommend videos, find related clips, or retrieve content that matches the user’s current question or conversation context.  \nIdeal for situations where the user is asking for a video on a specific topic, looking for similar videos, or needs a recommendation based on their interests or prior messages.",
+        "tableName": "=lessons_vectors",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePGVector",
+      "typeVersion": 1,
+      "position": [
+        4080,
+        -352
+      ],
+      "id": "b984cd95-26e0-40a9-967c-cf0482c60cca",
+      "name": "Lesson_Library",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "sds_groups",
+          "mode": "list",
+          "cachedResultName": "sds_groups"
+        },
+        "where": {
+          "values": [
+            {
+              "column": "active",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {
+          "outputColumns": [
+            "title",
+            "coach",
+            "meet_day",
+            "meet_time_char",
+            "meet_length_char",
+            "description",
+            "join_url"
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.5,
+      "position": [
+        4368,
+        -352
+      ],
+      "id": "ea95d7ee-280d-451a-ae6c-08d779a973db",
+      "name": "Upcoming_Events",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        3536,
+        -352
+      ],
+      "id": "5cb0252a-cf45-4661-88a5-de3ef0681c31",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "42PJb5TBKvC0IGmD",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        3872,
+        -144
+      ],
+      "id": "2a55e70e-e6ee-44da-a7a8-439a2b7dce16",
+      "name": "Embeddings OpenAI2",
+      "credentials": {
+        "openAiApi": {
+          "id": "42PJb5TBKvC0IGmD",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        4704,
+        -144
+      ],
+      "id": "507631d2-4c37-4ad7-a714-9308f7e1c896",
+      "name": "Embeddings OpenAI1",
+      "credentials": {
+        "openAiApi": {
+          "id": "42PJb5TBKvC0IGmD",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        4992,
+        -144
+      ],
+      "id": "50611437-0742-4d05-acf5-99206c502670",
+      "name": "Embeddings OpenAI4",
+      "credentials": {
+        "openAiApi": {
+          "id": "42PJb5TBKvC0IGmD",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolName": "book_data",
+        "toolDescription": "this provides the ai with a database of previous responses, including the best ways to handle different situations ",
+        "tableName": "ai_documents",
+        "options": {
+          "columnNames": {
+            "values": {
+              "contentColumnName": "content",
+              "metadataColumnName": "meta_data"
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePGVector",
+      "typeVersion": 1,
+      "position": [
+        4624,
+        -352
+      ],
+      "id": "7b00ea99-d193-43de-aaf6-23875c291bef",
+      "name": "book_data",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolName": "conversational_segments",
+        "toolDescription": "this provides the ai with a database of previous responses, including the best ways to handle different situations ",
+        "tableName": "conversational_segments_vectors",
+        "topK": 10,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePGVector",
+      "typeVersion": 1,
+      "position": [
+        4912,
+        -352
+      ],
+      "id": "cc55edd2-4025-4453-80f0-fa4ca927ae18",
+      "name": "conversational_segments",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Call this tool to provide recommendations",
+        "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Prompt__User_Message_', ``, 'string') }}",
+        "options": {
+          "systemMessage": "={{ $('Markdown - System Reccomendation').item.json.system_prompt }}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 2.2,
+      "position": [
+        3792,
+        -560
+      ],
+      "id": "cc1f8568-187f-44bb-b32d-abd62725cace",
+      "name": "recommendation_engine_agent"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Call this tool to get information about the program and background information about best practices",
+        "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Prompt__User_Message_', ``, 'string') }}",
+        "options": {
+          "systemMessage": "={{ $('Markdown - System Program Data').item.json.system_prompt }}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agentTool",
+      "typeVersion": 2.2,
+      "position": [
+        4656,
+        -560
+      ],
+      "id": "24b0da2b-a228-44d2-9fec-b720c2b5cdb3",
+      "name": "program_data_agent"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "380bcfd0-caf8-4333-b9e7-783f363daf01",
+        "responseMode": "lastNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        48,
+        -592
+      ],
+      "id": "5b06e635-3e50-49b8-8bff-0c876e136c7a",
+      "name": "Webhook",
+      "webhookId": "380bcfd0-caf8-4333-b9e7-783f363daf01"
+    },
+    {
+      "parameters": {
+        "text": "={{ $('Consolidate Data').item.json.body.message }}",
+        "guardrails": {
+          "custom": {
+            "guardrail": [
+              {
+                "name": "crisis_detection",
+                "threshold": 0.5,
+                "prompt": "=Analyze this message for crisis indicators:\n- Active suicidal ideation (plans, means, timeline)\n- Self-harm intent (cutting, overdose, etc.)\n- Intent to harm others\n- Psychotic break indicators\n\nReturn JSON:\n{\n  \"crisis_detected\": boolean,\n  \"severity\": \"none\" | \"moderate\" | \"severe\",\n  \"type\": \"self_harm\" | \"harm_to_others\" | \"suicidal\" | \"psychotic\" | null,\n  \"reasoning\": \"brief explanation\"\n}"
+              }
+            ]
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.guardrails",
+      "typeVersion": 2,
+      "position": [
+        2288,
+        -688
+      ],
+      "id": "fb15c36f-23be-4674-ab2e-b50b173ecf43",
+      "name": "Guardrails"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5.4-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-5.4-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        2368,
+        -464
+      ],
+      "id": "6fe32ad1-8bd0-49ab-bff3-b24e63189f35",
+      "name": "OpenAI Chat Model2",
+      "credentials": {
+        "openAiApi": {
+          "id": "42PJb5TBKvC0IGmD",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        3088,
+        -592
+      ],
+      "id": "5fcd504b-8128-4882-91ad-839e254958ec",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C09ND542Z7B",
+          "mode": "list",
+          "cachedResultName": "alerts-coaching-sessions"
+        },
+        "messageType": "block",
+        "blocksUi": "={\n  \"blocks\": [\n    {\n      \"type\": \"section\",\n      \"text\": {\n        \"type\": \"mrkdwn\",\n        \"text\": \"<!here> 🚨 *Crisis Alert*\\n\\n*User:* {{ $('Consolidate Data').item.json.body.userId }} \\n\\n*Message:*\\n> {{  $('Consolidate Data').item.json.body.message}}\\n*Date & Time:*\\n> {{ $('Consolidate Data').item.json.body.timestamp }}\"\n\n      }\n    }\n  ]\n}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        2640,
+        -592
+      ],
+      "id": "6111290a-fdb4-4904-a07c-66ca860245ec",
+      "name": "Send a message",
+      "webhookId": "23b9af1a-7aed-4364-80c4-72830eaeb4d9",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "oCRXdeOac57drZOT",
+          "name": "Sparxy Slack"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9beb1f02-b397-4a76-82d0-d41224e8145f",
+              "name": "output",
+              "value": "=I hear you, and I want you to know that what you're sharing matters. This is beyond what I'm able to support you with right now, but you don't have to navigate this alone.\nPlease reach out to your coach directly - they want to hear from you, especially in moments like this. I've also notified them that you may need support.\nIf you need to talk to someone right now:\n\n988 (Suicide & Crisis Lifeline - call or text)\nCrisis Text Line - text HOME to 741741\n\nI'm still here if you want to talk, but please do reach out to your coach or one of these lines. You deserve real human support right now.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2864,
+        -592
+      ],
+      "id": "a12f4ebe-7cfe-4210-a40a-a05941e2bc66",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"message\": \"Got it. I've sent your check-in to Dr. Hoffman. They'll follow up with you.\",\n  \"phase\": \"handoff\",\n  \"question_used\": \"Q9\",\n  \"tools_used\": [],\n  \"coach_summary\": {\n    \"urgency\": \"elevated\",\n    \"summary\": \"User checked in around cravings that have intensified over the past week, rating current intensity at 8/10. Situation appears tied to an ongoing conflict with their brother, which the user says is unresolved.\",\n    \"key_details\": \"User described 'a huge fight with my brother on Tuesday' that hasn't been addressed since. Craving intensity: 8/10. Timeline: active/ongoing. No prior similar episode mentioned in this check-in period.\",\n    \"patterns\": \"Interpersonal conflict has appeared as a trigger in 2 of the last 4 check-ins. Wheel of Life 'Relationships' score has been stuck at 3 across the last 3 assessments — the brother situation may be a contributing factor.\",\n    \"user_request\": \"Wants coach to help them figure out whether to reach out to their brother or wait it out.\",\n    \"context_flags\": [\"cannabis_focus\", \"relationships_stuck_low\", \"craving_intensity_high\", \"interpersonal_trigger\"]\n  }\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        4944,
+        -560
+      ],
+      "id": "783d3430-b316-4354-868b-ea1122b45c1c",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "de3418d1-d14f-4382-badf-862686459014",
+              "name": "output",
+              "value": "={{ $('AI Agent').item.json.output.message }}",
+              "type": "string"
+            },
+            {
+              "id": "9c850b88-2897-4854-9e66-c3d978260135",
+              "name": "",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        6864,
+        -880
+      ],
+      "id": "3131509e-cf72-4712-916f-aeef6be7ae83",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Consolidate Data').first().json.body.sessionId }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [
+        4496,
+        -352
+      ],
+      "id": "918ad270-fc94-40da-b362-4e056c1ff87f",
+      "name": "Postgres Chat Memory2",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select u.fullname,first_name,last_name,email\nfrom sds_users u join sds_user_supports s on u.id=s.sds_user_id\nwhere s.user_id={{ $('Consolidate Data').item.json.body.userId || 0 }}\norder by s.insert_date desc\nlimit 1",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2640,
+        -784
+      ],
+      "id": "33056c84-3179-4361-b659-b54b185aaf36",
+      "name": "Recent_coaches",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select da.user_id, da.id as assessment_id, da.i_am  ,\nmax(case when e2.is_negative =true then name end) as \"negative\",\nmax(case when (e2.is_negative =false or e2.is_negative is null)  then name end) as \"positive\",\nscore,\nscore_avg,\nscore_stddev,\nsc.title as addiction\n  \nfrom daily_assessments da\ninner join public.users us on us.id = da.user_id\njoin public.daily_assessment_emotions e on da.id=e.daily_assessment_id\njoin emotions e2 on e.emotion_id =e2.id\nleft join vdbm_user_daily_stats ds on  da.user_id = ds.user_id\njoin addictions sc on us.addiction_id =sc.id\nwhere da.user_id={{  $('Consolidate Data').item.json.body.userId|| 0 }}\ngroup by da.id, score_avg,score_stddev,us.first_name,da.user_id,sc.title\n\nlimit 5",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2864,
+        -784
+      ],
+      "id": "8643f35d-6e51-4376-b2cb-a4fb9dec8426",
+      "name": "Checkin_Data",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n Code Node: Summarize User Context with Trends\n// References nodes by name — no input order dependency\n\nconst coaches = $('Recent_coaches').all().map(i => i.json);\n  const checkins = $('Checkin_Data').all().map(i => i.json);\nconst wol = $('wol_data').all().map(i => i.json);\n\n// --- Coach ---\nconst coachLine = coaches.length > 0\n  ? `Coach: ${coaches[0].first_name} ${coaches[0].last_name} (${coaches[0].email})`\n  : \"Coach: Not assigned\";\n\n// --- Check-in Timeline ---\nlet checkinBlock = \"Recent check-ins: No data available\";\nif (checkins.length > 0) {\n  const addiction = checkins[0].addiction || \"Not specified\";\n  const avg = parseFloat(checkins[0].score_avg).toFixed(1);\n  const stddev = parseFloat(checkins[0].score_stddev).toFixed(1);\n\n  const timeline = checkins.slice(0, 10).map((c, i) => {\n    const parts = [];\n    if (c.score !== null && c.score !== undefined) parts.push(`Score: ${c.score}`);\n    if (c.i_am) parts.push(`\"${c.i_am}\"`);\n    if (c.positive) parts.push(`+${c.positive}`);\n    if (c.negative) parts.push(`-${c.negative}`);\n    const label = i === 0 ? \"(most recent)\" : \"\";\n    return `  ${i + 1}. ${parts.join(\" | \")} ${label}`;\n  });\n\n  const scores = checkins\n    .slice(0, 10)\n    .map(c => c.score)\n    .filter(s => s !== null && s !== undefined);\n\n  let trajectory = \"\";\n  if (scores.length >= 2) {\n    const recent = scores.slice(0, Math.min(3, scores.length));\n    const older = scores.slice(Math.min(3, scores.length));\n    const recentAvg = recent.reduce((a, b) => a + b, 0) / recent.length;\n    const olderAvg = older.length > 0\n      ? older.reduce((a, b) => a + b, 0) / older.length\n      : null;\n\n    if (olderAvg !== null) {\n      const diff = recentAvg - olderAvg;\n      if (diff > 5) trajectory = \"Trend: Improving ↑\";\n      else if (diff < -5) trajectory = \"Trend: Declining ↓\";\n      else trajectory = \"Trend: Stable →\";\n    }\n  }\n\n  checkinBlock = [\n    `Addiction focus: ${addiction}`,\n    `Overall avg: ${avg} (stddev: ${stddev})`,\n    trajectory,\n    `Check-in history (newest first):`,\n    ...timeline\n  ].filter(Boolean).join(\"\\n\");\n}\n\n// --- Wheel of Life Timeline ---\nlet wolBlock = \"Wheel of Life: No data available\";\nif (wol.length > 0) {\n  const wolFields = [\n    \"purpose\", \"contribution\", \"business\", \"finance\",\n    \"health\", \"family_friends\", \"romance\",\n    \"personal_growth\", \"fun_recreation\", \"physical_environment\"\n  ];\n\n  const formatLabel = (f) => f.replace(/_/g, \" \");\n\n  // Deduplicate by score_date\n  const seen = new Set();\n  const uniqueWol = wol.filter(w => {\n    const key = w.score_date;\n    if (seen.has(key)) return false;\n    seen.add(key);\n    return true;\n  });\n\n  const assessments = uniqueWol.slice(0, 6).map((entry, i) => {\n    const date = entry.score_date\n      ? new Date(entry.score_date).toLocaleDateString()\n      : \"Unknown\";\n\n    const scores = wolFields\n      .filter(f => entry[f] !== null && entry[f] !== undefined)\n      .map(f => `${formatLabel(f)}: ${entry[f]}`)\n      .join(\", \");\n\n    const label = i === 0 ? \"(most recent)\" : \"\";\n    return `  ${date} ${label}\\n    ${scores}`;\n  });\n\n  // Trend: compare latest vs oldest\n  let trendSummary = \"\";\n  if (uniqueWol.length >= 2) {\n    const latest = uniqueWol[0];\n    const oldest = uniqueWol[uniqueWol.length - 1];\n\n    const improving = [];\n    const declining = [];\n    const stable = [];\n\n    wolFields.forEach(f => {\n      if (latest[f] == null || oldest[f] == null) return;\n      const diff = latest[f] - oldest[f];\n      const label = formatLabel(f);\n      if (diff >= 2) improving.push(`${label} (+${diff})`);\n      else if (diff <= -2) declining.push(`${label} (${diff})`);\n      else if (latest[f] <= 4) stable.push(`${label} (stuck at ${latest[f]})`);\n    });\n\n    const trendParts = [];\n    if (improving.length) trendParts.push(`Improving: ${improving.join(\", \")}`);\n    if (declining.length) trendParts.push(`Declining: ${declining.join(\", \")}`);\n    if (stable.length) trendParts.push(`Stuck low: ${stable.join(\", \")}`);\n\n    if (trendParts.length) {\n      trendSummary = `Overall trends:\\n  ${trendParts.join(\"\\n  \")}`;\n    }\n  }\n\n  const latest = uniqueWol[0];\n  const scored = wolFields\n    .filter(f => latest[f] !== null && latest[f] !== undefined)\n    .map(f => ({ field: formatLabel(f), score: latest[f] }));\n\n  const highs = scored.filter(s => s.score >= 8).map(s => s.field);\n  const lows = scored.filter(s => s.score <= 5).map(s => `${s.field} (${s.score})`);\n\n  wolBlock = [\n    `Wheel of Life assessments (newest first):`,\n    ...assessments,\n    \"\",\n    highs.length > 0 ? `Current strengths (8+): ${highs.join(\", \")}` : \"\",\n    lows.length > 0 ? `Current concerns (≤5): ${lows.join(\", \")}` : \"\",\n    trendSummary\n  ].filter(Boolean).join(\"\\n\");\n}\n\n// --- Assemble ---\nconst contextBlock = `## User Context\n${coachLine}\n\n### Check-in History\n${checkinBlock}\n\n### Life Balance (Wheel of Life)\n${wolBlock}`;\n\nreturn [{ json: { user_context: contextBlock } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3312,
+        -784
+      ],
+      "id": "cbedc597-6a0c-4aeb-a955-8b939d3a878a",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "v_wol",
+          "mode": "list",
+          "cachedResultName": "v_wol"
+        },
+        "limit": 12,
+        "where": {
+          "values": [
+            {
+              "column": "user_id",
+              "value": "={{ $('Consolidate Data').item.json.body.userId || 0 }}"
+            }
+          ]
+        },
+        "sort": {
+          "values": [
+            {
+              "column": "score_date",
+              "direction": "DESC"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        3088,
+        -784
+      ],
+      "id": "e1bf0a32-86c6-4a30-b6dd-7cd948bc07e6",
+      "name": "wol_data",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=user_message:\n{{ $('Consolidate Data').item.json.body.message }}\n\nsparky_output:\n{{ $('AI Agent').item.json.output.message }}\n\nuser_context:{{ $('Code in JavaScript').item.json.user_context }}\n```\n{{ $('Markdown2').item.json.user_prompt || \"\"}}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "={{ $json.system_prompt }}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        6256,
+        -1008
+      ],
+      "id": "77eb6164-7414-412c-b2cb-9e9082c7e397",
+      "name": "AI Agent1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0c5e8077-9c41-4e24-ac2c-c71b20205519",
+              "name": "body.message",
+              "value": "={{ $json.body.message }}",
+              "type": "string"
+            },
+            {
+              "id": "c09f19bb-6eb2-4209-b99e-c1117c388f24",
+              "name": "body.userId",
+              "value": "={{ $json.body.userId }}",
+              "type": "string"
+            },
+            {
+              "id": "730630a6-2f16-4373-8e7d-7ae442feb5c0",
+              "name": "body.timestamp",
+              "value": "={{ $json.body.timestamp || $now }}",
+              "type": "string"
+            },
+            {
+              "id": "d4491c94-552b-439c-808e-d40ac10db5b1",
+              "name": "body.sessionId",
+              "value": "={{ $json.body.sessionId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        272,
+        -688
+      ],
+      "id": "10cc6868-7a22-491c-bb4c-9136f82d43d8",
+      "name": "Consolidate Data"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "42fc808d-cbf0-48ab-8955-1837e68ca8df",
+              "name": "body.message",
+              "value": "={{ $json.chatInput }}",
+              "type": "string"
+            },
+            {
+              "id": "4c2dacf2-0df1-442c-83e4-787ee93cd615",
+              "name": "body.userId",
+              "value": "11",
+              "type": "string"
+            },
+            {
+              "id": "5b7b953c-8e5d-4a87-a2f8-a00e1e7fac23",
+              "name": "body.sessionId",
+              "value": "={{ $json.sessionId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        48,
+        -784
+      ],
+      "id": "f4c82f7a-4117-4ef2-b08b-677e2edd6ec0",
+      "name": "Set Fields to Match"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b247f37a-7b37-42ae-8e19-6405edfe0f50",
+              "leftValue": "={{ $('AI Agent').item.json.output.coach_summary }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        7312,
+        -880
+      ],
+      "id": "316f8947-f521-4206-9828-ed6159e7b55d",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C09ND542Z7B",
+          "mode": "list",
+          "cachedResultName": "alerts-coaching-sessions"
+        },
+        "text": "=New Chatbot Summary\n\nUser ID: {{ $('Consolidate Data').item.json.body.userId }}\nSummary: {{ $('AI Agent').item.json.output.coach_summary.summary }}\nKey Details: {{ $('AI Agent').item.json.output.coach_summary.key_details }}\nPatterns: {{ $('AI Agent').item.json.output.coach_summary.patterns }}\nUser Request: {{ $('AI Agent').item.json.output.coach_summary.user_request }}\nContext Flags: {{ $('AI Agent').item.json.output.coach_summary.context_flags }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        7760,
+        -976
+      ],
+      "id": "b6623b30-50e3-489a-acdc-7f09047a08d3",
+      "name": "Send a message1",
+      "webhookId": "23b9af1a-7aed-4364-80c4-72830eaeb4d9",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "oCRXdeOac57drZOT",
+          "name": "Sparxy Slack"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "3b449823-9927-479b-baa1-87e3fcbce76b",
+              "leftValue": "={{ $json.output.coach_alert.required }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        6640,
+        -784
+      ],
+      "id": "f586f1bc-aee5-434e-9583-782789eeb48f",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"decision\": \"flag\",\n  \"failure_mode\": \"inappropriate_content\",\n  \"reasoning\": \"Sparky's follow-up included a slight reframe ('it sounds like you're finding ways to cope') that edges toward coping advice. Low risk but worth logging.\",\n  \"send_to_user\": \"Got it. Is this something that's been building over the past few days, or is it more of an ongoing thing?\",\n  \"coach_alert\": {\n    \"required\": true,\n    \"urgency\": \"routine\",\n    \"note\": \"Sparky's response included a mild reframe that could be read as coping advice: 'it sounds like you're finding ways to cope.' Message delivered to user. Flagged for review.\"\n  }\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        6432,
+        -560
+      ],
+      "id": "ebe51243-eda7-475e-8f43-5219b0745f54",
+      "name": "Structured Output Parser1"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        7312,
+        -592
+      ],
+      "id": "b231c969-756b-453f-8f24-5b16ce6d53d5",
+      "name": "Respond to Webhook2"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "de3418d1-d14f-4382-badf-862686459014",
+              "name": "output",
+              "value": "={{ $('If1').item.json.output.send_to_user }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        7088,
+        -592
+      ],
+      "id": "4ea46640-8c7b-4fbf-a0f9-2b3701085f6b",
+      "name": "Edit Fields2"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C09ND542Z7B",
+          "mode": "list",
+          "cachedResultName": "alerts-coaching-sessions"
+        },
+        "text": "=Chatbot Alert\n\nAI Detected that outgoing message was questionable\n\nSuggested Message: {{ $('AI Agent').item.json.output.message }}\n\nReason For Block: {{ $json.output.reasoning }}\n\nMessage Sent: {{ $json.output.send_to_user }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        6864,
+        -592
+      ],
+      "id": "52112de7-2e5a-431e-80b5-f5efb72997fe",
+      "name": "Send a message2",
+      "webhookId": "23b9af1a-7aed-4364-80c4-72830eaeb4d9",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "oCRXdeOac57drZOT",
+          "name": "Sparxy Slack"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ai_chat_responses",
+          "mode": "list",
+          "cachedResultName": "ai_chat_responses"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "user_input": "={{ $('Consolidate Data').first().json.body.message }}",
+            "ai_output": "={{ $('AI Agent').first().json.output.message }}",
+            "user_id": "={{ $('Consolidate Data').first().json.body.userId }}",
+            "session_id": "={{ $('Consolidate Data').item.json.body.sessionId }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ai_prompt_id",
+              "displayName": "ai_prompt_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "user_input",
+              "displayName": "user_input",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ai_output",
+              "displayName": "ai_output",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "grading_id",
+              "displayName": "grading_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "grading_reason",
+              "displayName": "grading_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "session_id",
+              "displayName": "session_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        7536,
+        -976
+      ],
+      "id": "7b76b132-83c7-4762-9a36-f8202ae8a303",
+      "name": "AI Chat Responses1",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Consolidate Data').first().json.body.sessionId }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        6304,
+        -560
+      ],
+      "id": "e4d4539b-9b7a-4c37-bc8b-550a334f6e82",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "claude-sonnet-4-6",
+          "mode": "list",
+          "cachedResultName": "Claude Sonnet 4.6"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        6176,
+        -560
+      ],
+      "id": "abf3c721-dd45-4686-bb10-b7102a5725ad",
+      "name": "Anthropic Chat Model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "tlo72FLNRyFfz17m",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Consolidate Data').first().json.body.sessionId }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [
+        3664,
+        -352
+      ],
+      "id": "5785952e-a95c-4da3-93d7-19ec9cf44c54",
+      "name": "Postgres Chat Memory1",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ai_prompts",
+          "mode": "list",
+          "cachedResultName": "ai_prompts"
+        },
+        "limit": 1,
+        "where": {
+          "values": [
+            {
+              "column": "status_id",
+              "value": "247191"
+            },
+            {
+              "column": "category_id",
+              "value": "255020"
+            },
+            {
+              "column": "role_id",
+              "value": "247168"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        5280,
+        -784
+      ],
+      "id": "32cfbe8f-ad1e-42cb-a83f-115beb426f7c",
+      "name": "User Prompt1",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "html": "={{ $json.ai_prompt || \"\"}}",
+        "destinationKey": "user_prompt",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.markdown",
+      "typeVersion": 1,
+      "position": [
+        5504,
+        -784
+      ],
+      "id": "5b53a361-b91b-4684-9924-19cdc88c5b1b",
+      "name": "Markdown2",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "html": "={{ $json.ai_prompt }}",
+        "destinationKey": "system_prompt",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.markdown",
+      "typeVersion": 1,
+      "position": [
+        5952,
+        -784
+      ],
+      "id": "748107ff-4d2c-4a0e-ab5c-2f650bff3879",
+      "name": "Markdown3"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ai_prompts",
+          "mode": "list",
+          "cachedResultName": "ai_prompts"
+        },
+        "limit": 1,
+        "where": {
+          "values": [
+            {
+              "column": "status_id",
+              "value": "247191"
+            },
+            {
+              "column": "category_id",
+              "value": "255020"
+            },
+            {
+              "column": "role_id",
+              "value": "247167"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        5728,
+        -784
+      ],
+      "id": "5355b58f-73c4-4fd3-a26a-91b6faca9814",
+      "name": "System Prompt Safety",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "user_alerts",
+          "mode": "list",
+          "cachedResultName": "user_alerts"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "user_id": "={{ $('Consolidate Data').first().json.body.userId }}",
+            "alert_id": 255028,
+            "status_id": 222841
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "source_id",
+              "displayName": "source_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "alert_id",
+              "displayName": "alert_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status_id",
+              "displayName": "status_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sds_user_id",
+              "displayName": "sds_user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "insert_date",
+              "displayName": "insert_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "assessment_date",
+              "displayName": "assessment_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "notification_sent",
+              "displayName": "notification_sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "notes",
+              "displayName": "notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        3312,
+        -592
+      ],
+      "id": "ac79fc3d-9fb0-4b31-9fb1-b6b359fff6b1",
+      "name": "Insert rows in a table",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "user_alerts",
+          "mode": "list",
+          "cachedResultName": "user_alerts"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "user_id": "={{ $('Consolidate Data').first().json.body.userId }}",
+            "alert_id": 255028,
+            "status_id": 222841
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "source_id",
+              "displayName": "source_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "alert_id",
+              "displayName": "alert_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status_id",
+              "displayName": "status_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sds_user_id",
+              "displayName": "sds_user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "insert_date",
+              "displayName": "insert_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "assessment_date",
+              "displayName": "assessment_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "notification_sent",
+              "displayName": "notification_sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "notes",
+              "displayName": "notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        7536,
+        -592
+      ],
+      "id": "de925128-682f-4531-9c93-3e3ea60b89e3",
+      "name": "Insert rows in a table1",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ai_prompts",
+          "mode": "list",
+          "cachedResultName": "ai_prompts"
+        },
+        "limit": 1,
+        "where": {
+          "values": [
+            {
+              "column": "status_id",
+              "value": "247191"
+            },
+            {
+              "column": "category_id",
+              "value": "254436"
+            },
+            {
+              "column": "role_id",
+              "value": "247168"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        496,
+        -688
+      ],
+      "id": "be745558-b237-448f-a7a0-83daec13a1b2",
+      "name": "User Prompt Main",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ai_prompts",
+          "mode": "list",
+          "cachedResultName": "ai_prompts"
+        },
+        "limit": 1,
+        "where": {
+          "values": [
+            {
+              "column": "status_id",
+              "value": "247191"
+            },
+            {
+              "column": "category_id",
+              "value": "254436"
+            },
+            {
+              "column": "role_id",
+              "value": "247167"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        944,
+        -688
+      ],
+      "id": "057cff3f-2a8d-4b57-8679-84bd991037db",
+      "name": "System Prompt Main",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "html": "={{ $json.ai_prompt }}",
+        "destinationKey": "system_prompt",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.markdown",
+      "typeVersion": 1,
+      "position": [
+        1168,
+        -688
+      ],
+      "id": "1ae6b7ee-031a-4edb-8c8a-54010be171a4",
+      "name": "Markdown - System Main"
+    },
+    {
+      "parameters": {
+        "html": "={{ $json.ai_prompt }}",
+        "destinationKey": "user_prompt",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.markdown",
+      "typeVersion": 1,
+      "position": [
+        720,
+        -688
+      ],
+      "id": "e33e7cee-bd0e-4377-ac2e-7d989b7cfafa",
+      "name": "Markdown - User Main"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ai_prompts",
+          "mode": "list",
+          "cachedResultName": "ai_prompts"
+        },
+        "limit": 1,
+        "where": {
+          "values": [
+            {
+              "column": "status_id",
+              "value": "247191"
+            },
+            {
+              "column": "category_id",
+              "value": "255066"
+            },
+            {
+              "column": "role_id",
+              "value": "247167"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1392,
+        -688
+      ],
+      "id": "1b175630-a807-4271-840d-81cf8e64d92c",
+      "name": "System Prompt Reccomendation",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "html": "={{ $json.ai_prompt }}",
+        "destinationKey": "system_prompt",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.markdown",
+      "typeVersion": 1,
+      "position": [
+        1616,
+        -688
+      ],
+      "id": "ebc1afe4-b566-44b4-8656-9b5b512c5d1c",
+      "name": "Markdown - System Reccomendation"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ai_prompts",
+          "mode": "list",
+          "cachedResultName": "ai_prompts"
+        },
+        "limit": 1,
+        "where": {
+          "values": [
+            {
+              "column": "status_id",
+              "value": "247191"
+            },
+            {
+              "column": "category_id",
+              "value": "255067"
+            },
+            {
+              "column": "role_id",
+              "value": "247167"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1840,
+        -688
+      ],
+      "id": "c5524abb-3101-418a-910d-0766a355d413",
+      "name": "System Prompt Program Data",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "html": "={{ $json.ai_prompt }}",
+        "destinationKey": "system_prompt",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.markdown",
+      "typeVersion": 1,
+      "position": [
+        2064,
+        -688
+      ],
+      "id": "08f9d521-9b9a-4790-b9f2-83ffdd07a94c",
+      "name": "Markdown - System Program Data"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Set Fields to Match",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "User Prompt1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Lesson_Library",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Video_Library": {
+      "ai_tool": [
+        [
+          {
+            "node": "recommendation_engine_agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lesson_Library": {
+      "ai_tool": [
+        [
+          {
+            "node": "recommendation_engine_agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upcoming_Events": {
+      "ai_tool": [
+        [
+          {
+            "node": "recommendation_engine_agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "recommendation_engine_agent",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "program_data_agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI2": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Video_Library",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI1": {
+      "ai_embedding": [
+        [
+          {
+            "node": "book_data",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI4": {
+      "ai_embedding": [
+        [
+          {
+            "node": "conversational_segments",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "book_data": {
+      "ai_tool": [
+        [
+          {
+            "node": "program_data_agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "conversational_segments": {
+      "ai_tool": [
+        [
+          {
+            "node": "program_data_agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "recommendation_engine_agent": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "program_data_agent": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Consolidate Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardrails": {
+      "main": [
+        [
+          {
+            "node": "Recent_coaches",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Guardrails",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres Chat Memory2": {
+      "ai_memory": [
+        [
+          {
+            "node": "program_data_agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Checkin_Data": {
+      "main": [
+        [
+          {
+            "node": "wol_data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recent_coaches": {
+      "main": [
+        [
+          {
+            "node": "Checkin_Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "wol_data": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent1": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consolidate Data": {
+      "main": [
+        [
+          {
+            "node": "User Prompt Main",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Fields to Match": {
+      "main": [
+        [
+          {
+            "node": "Consolidate Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "AI Chat Responses1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Chat Responses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a message2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser1": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields2": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message2": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message1": {
+      "main": [
+        []
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres Chat Memory1": {
+      "ai_memory": [
+        [
+          {
+            "node": "recommendation_engine_agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "User Prompt1": {
+      "main": [
+        [
+          {
+            "node": "Markdown2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Markdown2": {
+      "main": [
+        [
+          {
+            "node": "System Prompt Safety",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Markdown3": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "System Prompt Safety": {
+      "main": [
+        [
+          {
+            "node": "Markdown3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook1": {
+      "main": [
+        [
+          {
+            "node": "Insert rows in a table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook2": {
+      "main": [
+        [
+          {
+            "node": "Insert rows in a table1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "User Prompt Main": {
+      "main": [
+        [
+          {
+            "node": "Markdown - User Main",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "System Prompt Main": {
+      "main": [
+        [
+          {
+            "node": "Markdown - System Main",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Markdown - System Main": {
+      "main": [
+        [
+          {
+            "node": "System Prompt Reccomendation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Markdown - User Main": {
+      "main": [
+        [
+          {
+            "node": "System Prompt Main",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "System Prompt Reccomendation": {
+      "main": [
+        [
+          {
+            "node": "Markdown - System Reccomendation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Markdown - System Reccomendation": {
+      "main": [
+        [
+          {
+            "node": "System Prompt Program Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "System Prompt Program Data": {
+      "main": [
+        [
+          {
+            "node": "Markdown - System Program Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Markdown - System Program Data": {
+      "main": [
+        [
+          {
+            "node": "Guardrails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Chat Responses1": {
+      "main": [
+        [
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "uMI7G3OY2E3ubceI",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "8a1408c4-1b7c-4368-a3dc-acb2b2cdabb2",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c4b298009b5b41f8b263357298a8611fdac884d785e3435c590e16943d468aac"
+  },
+  "nodeGroups": [],
+  "id": "eoVLvCMKPFyyuFGo",
+  "tags": []
+}
