@@ -45,12 +45,16 @@ long-streak user or a bonus day would distort who actually did the most work. Th
 leaderboard functions count reward/watch *events*, not multiplied points, so this
 holds by construction; keep it that way when wiring a points board.
 
-### Pre-cutover vs cutover
-Production is read-only until cutover, so these points/badges accrue **app-side**
-(store: `videoPoints`, `streakBonusPoints`, `streakBadges`). At cutover they
-reconcile into the real `user_points` / `user_rewards` ledger (see the migration
-catalogue). A live points *leaderboard* before cutover needs the streak multiplier
-computed server-side — deliberately deferred.
+### Pre-cutover vs cutover — where the data lives
+Production is read-only until cutover, so points/badges accrue **app-side** — but
+they are **persisted durably**, not just on-device. The store mirrors them to the
+app-owned `mobile_game_state` table (`db/game-state.sql`): hydrated on auth,
+pushed on every change, MAX-merged server-side so a stale/offline write can never
+lower a total and progress survives reinstall + follows the user across devices.
+At cutover they reconcile into the real `user_points` / `user_rewards` ledger (see
+the migration catalogue — dedupe watch points against any `watched_video` reward
+already emitted from `mobile_video_watches`). A live points *leaderboard* before
+cutover needs the streak multiplier computed server-side — deliberately deferred.
 
 ## Research-backed roadmap (recovery-population aware)
 

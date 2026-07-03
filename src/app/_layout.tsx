@@ -48,8 +48,9 @@ function Splash() {
 
 function Shell() {
   const { isDesktop } = useBreakpoint();
-  const { status } = useAuth();
-  const { mergeRemoteCheckins, hydrateFavorites, hydrateWatched } = useStore();
+  const { status, user } = useAuth();
+  const { mergeRemoteCheckins, hydrateFavorites, hydrateWatched, hydrateGameState, gameState } =
+    useStore();
   const segments = useSegments();
   const router = useRouter();
   const onLogin = segments[0] === 'login';
@@ -91,11 +92,27 @@ function Shell() {
         if (active && ids.length) hydrateWatched(ids);
       })
       .catch(() => {});
+    // Hydrate durable gamification state (video points, streak bonuses, badges).
+    api.game
+      .get()
+      .then((g) => {
+        if (active && g) hydrateGameState(g);
+      })
+      .catch(() => {});
     return () => {
       active = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
+
+  // Persist gamification state whenever it changes (best-effort). The backend
+  // MAX-merges, so a stale/offline write can never lower points or badge counts.
+  const gameSig = JSON.stringify(gameState);
+  useEffect(() => {
+    if (status !== 'authed') return;
+    api.game.save(gameState, user?.appUserId ?? null).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, gameSig, user?.appUserId]);
 
   const stack = (
     <Stack screenOptions={{ headerShown: false }}>

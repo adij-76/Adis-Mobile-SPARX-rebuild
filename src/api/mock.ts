@@ -25,6 +25,8 @@ import type {
   CommunityApi,
   ContentApi,
   DirectoryUser,
+  GameApi,
+  GameState,
   Group,
   GroupsApi,
   InsightsApi,
@@ -411,6 +413,35 @@ export const mockGroups: GroupsApi = {
   setSignup: (groupId, on) => {
     if (on) mockSignups.add(groupId);
     else mockSignups.delete(groupId);
+    return delay(undefined);
+  },
+};
+
+let mockGameState: GameState | null = null;
+
+export const mockGame: GameApi = {
+  get: () => delay(mockGameState),
+  save: (state) => {
+    // Mirror the backend's MAX-merge so the mock behaves like production.
+    const prev = mockGameState;
+    const badges: Record<string, number> = { ...(prev?.streakBadges ?? {}) };
+    for (const [k, v] of Object.entries(state.streakBadges ?? {})) {
+      badges[k] = Math.max(badges[k] ?? 0, v);
+    }
+    const newerRun =
+      !!state.streakRunStart && (!prev?.streakRunStart || state.streakRunStart > prev.streakRunStart);
+    mockGameState = {
+      videoPoints: Math.max(prev?.videoPoints ?? 0, state.videoPoints),
+      streakBonusPoints: Math.max(prev?.streakBonusPoints ?? 0, state.streakBonusPoints),
+      streakCreditedDays: newerRun
+        ? state.streakCreditedDays
+        : Math.max(prev?.streakCreditedDays ?? 0, state.streakCreditedDays),
+      streakRunStart:
+        (prev?.streakRunStart ?? '') > (state.streakRunStart ?? '')
+          ? prev?.streakRunStart ?? null
+          : state.streakRunStart,
+      streakBadges: badges,
+    };
     return delay(undefined);
   },
 };

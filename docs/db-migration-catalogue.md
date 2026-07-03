@@ -27,6 +27,7 @@ Two groups: **(i) app-owned tables** (create first), then **(ii) views + functio
 | 5 | `db/chat.sql` | Chat (conversation model): helpers `mobile_uid()` / `mobile_is_member()` / `mobile_blocked_in()`; app-owned `mobile_conversations`, `mobile_conversation_members`, `mobile_messages`, `mobile_blocks` (RLS); RPCs `mobile_start_direct()` / `mobile_start_group()`; read views `mobile_directory`, `mobile_threads`, `mobile_thread_messages`. A 1:1 DM is a 2-member, non-group conversation. | ✅ |
 | 6 | `db/groups.sql` | Meetings: app-owned `mobile_group_signups` (RLS) + read view `mobile_groups` over `sds_groups` — role-gated via `subscription_role_groups`, coach via `sds_user_id`→`users`, weekly schedule from `meet_day`/`meet_time_char` (anchor tz America/Los_Angeles). `join_url` only for signed-up members; coach `start_url` never exposed. | ✅ |
 | 6b | `db/video-watches.sql` | Video progress: app-owned `mobile_video_watches` (RLS) — one row per (user, video) with `percent` (furthest watched, 0-100); ≥95% counts as complete so the checklist ticks off across devices. RPC `mobile_record_watch(video_id, percent, app_user_id)` upserts keeping the MAX percent. Reconciles to a `watched_video` reward + points (percent enables a progress/points board). | ✅ |
+| 6c | `db/game-state.sql` | Durable app-side gamification state: app-owned `mobile_game_state` (RLS, one row per user) — `video_points`, `streak_bonus_points`, `streak_credited_days`+`streak_run_start`, `streak_badges` (jsonb). Helper `mobile_jsonb_max_merge`; RPC `mobile_save_game_state(...)` upserts MAX-merging every total so concurrent/offline writes never lower a value. Survives reinstall + crosses devices; reconciles to `user_points`/`user_rewards` at cutover. | ✅ |
 
 **(ii) Read views + functions — run after the tables**
 
@@ -56,6 +57,7 @@ production tables leaves them untouched.
 - `mobile_blocks` — one-directional block list ("X can't DM me")
 - `mobile_group_signups` — who signed up for which `sds_groups` coaching group
 - `mobile_video_watches` — video watch progress (one row per user/video, furthest `percent`; drives checklist completion + progress rewards)
+- `mobile_game_state` — durable app-side gamification totals (video points, streak bonus points, streak badges) — one row per user, MAX-merged
 - `mobile_favorites` — bookmark toggles (kind/item_id, `active` tombstones un-saves)
 - *(legacy, unused)* `mobile_dm_conversations` / `mobile_dm_messages` — superseded by `mobile_messages`
 - *(future)* notification read-state
@@ -77,7 +79,7 @@ and retires the app-owned tables. Each carries keys back to the real FKs.
 | `mobile_blocks` | *(prod block table TBD)* | `blocker_id`, `blocked_id`, `active` — map to the production block/mute mechanism at cutover |
 | `mobile_group_signups` | *(prod: `sds_group_subscribers`?)* | `app_user_id`→`user_id`, `sds_group_id`; reconcile to the prod group-membership/attendance mechanism |
 | `mobile_video_watches` | `user_rewards` + `user_points` | `app_user_id`→`user_id`, `video_id`→`Snippet`; award points per non-linear tier reached (`src/lib/video-points.ts`: started/50%/finished = 1/2/3 base × streak multiplier ×1/×1.5/×2), `percent≥95` also emits a `watched_video` reward. Dedupe on (user, video). Pre-cutover these points live app-side (store `videoPoints`); at cutover materialize into `user_points` |
-| *(app-local, no DB table yet)* streak badges + milestone bonuses | `user_rewards` + `user_points` | Store `streakBadges` / `streakBonusPoints` are **device-local** (AsyncStorage), not server-persisted — they don't cross devices or survive reinstall. At cutover, re-derive from `daily_assessments` streak history (badges are deterministic from streak runs) and emit milestone-bonus `user_points`. If cross-device durability is wanted sooner, add a `mobile_streak_state` table (documented here when it lands). Rules/values: `src/lib/streaks.ts`, `docs/gamification.md` |
+| `mobile_game_state` | `user_points` (+ optional `user_rewards`) | One row per user. `app_user_id`→`user_id`; `video_points` + `streak_bonus_points` → emit `user_points` (dedupe against any `watched_video` reward points already emitted from `mobile_video_watches` so watch points aren't double-counted); `streak_badges` → optional milestone `user_rewards`. Point rules/values: `src/lib/video-points.ts`, `src/lib/streaks.ts`, `docs/gamification.md` |
 | `mobile_favorites` | `favorites` | `app_user_id`→`user_id`, `kind`+`item_id`→polymorphic `favoritable_type`/`favoritable_id` (`lesson`→`Lesson`, `video`→`Snippet`); `active=false` removes the prod favorite |
 
 **Read-only at cutover (no reconciliation):** the leaderboard functions

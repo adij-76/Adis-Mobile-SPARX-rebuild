@@ -18,6 +18,8 @@ import type {
   ContentApi,
   DirectoryUser,
   FavoritesApi,
+  GameApi,
+  GameState,
   Group,
   GroupsApi,
   InsightsApi,
@@ -1245,5 +1247,56 @@ export const supabaseAuth: AuthApi = {
       body: JSON.stringify({ data: { avatar_url: publicUrl } }),
     }).catch(() => {});
     return publicUrl;
+  },
+};
+
+type GameStateRow = {
+  video_points: number;
+  streak_bonus_points: number;
+  streak_credited_days: number;
+  streak_run_start: string | null;
+  streak_badges: Record<string, number> | null;
+};
+
+export const supabaseGame: GameApi = {
+  async get() {
+    try {
+      const rows = await rest<GameStateRow[]>('mobile_game_state', {
+        select: 'video_points,streak_bonus_points,streak_credited_days,streak_run_start,streak_badges',
+        limit: '1',
+      });
+      const r = rows[0];
+      if (!r) return null;
+      return {
+        videoPoints: r.video_points ?? 0,
+        streakBonusPoints: r.streak_bonus_points ?? 0,
+        streakCreditedDays: r.streak_credited_days ?? 0,
+        streakRunStart: r.streak_run_start ?? null,
+        streakBadges: r.streak_badges ?? {},
+      } satisfies GameState;
+    } catch {
+      return null;
+    }
+  },
+  async save(state, appUserId) {
+    const idNum = Number(appUserId);
+    const res = await fetch(`${BASE}/rest/v1/rpc/mobile_save_game_state`, {
+      method: 'POST',
+      headers: {
+        apikey: ANON,
+        Authorization: `Bearer ${authToken ?? ANON}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({
+        p_video_points: Math.max(0, Math.round(state.videoPoints)),
+        p_streak_bonus_points: Math.max(0, Math.round(state.streakBonusPoints)),
+        p_streak_credited_days: Math.max(0, Math.round(state.streakCreditedDays)),
+        p_streak_run_start: state.streakRunStart,
+        p_streak_badges: state.streakBadges ?? {},
+        p_app_user_id: Number.isFinite(idNum) ? idNum : null,
+      }),
+    });
+    if (!res.ok) throw new Error(`Game state save failed (${res.status})`);
   },
 };

@@ -17,6 +17,7 @@ import {
 } from 'react';
 
 import { api } from '@/api';
+import type { GameState } from '@/api/types';
 import { posts as basePosts, type Comment, type Meeting, type Post } from '@/data/content';
 import { activeBonusMultiplier } from '@/lib/bonus-events';
 import { computeStreak } from '@/lib/checkin';
@@ -41,6 +42,16 @@ export type CheckinEntry = {
   count: string;
   affirmation: string;
 };
+
+/** `date` (YYYY-MM-DD) minus `n` days, in local time (no UTC drift). */
+function isoDaysBefore(date: string, n: number): string {
+  const d = new Date(`${date}T00:00:00`);
+  d.setDate(d.getDate() - n);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 
 /** Slug used as a DM thread id, derived from a person's name. */
 export const chatId = (name: string) =>
@@ -67,6 +78,7 @@ type Persisted = {
   videoPoints: number; // running total of streak-multiplied video watch points
   streakBadges: Record<string, number>; // milestone days (as string) -> times reached
   streakCreditedDays: number; // highest milestone length credited for the current run
+  streakRunStart: string | null; // YYYY-MM-DD start of the run credited_days applies to
   streakBonusPoints: number; // running total of one-time streak-milestone bonuses
   pwaBannerDismissed: boolean; // hide the "Install app" home banner once dismissed
 };
@@ -92,6 +104,7 @@ const EMPTY: Persisted = {
   videoPoints: 0,
   streakBadges: {},
   streakCreditedDays: 0,
+  streakRunStart: null,
   streakBonusPoints: 0,
   pwaBannerDismissed: false,
 };
@@ -175,6 +188,11 @@ type StoreValue = {
    *  Awards their bonus, bumps the badge counts, and returns what was earned so
    *  the UI can celebrate. Idempotent per day; resets on a broken streak. */
   creditStreak: () => { milestones: StreakMilestone[]; bonus: number };
+  /** The full app-side gamification state, for syncing to the durable backend. */
+  gameState: GameState;
+  /** Merge server-stored gamification state in (MAX-merge; totals never drop).
+   *  Called once on auth to hydrate points/badges cross-device. */
+  hydrateGameState: (g: GameState) => void;
   // PWA install banner (home)
   pwaBannerDismissed: boolean;
   dismissPwaBanner: () => void;
@@ -393,28 +411,58 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         // the check-in that triggered this only just saved — prepend it).
         const today = new Date().toISOString().slice(0, 10);
         const streak = computeStreak([today, ...state.checkins.map((c) => c.date)]);
-        // If the current run is shorter than what we last credited, the streak
-        // broke and a new run began — start crediting from scratch.
-        const credited = streak < state.streakCreditedDays ? 0 : state.streakCreditedDays;
+        // Identify the run by its start date so crediting is idempotent across
+        // devices: a milestone is credited once per run. A different start = a new
+        // run after a break, so crediting begins from scratch.
+        const runStart = streak > 0 ? isoDaysBefore(today, streak - 1) : null;
+        const sameRun = runStart !== null && runStart === state.streakRunStart;
+        const credited = sameRun ? state.streakCreditedDays : 0;
         const milestones = milestonesReached(streak, credited);
         const bonus = milestones.reduce((sum, m) => sum + m.bonus, 0);
         const newCredited = milestones.length ? milestones[milestones.length - 1].days : credited;
-        if (milestones.length || newCredited !== state.streakCreditedDays) {
-          update((s) => {
-            const badges = { ...s.streakBadges };
-            milestones.forEach((m) => {
-              badges[String(m.days)] = (badges[String(m.days)] ?? 0) + 1;
-            });
-            return {
-              ...s,
-              streakBadges: badges,
-              streakBonusPoints: s.streakBonusPoints + bonus,
-              streakCreditedDays: newCredited,
-            };
+        update((s) => {
+          const badges = { ...s.streakBadges };
+          milestones.forEach((m) => {
+            badges[String(m.days)] = (badges[String(m.days)] ?? 0) + 1;
           });
-        }
+          return {
+            ...s,
+            streakBadges: badges,
+            streakBonusPoints: s.streakBonusPoints + bonus,
+            streakCreditedDays: newCredited,
+            streakRunStart: runStart,
+          };
+        });
         return { milestones, bonus };
       },
+
+      gameState: {
+        videoPoints: state.videoPoints,
+        streakBonusPoints: state.streakBonusPoints,
+        streakCreditedDays: state.streakCreditedDays,
+        streakRunStart: state.streakRunStart,
+        streakBadges: state.streakBadges,
+      },
+      hydrateGameState: (g) =>
+        update((s) => {
+          const badges = { ...s.streakBadges };
+          for (const [k, v] of Object.entries(g.streakBadges ?? {})) {
+            badges[k] = Math.max(badges[k] ?? 0, v);
+          }
+          const serverRunNewer =
+            !!g.streakRunStart && (!s.streakRunStart || g.streakRunStart > s.streakRunStart);
+          return {
+            ...s,
+            videoPoints: Math.max(s.videoPoints, g.videoPoints),
+            streakBonusPoints: Math.max(s.streakBonusPoints, g.streakBonusPoints),
+            streakCreditedDays: serverRunNewer
+              ? g.streakCreditedDays
+              : Math.max(s.streakCreditedDays, g.streakCreditedDays),
+            streakRunStart:
+              (s.streakRunStart ?? '') > (g.streakRunStart ?? '') ? s.streakRunStart : g.streakRunStart ?? s.streakRunStart,
+            streakBadges: badges,
+          };
+        }),
 
       pwaBannerDismissed: state.pwaBannerDismissed,
       dismissPwaBanner: () => update((s) => (s.pwaBannerDismissed ? s : { ...s, pwaBannerDismissed: true })),

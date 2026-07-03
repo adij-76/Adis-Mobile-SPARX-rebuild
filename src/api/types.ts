@@ -405,6 +405,25 @@ export type FavoritesApi = {
   set(kind: 'lesson' | 'video', itemId: string, on: boolean): Promise<void>;
 };
 
+/** Durable app-side gamification state (points + streak badges), persisted so it
+ *  survives reinstall, follows the user across devices, and reconciles into
+ *  production `user_points` / `user_rewards` at cutover. */
+export type GameState = {
+  videoPoints: number;
+  streakBonusPoints: number;
+  streakCreditedDays: number;
+  streakRunStart: string | null; // YYYY-MM-DD, start of the run credited_days applies to
+  streakBadges: Record<string, number>; // milestone days (as string) -> times reached
+};
+
+export type GameApi = {
+  /** Load the stored gamification state, or null if none yet. */
+  get(): Promise<GameState | null>;
+  /** Persist the state. The backend MAX-merges every total, so a stale/offline
+   *  write can never lower points or badge counts. Best-effort. */
+  save(state: GameState, appUserId: string | null): Promise<void>;
+};
+
 export type Api = {
   /** Which backend is serving requests — handy for debugging. */
   backend: 'mock' | 'supabase';
@@ -418,4 +437,5 @@ export type Api = {
   checkins: CheckinsApi;
   messages: MessagesApi;
   groups: GroupsApi;
+  game: GameApi;
 };
