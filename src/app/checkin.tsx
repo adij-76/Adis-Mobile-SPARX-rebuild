@@ -230,7 +230,9 @@ export default function CheckinScreen() {
                   </View>
 
                   <View style={{ gap: Spacing.sm }}>
-                    <Txt variant="bodyMedium">How many times?</Txt>
+                    <Txt variant="bodyMedium">
+                      {struggle.kind === 'substance' ? 'How much?' : 'How many times?'}
+                    </Txt>
                     <TextInput
                       value={count}
                       onChangeText={(t) => setCount(t.replace(/[^0-9]/g, ''))}
