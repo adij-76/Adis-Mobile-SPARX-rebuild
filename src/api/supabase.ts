@@ -18,6 +18,8 @@ import type {
   ContentApi,
   DirectoryUser,
   FavoritesApi,
+  Group,
+  GroupsApi,
   InsightsApi,
   Lesson,
   LessonType,
@@ -938,6 +940,65 @@ export const supabaseMessages: MessagesApi = {
       }),
     });
     if (!res.ok) throw new Error(`Block save failed (${res.status})`);
+  },
+};
+
+// --- Group coaching / meetings (real sds_groups via mobile_groups) ---
+
+export const supabaseGroups: GroupsApi = {
+  async list(): Promise<Group[]> {
+    type Row = {
+      id: number | string;
+      title: string | null;
+      coach_name: string | null;
+      coach_avatar: string | null;
+      description: string | null;
+      meet_day: string | null;
+      meet_time_char: string | null;
+      meet_length_char: string | null;
+      source_tz: string | null;
+      zoom_meeting_id: number | string | null;
+      signed_up: boolean | null;
+      join_url: string | null;
+    };
+    try {
+      const rows = await rest<Row[]>('mobile_groups', {});
+      return rows.map((r) => ({
+        id: String(r.id),
+        title: r.title || 'Coaching group',
+        coachName: r.coach_name || 'SPARx Coach',
+        coachAvatar: r.coach_avatar || '',
+        description: r.description || '',
+        meetDay: r.meet_day || '',
+        meetTimeChar: r.meet_time_char || '',
+        meetLengthChar: r.meet_length_char,
+        sourceTz: r.source_tz || 'America/Los_Angeles',
+        zoomMeetingId: r.zoom_meeting_id != null ? String(r.zoom_meeting_id) : null,
+        signedUp: !!r.signed_up,
+        joinUrl: r.join_url,
+      }));
+    } catch {
+      return [];
+    }
+  },
+  async setSignup(groupId, on, appUserId) {
+    const idNum = Number(appUserId);
+    const res = await fetch(`${BASE}/rest/v1/mobile_group_signups?on_conflict=auth_uid,sds_group_id`, {
+      method: 'POST',
+      headers: {
+        apikey: ANON,
+        Authorization: `Bearer ${authToken ?? ANON}`,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates,return=minimal',
+      },
+      body: JSON.stringify({
+        sds_group_id: Number(groupId),
+        app_user_id: Number.isFinite(idNum) ? idNum : null,
+        active: on,
+        updated_at: new Date().toISOString(),
+      }),
+    });
+    if (!res.ok) throw new Error(`Group signup failed (${res.status})`);
   },
 };
 

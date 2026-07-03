@@ -102,6 +102,32 @@ export type MeetingsApi = {
   coach(): Promise<Coach>;
 };
 
+/** A weekly coaching group (production `sds_groups`) the user is entitled to.
+ *  Recurs on `meetDay` at `meetTimeChar` in `sourceTz`; the app computes the
+ *  next occurrence and shows it in the viewer's own zone. `joinUrl` is only
+ *  present once the user has signed up (and is shown ~1h before start). */
+export type Group = {
+  id: string;
+  title: string;
+  coachName: string;
+  coachAvatar: string;
+  description: string;
+  meetDay: string;
+  meetTimeChar: string;
+  meetLengthChar: string | null;
+  sourceTz: string;
+  zoomMeetingId: string | null;
+  signedUp: boolean;
+  joinUrl: string | null;
+};
+
+export type GroupsApi = {
+  /** The groups the user's subscription role unlocks (active only). */
+  list(): Promise<Group[]>;
+  /** Sign up for / cancel a group. `appUserId` is the caller's production id. */
+  setSignup(groupId: string, on: boolean, appUserId: string | null): Promise<void>;
+};
+
 export type CommunityApi = {
   /** The user's communities / groups. */
   communities(): Promise<Community[]>;
@@ -368,4 +394,5 @@ export type Api = {
   favorites: FavoritesApi;
   checkins: CheckinsApi;
   messages: MessagesApi;
+  groups: GroupsApi;
 };

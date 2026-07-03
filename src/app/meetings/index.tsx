@@ -1,15 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { api } from '@/api';
+import { GroupCard } from '@/components/ui/group-card';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { type MeetingStatus } from '@/data/content';
 import { useAsync } from '@/hooks/use-async';
+import { useAuth } from '@/lib/auth';
 import { useGoBack } from '@/hooks/use-go-back';
+import { deviceTz } from '@/lib/groups';
 import { useStore } from '@/lib/store';
 
 const TABS: { key: MeetingStatus; label: string }[] = [
@@ -22,9 +25,19 @@ export default function ManageMeetings() {
   const router = useRouter();
   const goBack = useGoBack();
   const { bookings, isBooked } = useStore();
+  const { user } = useAuth();
+  const userTz = user?.timeZone || deviceTz();
   const params = useLocalSearchParams<{ tab?: MeetingStatus }>();
   const [tab, setTab] = useState<MeetingStatus>(params.tab ?? 'upcoming');
   const meetings = useAsync(() => api.meetings.all(), []).data ?? [];
+  // Signed-up coaching groups show at the top of Upcoming, with their join link.
+  const { data: groupData, reload: reloadGroups } = useAsync(() => api.groups.list(), []);
+  useFocusEffect(useCallback(() => void reloadGroups(), [])); // eslint-disable-line react-hooks/exhaustive-deps
+  const myGroups = (groupData ?? []).filter((g) => g.signedUp);
+
+  const cancelGroup = (id: string) => {
+    api.groups.setSignup(id, false, user?.appUserId ?? null).catch(() => {}).finally(() => reloadGroups());
+  };
 
   // Booked sessions show at the top of Upcoming.
   const data =
@@ -69,10 +82,30 @@ export default function ManageMeetings() {
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={() => <View style={styles.divider} />}
+        ListHeaderComponent={
+          tab === 'upcoming' && myGroups.length ? (
+            <View style={styles.groups}>
+              <Txt variant="titleSm">Your groups</Txt>
+              {myGroups.map((g) => (
+                <GroupCard
+                  key={g.id}
+                  group={g}
+                  userTz={userTz}
+                  onToggleSignup={(on) => !on && cancelGroup(g.id)}
+                />
+              ))}
+              <Txt variant="bodySmMedium" color={Colors.textSub} style={{ marginTop: Spacing.sm }}>
+                Other sessions
+              </Txt>
+            </View>
+          ) : null
+        }
         ListEmptyComponent={
-          <Txt variant="bodySm" color={Colors.textSub} center style={{ marginTop: Spacing.xxl }}>
-            No {tab} meetings.
-          </Txt>
+          myGroups.length && tab === 'upcoming' ? null : (
+            <Txt variant="bodySm" color={Colors.textSub} center style={{ marginTop: Spacing.xxl }}>
+              No {tab} meetings.
+            </Txt>
+          )
         }
         renderItem={({ item }) => (
           <Pressable
@@ -129,6 +162,7 @@ const styles = StyleSheet.create({
   },
   segmentItemActive: { backgroundColor: Colors.primary },
   list: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xl },
+  groups: { gap: Spacing.md, paddingBottom: Spacing.md },
   divider: { height: 1, backgroundColor: Colors.stroke, marginVertical: Spacing.md },
   row: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md, paddingVertical: Spacing.sm },
   metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

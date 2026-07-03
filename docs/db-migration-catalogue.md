@@ -21,6 +21,7 @@ Run in this order; all are idempotent.
 | 4 | `db/community.sql` | App-owned write tables: `mobile_feed_posts`, `mobile_feed_comments`, `mobile_feed_reactions` (the `mobile_dm_*` tables here are superseded by `db/chat.sql`) | ✅ |
 | 5 | `db/community-views.sql` | Community read views: `mobile_posts` (now exposes `author_id` for DM-from-post), `mobile_comments`, `mobile_channels`, `mobile_notifications` | ✅ |
 | 6 | `db/chat.sql` | Chat (conversation model): helpers `mobile_uid()` / `mobile_is_member()` / `mobile_blocked_in()`; app-owned `mobile_conversations`, `mobile_conversation_members`, `mobile_messages`, `mobile_blocks` (RLS); RPCs `mobile_start_direct()` / `mobile_start_group()`; read views `mobile_directory`, `mobile_threads`, `mobile_thread_messages`. A 1:1 DM is a 2-member, non-group conversation. | ✅ |
+| 6b | `db/groups.sql` | Meetings: app-owned `mobile_group_signups` (RLS) + read view `mobile_groups` over production `sds_groups` — role-gated via `subscription_role_groups`, coach resolved via `sds_user_id`→`users`, weekly schedule from `meet_day`/`meet_time_char` (anchor tz America/Los_Angeles). `join_url` exposed only to signed-up members; coach `start_url` never exposed. | ✅ |
 | 7 | `db/auth-and-storage.sql` | Imports users into Supabase Auth (keeps passwords), avatars bucket + storage policies | ✅ |
 
 > **Order note:** run the app-owned table files (2–4) **before** the view files
@@ -38,6 +39,7 @@ production tables leaves them untouched.
 - `mobile_feed_posts` / `mobile_feed_comments` / `mobile_feed_reactions` — community feed
 - `mobile_conversations` / `mobile_conversation_members` / `mobile_messages` — chat (DMs + groups)
 - `mobile_blocks` — one-directional block list ("X can't DM me")
+- `mobile_group_signups` — who signed up for which `sds_groups` coaching group
 - `mobile_favorites` — bookmark toggles (kind/item_id, `active` tombstones un-saves)
 - *(legacy, unused)* `mobile_dm_conversations` / `mobile_dm_messages` — superseded by `mobile_messages`
 - *(future)* notification read-state
