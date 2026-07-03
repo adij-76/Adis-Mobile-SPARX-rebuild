@@ -33,6 +33,9 @@ export default function DataScreen() {
     { aggregate: 'avg', includeRecent: false },
   );
   const assessments = useAsync(() => api.insights.assessments(), []).data ?? [];
+  // Weekly points rank for the leaderboard banner teaser (most "contest"-like).
+  const weeklyBoard = useAsync(() => api.insights.leaderboard('points', 'week'), []).data ?? [];
+  const myRank = weeklyBoard.find((e) => e.you)?.rank ?? null;
   const scored = wheelAreas.map((c) => ({ ...c, score: c.current }));
   const balance = scored.length
     ? Math.round(scored.reduce((s, a) => s + a.score, 0) / scored.length)
@@ -49,6 +52,23 @@ export default function DataScreen() {
             Track your progress and check-ins over time
           </Txt>
         </View>
+
+        {/* Leaderboard — prominent, full-width banner up top */}
+        <Pressable style={styles.lbBanner} onPress={() => router.push('/mydata/leaderboard')}>
+          <View style={styles.lbIcon}>
+            <Ionicons name="trophy" size={26} color={Colors.white} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Txt variant="bodyMedium" color={Colors.white}>
+              Leaderboard
+            </Txt>
+            <Txt variant="bodySm" color="rgba(255,255,255,0.9)">
+              {myRank ? `You're #${myRank} this week — keep climbing` : 'See how you rank this week'}
+            </Txt>
+          </View>
+          <Ionicons name="chevron-forward" size={22} color={Colors.white} />
+        </Pressable>
+
         {/* Wheel of Life summary */}
         <Pressable onPress={() => router.push('/mydata/wheel')}>
           <Card style={{ gap: Spacing.lg }}>
@@ -156,10 +176,6 @@ export default function DataScreen() {
 
         {/* Quick links */}
         <View style={styles.quick}>
-          <Pressable style={styles.quickItem} onPress={() => router.push('/mydata/leaderboard')}>
-            <Ionicons name="trophy" size={22} color={Colors.orange} />
-            <Txt variant="bodySmMedium">Leaderboard</Txt>
-          </Pressable>
           <Pressable style={styles.quickItem} onPress={() => router.push('/mydata/reports')}>
             <Ionicons name="document-text" size={22} color={Colors.primary} />
             <Txt variant="bodySmMedium">Reports</Txt>
@@ -231,6 +247,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
     borderRadius: Radius.pill,
+  },
+  lbBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    backgroundColor: Colors.orange,
+    borderRadius: Radius.lg,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+  },
+  lbIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   quick: { flexDirection: 'row', gap: Spacing.lg },
   quickItem: {
