@@ -21,8 +21,8 @@ const PERIODS: { key: LeaderboardPeriod; label: string }[] = [
 
 const SUBTITLE: Record<LeaderboardPeriod, string> = {
   all: 'Top members of all time',
-  month: 'Who’s leading this month',
-  week: 'This week’s movers — resets Monday',
+  month: 'Top movers over the last 30 days',
+  week: 'Top movers over the last 7 days',
 };
 
 export default function Leaderboard() {
@@ -48,7 +48,7 @@ export default function Leaderboard() {
         ListEmptyComponent={
           loading ? null : (
             <Txt variant="bodySm" color={Colors.textSub} center style={{ marginTop: Spacing.xxl }}>
-              No points earned {period === 'week' ? 'this week' : period === 'month' ? 'this month' : 'yet'}.
+              No points earned {period === 'week' ? 'in the last 7 days' : period === 'month' ? 'in the last 30 days' : 'yet'}.
             </Txt>
           )
         }
