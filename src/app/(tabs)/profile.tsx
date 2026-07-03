@@ -159,7 +159,20 @@ export default function ProfileScreen() {
           <ListRow icon="color-palette-outline" label="Theme" value="Light" onPress={() => router.push('/settings/theme')} />
           <ListRow icon="language-outline" label="Language" value="English" onPress={() => router.push('/settings/languages')} />
           <ListRow icon="lock-closed-outline" label="Change password" onPress={() => router.push('/settings/change-password')} />
-          <ListRow icon="card-outline" label="Payment method" onPress={() => router.push('/settings/payment')} divider={false} />
+          <ListRow
+            icon="card-outline"
+            label="Payment method"
+            onPress={() => router.push('/settings/payment')}
+            divider={Platform.OS === 'web'}
+          />
+          {Platform.OS === 'web' ? (
+            <ListRow
+              icon="download-outline"
+              label="Install the app"
+              onPress={() => router.push('/pwa-install')}
+              divider={false}
+            />
+          ) : null}
         </Card>
 
         <Txt variant="caption" color={Colors.textSub} style={styles.group}>

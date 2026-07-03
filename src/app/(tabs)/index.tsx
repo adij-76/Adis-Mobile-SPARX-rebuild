@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { api } from '@/api';
 import { AppHeader } from '@/components/app-header';
@@ -35,9 +35,30 @@ type UpcomingMeeting = { id: string; time: string; title: string; host: string; 
 
 const TABS = ['Programs', 'Workshop', 'Challenges'] as const;
 
+/** True when there's nothing to install: a native build, or an already-installed
+ *  PWA (running standalone). In those cases the "Install app" banner is hidden. */
+function isInstalledOrNative(): boolean {
+  if (Platform.OS !== 'web') return true;
+  try {
+    const w = window as unknown as { matchMedia?: (q: string) => { matches: boolean }; navigator?: { standalone?: boolean } };
+    return !!w.matchMedia?.('(display-mode: standalone)').matches || w.navigator?.standalone === true;
+  } catch {
+    return false;
+  }
+}
+
 export default function HomeScreen() {
   const router = useRouter();
-  const { isFav, toggleFav, completedLessonIds, checkins, isVideoWatched, isLessonComplete } = useStore();
+  const {
+    isFav,
+    toggleFav,
+    completedLessonIds,
+    checkins,
+    isVideoWatched,
+    isLessonComplete,
+    pwaBannerDismissed,
+    dismissPwaBanner,
+  } = useStore();
   const { user } = useAuth();
   const userTz = user?.timeZone || deviceTz();
   const { isDesktop } = useBreakpoint();
@@ -135,14 +156,27 @@ export default function HomeScreen() {
     return () => clearTimeout(timer);
   }, [router]);
 
-  const banner = (
-    <Pressable style={styles.banner} onPress={() => router.push('/pwa-install')}>
-      <Ionicons name="download-outline" size={18} color={Colors.primaryDark} />
-      <Txt variant="bodySmMedium" color={Colors.primaryDark}>
-        Install SPARx app for a better experience
-      </Txt>
-    </Pressable>
-  );
+  // Dismissable "Install app" banner: hidden once dismissed (persisted) or when
+  // there's nothing to install (native / already-installed PWA). It's also
+  // reachable any time from Profile → Install the app.
+  const showBanner = !pwaBannerDismissed && !isInstalledOrNative();
+  const openInstall = () => {
+    dismissPwaBanner();
+    router.push('/pwa-install');
+  };
+  const banner = showBanner ? (
+    <View style={styles.banner}>
+      <Pressable style={styles.bannerMain} onPress={openInstall} accessibilityRole="button">
+        <Ionicons name="download-outline" size={18} color={Colors.primaryDark} />
+        <Txt variant="bodySmMedium" color={Colors.primaryDark}>
+          Install SPARx app for a better experience
+        </Txt>
+      </Pressable>
+      <Pressable onPress={dismissPwaBanner} hitSlop={10} accessibilityLabel="Dismiss">
+        <Ionicons name="close" size={18} color={Colors.primaryDark} />
+      </Pressable>
+    </View>
+  ) : null;
 
   const quote = (
     <Pressable onPress={() => router.push('/quotes')}>
@@ -601,12 +635,13 @@ const styles = StyleSheet.create({
   banner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    gap: Spacing.md,
     backgroundColor: Colors.orangePale,
     borderRadius: Radius.sm,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.lg,
   },
+  bannerMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   quote: {
     flexDirection: 'row',
     alignItems: 'center',

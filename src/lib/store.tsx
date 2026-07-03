@@ -59,6 +59,7 @@ type Persisted = {
   readNotifications: string[]; // notification ids marked read
   completedLessons: string[]; // lesson ids marked complete locally (until auth)
   watchedVideos: string[]; // video ids the user has opened/played (until auth)
+  pwaBannerDismissed: boolean; // hide the "Install app" home banner once dismissed
 };
 
 const EMPTY: Persisted = {
@@ -78,6 +79,7 @@ const EMPTY: Persisted = {
   readNotifications: [],
   completedLessons: [],
   watchedVideos: [],
+  pwaBannerDismissed: false,
 };
 
 type StoreValue = {
@@ -142,6 +144,9 @@ type StoreValue = {
   // video watches (local until auth)
   isVideoWatched: (id: string) => boolean;
   markVideoWatched: (id: string) => void;
+  // PWA install banner (home)
+  pwaBannerDismissed: boolean;
+  dismissPwaBanner: () => void;
   // account
   clearAll: () => void;
 };
@@ -329,6 +334,9 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         update((s) =>
           s.watchedVideos.includes(id) ? s : { ...s, watchedVideos: [...s.watchedVideos, id] },
         ),
+
+      pwaBannerDismissed: state.pwaBannerDismissed,
+      dismissPwaBanner: () => update((s) => (s.pwaBannerDismissed ? s : { ...s, pwaBannerDismissed: true })),
 
       clearAll: () => setState(EMPTY),
     };
