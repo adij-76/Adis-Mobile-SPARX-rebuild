@@ -18,7 +18,9 @@ import {
 
 import { api } from '@/api';
 import { posts as basePosts, type Comment, type Meeting, type Post } from '@/data/content';
+import { activeBonusMultiplier } from '@/lib/bonus-events';
 import { computeStreak } from '@/lib/checkin';
+import { milestonesReached, type StreakMilestone } from '@/lib/streaks';
 import { videoPointsEarned } from '@/lib/video-points';
 
 const KEY = 'igntd.store.v1';
@@ -63,6 +65,9 @@ type Persisted = {
   watchedVideos: string[]; // video ids the user has finished (≥95%) — checklist tick
   videoProgress: Record<string, number>; // video id -> furthest percent already scored
   videoPoints: number; // running total of streak-multiplied video watch points
+  streakBadges: Record<string, number>; // milestone days (as string) -> times reached
+  streakCreditedDays: number; // highest milestone length credited for the current run
+  streakBonusPoints: number; // running total of one-time streak-milestone bonuses
   pwaBannerDismissed: boolean; // hide the "Install app" home banner once dismissed
 };
 
@@ -85,6 +90,9 @@ const EMPTY: Persisted = {
   watchedVideos: [],
   videoProgress: {},
   videoPoints: 0,
+  streakBadges: {},
+  streakCreditedDays: 0,
+  streakBonusPoints: 0,
   pwaBannerDismissed: false,
 };
 
@@ -158,6 +166,15 @@ type StoreValue = {
   awardVideoProgress: (videoId: string, percent: number) => number;
   /** Running total of streak-multiplied video watch points. */
   videoPoints: number;
+  // streak milestones + badges
+  /** Milestone length (as string, e.g. "7") → how many times it's been reached. */
+  streakBadges: Record<string, number>;
+  /** Running total of one-time streak-milestone bonuses earned. */
+  streakBonusPoints: number;
+  /** Credit any streak milestones newly reached today (call after a check-in).
+   *  Awards their bonus, bumps the badge counts, and returns what was earned so
+   *  the UI can celebrate. Idempotent per day; resets on a broken streak. */
+  creditStreak: () => { milestones: StreakMilestone[]; bonus: number };
   // PWA install banner (home)
   pwaBannerDismissed: boolean;
   dismissPwaBanner: () => void;
@@ -360,13 +377,43 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         const pct = Math.max(0, Math.min(100, Math.round(percent)));
         if (pct <= prev) return 0;
         const streak = computeStreak(state.checkins.map((c) => c.date));
-        const earned = videoPointsEarned(prev, pct, streak);
+        const earned = videoPointsEarned(prev, pct, streak, activeBonusMultiplier());
         update((s) => ({
           ...s,
           videoProgress: { ...s.videoProgress, [videoId]: Math.max(s.videoProgress[videoId] ?? 0, pct) },
           videoPoints: s.videoPoints + earned,
         }));
         return earned;
+      },
+
+      streakBadges: state.streakBadges,
+      streakBonusPoints: state.streakBonusPoints,
+      creditStreak: () => {
+        // Streak from the real history (today may not be in the snapshot yet if
+        // the check-in that triggered this only just saved — prepend it).
+        const today = new Date().toISOString().slice(0, 10);
+        const streak = computeStreak([today, ...state.checkins.map((c) => c.date)]);
+        // If the current run is shorter than what we last credited, the streak
+        // broke and a new run began — start crediting from scratch.
+        const credited = streak < state.streakCreditedDays ? 0 : state.streakCreditedDays;
+        const milestones = milestonesReached(streak, credited);
+        const bonus = milestones.reduce((sum, m) => sum + m.bonus, 0);
+        const newCredited = milestones.length ? milestones[milestones.length - 1].days : credited;
+        if (milestones.length || newCredited !== state.streakCreditedDays) {
+          update((s) => {
+            const badges = { ...s.streakBadges };
+            milestones.forEach((m) => {
+              badges[String(m.days)] = (badges[String(m.days)] ?? 0) + 1;
+            });
+            return {
+              ...s,
+              streakBadges: badges,
+              streakBonusPoints: s.streakBonusPoints + bonus,
+              streakCreditedDays: newCredited,
+            };
+          });
+        }
+        return { milestones, bonus };
       },
 
       pwaBannerDismissed: state.pwaBannerDismissed,

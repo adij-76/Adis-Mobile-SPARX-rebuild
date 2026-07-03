@@ -12,9 +12,13 @@
  * partial re-watch never re-awards. The furthest tier reached is what counts.
  *
  * Every award is scaled by the STREAK MULTIPLIER — the same daily check-in streak
- * that drives check-in points (see src/lib/checkin.ts). Integer multipliers keep
- * the math exact (no rounding drift): a finished video (3 base) on a 7-day streak
- * is worth 3 × 3 = 9 points.
+ * that drives check-in points (see src/lib/checkin.ts) — capped so tenure never
+ * dominates the board: ×1 under a week, ×1.5 at a 7-day streak, ×2 at 14+. A
+ * finished video (3 base) is worth 3 / ~5 / 6 points at those tiers.
+ *
+ * An optional bonus-event multiplier (special/double-points days, see
+ * bonus-events.ts) stacks on top of the streak multiplier for POINTS only — it
+ * never touches the raw watched/percent leaderboards, which count real activity.
  *
  * All the numbers below are meant to be tuned — this is the one place to do it.
  */
@@ -26,10 +30,10 @@ const TIERS: { minPercent: number; cumulative: number }[] = [
   { minPercent: 1, cumulative: 1 }, // started (covers 1–49%)
 ];
 
-/** Streak → integer multiplier applied to every point earned. */
+/** Streak → multiplier applied to every point earned (capped at ×2). */
 const STREAK_MULTIPLIER: { minStreak: number; mult: number }[] = [
-  { minStreak: 7, mult: 3 }, // a week+ running
-  { minStreak: 3, mult: 2 }, // building momentum
+  { minStreak: 14, mult: 2 }, // maintaining two weeks+
+  { minStreak: 7, mult: 1.5 }, // reached a week
   { minStreak: 0, mult: 1 }, // no/short streak
 ];
 
@@ -48,10 +52,22 @@ export function streakMultiplier(streak: number): number {
 
 /**
  * Points earned by advancing a video's furthest-watched from `prevPercent` to
- * `newPercent` at the given streak. Only forward progress into a higher tier
- * pays out; going backwards or re-watching earns 0. Exact (integer multiplier).
+ * `newPercent` at the given streak, times an optional bonus-event multiplier.
+ * Only forward progress into a higher tier pays out; going backwards or
+ * re-watching earns 0.
+ *
+ * Rounds the CUMULATIVE multiplied total and takes the difference (not each step
+ * rounded on its own), so a fractional multiplier like ×1.5 can't inflate a
+ * straight-through watch — the per-video total is always round(base × multiplier).
  */
-export function videoPointsEarned(prevPercent: number, newPercent: number, streak: number): number {
-  const gain = basePointsForPercent(newPercent) - basePointsForPercent(prevPercent);
-  return gain > 0 ? gain * streakMultiplier(streak) : 0;
+export function videoPointsEarned(
+  prevPercent: number,
+  newPercent: number,
+  streak: number,
+  bonusMultiplier = 1,
+): number {
+  const m = streakMultiplier(streak) * bonusMultiplier;
+  const gain =
+    Math.round(basePointsForPercent(newPercent) * m) - Math.round(basePointsForPercent(prevPercent) * m);
+  return gain > 0 ? gain : 0;
 }
