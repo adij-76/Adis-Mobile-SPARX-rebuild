@@ -233,8 +233,19 @@ export type MessagesApi = {
   startGroup(memberIds: string[], title?: string | null): Promise<string | null>;
 };
 
-/** Leaderboard window: all-time, the current calendar month, or the current week. */
+/** Leaderboard window: all-time, or a rolling last-30 / last-7 days. */
 export type LeaderboardPeriod = 'all' | 'month' | 'week';
+
+/** Which leaderboard to rank. All are counts of real, server-awarded actions
+ *  (or points / longest check-in streak) — never self-reported scores. */
+export type LeaderboardBoard =
+  | 'points'
+  | 'streak'
+  | 'lessons'
+  | 'workshops'
+  | 'community'
+  | 'videos'
+  | 'checkins';
 
 /** One month's overall Wheel of Life score (for the Monthly/Annual trend views). */
 export type WheelPoint = { key: string; label: string; year: number; score: number };
@@ -264,9 +275,10 @@ export type InsightsApi = {
   wheelAreas(): Promise<WheelArea[]>;
   /** Generated reports / summaries. */
   reports(): Promise<Report[]>;
-  /** Community points leaderboard for a period (all-time / this month / this
-   *  week), ranked highest-first. */
-  leaderboard(period?: LeaderboardPeriod): Promise<LeaderboardEntry[]>;
+  /** A leaderboard `board` (points / streak / lessons / …) over a `period`
+   *  (all-time / last 30 / last 7 days), ranked highest-first. `points` on each
+   *  entry carries the board's value (points, count, or streak length). */
+  leaderboard(board?: LeaderboardBoard, period?: LeaderboardPeriod): Promise<LeaderboardEntry[]>;
   /** Substance-use tracking history (usage + AUDIT score over time), oldest → newest. */
   useTracking(): Promise<UseTrackingPoint[]>;
   /** Assessments the user has completed (latest result per assessment), newest first. */

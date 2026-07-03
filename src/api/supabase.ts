@@ -592,25 +592,35 @@ export const supabaseInsights: InsightsApi = {
   async reports() {
     return reports;
   },
-  async leaderboard(period = 'all') {
-    type Row = { user_id: number | string; name: string | null; avatar: string | null; points: number; you: boolean };
+  async leaderboard(board = 'points', period = 'all') {
+    // The metric/streak RPCs return `score`; the points RPC returns `points`.
+    type Row = {
+      user_id: number | string;
+      name: string | null;
+      avatar: string | null;
+      score?: number;
+      points?: number;
+      you: boolean;
+    };
     const toEntries = (rows: Row[]) =>
       rows.map((r, i) => ({
         id: String(r.user_id),
         rank: i + 1,
         name: r.name || 'Member',
         avatar: r.avatar || '',
-        points: r.points ?? 0,
+        points: r.score ?? r.points ?? 0,
         you: !!r.you,
       }));
-    // Period-windowed board via the RPC (all / month / week). Falls back to the
-    // all-time view if the function isn't present yet (older DB); month/week are
-    // empty in that case rather than silently showing all-time.
     try {
-      const rows = await rpc<Row[]>('mobile_leaderboard_period', { p_period: period });
+      const rows =
+        board === 'streak'
+          ? await rpc<Row[]>('mobile_streak_leaderboard', { p_period: period })
+          : await rpc<Row[]>('mobile_leaderboard_metric', { p_metric: board, p_period: period });
       return toEntries(rows);
     } catch {
-      if (period !== 'all') return [];
+      // RPCs not present yet (older DB): only the all-time points board can fall
+      // back to the legacy view; every other board is empty until the DB lands.
+      if (board !== 'points' || period !== 'all') return [];
       try {
         const rows = await rest<Row[]>('mobile_leaderboard', { order: 'points.desc', limit: '50' });
         return rows.length ? toEntries(rows) : leaderboard;
