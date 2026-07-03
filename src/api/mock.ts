@@ -177,7 +177,21 @@ export const mockInsights: InsightsApi = {
   wheelHistory: (anchor) => delay(wheelHistory(anchor?.current ?? 71, anchor?.last ?? 67)),
   wheelAreas: () => delay(wheelAreas),
   reports: () => delay(reports),
-  leaderboard: () => delay(leaderboard),
+  // Offline: fake period movement by scaling + re-ranking the seed board, so the
+  // All-time / Monthly / Weekly tabs each show a distinct, plausible order.
+  leaderboard: (period = 'all') => {
+    const factor = period === 'week' ? 0.14 : period === 'month' ? 0.45 : 1;
+    const jitter = period === 'week' ? 1.6 : period === 'month' ? 1.25 : 1;
+    const ranked = leaderboard
+      .map((e, i) => ({
+        ...e,
+        // deterministic per-period shuffle so shorter windows reorder the board
+        points: Math.round(e.points * factor * (1 + ((i * (period === 'week' ? 7 : 3)) % 5) / 10 / jitter)),
+      }))
+      .sort((a, b) => b.points - a.points)
+      .map((e, i) => ({ ...e, rank: i + 1 }));
+    return delay(ranked);
+  },
   useTracking: () => delay(mockUseTracking),
   assessments: () =>
     delay([

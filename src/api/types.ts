@@ -233,6 +233,9 @@ export type MessagesApi = {
   startGroup(memberIds: string[], title?: string | null): Promise<string | null>;
 };
 
+/** Leaderboard window: all-time, the current calendar month, or the current week. */
+export type LeaderboardPeriod = 'all' | 'month' | 'week';
+
 /** One month's overall Wheel of Life score (for the Monthly/Annual trend views). */
 export type WheelPoint = { key: string; label: string; year: number; score: number };
 
@@ -261,8 +264,9 @@ export type InsightsApi = {
   wheelAreas(): Promise<WheelArea[]>;
   /** Generated reports / summaries. */
   reports(): Promise<Report[]>;
-  /** Community points leaderboard. */
-  leaderboard(): Promise<LeaderboardEntry[]>;
+  /** Community points leaderboard for a period (all-time / this month / this
+   *  week), ranked highest-first. */
+  leaderboard(period?: LeaderboardPeriod): Promise<LeaderboardEntry[]>;
   /** Substance-use tracking history (usage + AUDIT score over time), oldest → newest. */
   useTracking(): Promise<UseTrackingPoint[]>;
   /** Assessments the user has completed (latest result per assessment), newest first. */
