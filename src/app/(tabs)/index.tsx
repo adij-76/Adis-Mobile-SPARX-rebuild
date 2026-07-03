@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { api } from '@/api';
@@ -22,18 +22,24 @@ import {
   heroProgram,
   socials,
   type Challenge,
-  type Meeting,
 } from '@/data/content';
+import { useAuth } from '@/lib/auth';
 import { isDoneToday } from '@/lib/checkin';
 import { gradientFor } from '@/lib/gradient';
+import { deviceTz, formatOccurrence, joinOpen, nextOccurrence, parseMeetLengthMin, untilLabel } from '@/lib/groups';
 import { recommendQuote } from '@/lib/quote-pick';
 import { useStore } from '@/lib/store';
+
+/** Minimal shape the home meeting stack renders (satisfied by a mapped group). */
+type UpcomingMeeting = { id: string; time: string; title: string; host: string; startsIn?: string };
 
 const TABS = ['Programs', 'Workshop', 'Challenges'] as const;
 
 export default function HomeScreen() {
   const router = useRouter();
   const { isFav, toggleFav, completedLessonIds, checkins, isVideoWatched, isLessonComplete } = useStore();
+  const { user } = useAuth();
+  const userTz = user?.timeZone || deviceTz();
   const { isDesktop } = useBreakpoint();
   const [tab, setTab] = useState<(typeof TABS)[number]>('Programs');
   const [checklistOpen, setChecklistOpen] = useState(true);
@@ -61,7 +67,33 @@ export default function HomeScreen() {
   const workshops = workshopsQ.data ?? [];
   const challenges = useAsync(() => api.content.challenges(), []).data ?? [];
   const recommendedVideos = useAsync(() => api.content.recommendedVideos(), []).data ?? [];
-  const upcomingMeetings = useAsync(() => api.meetings.upcoming(), []).data ?? [];
+  // Upcoming meetings = the user's signed-up coaching groups' next occurrences
+  // (real, in the user's time zone), soonest first — no fake placeholders.
+  const groups = useAsync(() => api.groups.list(), []).data ?? [];
+  const upcomingMeetings = useMemo<UpcomingMeeting[]>(() => {
+    return groups
+      .filter((g) => g.signedUp)
+      .map((g) => {
+        const lengthMin = parseMeetLengthMin(g.meetLengthChar);
+        const inst = nextOccurrence({
+          meetDay: g.meetDay,
+          title: g.title,
+          meetTimeChar: g.meetTimeChar,
+          lengthMin,
+          sourceTz: g.sourceTz,
+        });
+        return inst ? { g, inst, lengthMin } : null;
+      })
+      .filter((x): x is { g: (typeof groups)[number]; inst: Date; lengthMin: number } => !!x)
+      .sort((a, b) => a.inst.getTime() - b.inst.getTime())
+      .map(({ g, inst, lengthMin }) => ({
+        id: g.id,
+        time: formatOccurrence(inst, userTz).full,
+        title: g.title,
+        host: g.coachName,
+        startsIn: joinOpen(inst, lengthMin) ? 'Live now' : `Starts ${untilLabel(inst)}`,
+      }));
+  }, [groups, userTz]);
   // Featured quote, recommended from the latest check-in (falls back to a default).
   const quotes = useAsync(() => api.content.quotes(), []).data ?? [];
   const featuredQuote = recommendQuote(quotes, checkins[0]) ?? dailyQuote;
@@ -256,7 +288,7 @@ export default function HomeScreen() {
       <View style={styles.meetingActions}>
         <Button title="Book a group" variant="primary" onPress={() => router.push('/meetings/book')} />
       </View>
-      <MeetingStack meetings={upcomingMeetings} onOpen={(id) => router.push(`/meetings/${id}`)} />
+      <MeetingStack meetings={upcomingMeetings} onOpen={() => router.push('/meetings')} />
     </>
   );
 
@@ -485,7 +517,7 @@ function MeetingStack({
   meetings,
   onOpen,
 }: {
-  meetings: Meeting[];
+  meetings: UpcomingMeeting[];
   onOpen: (id: string) => void;
 }) {
   const [i, setI] = useState(0);
