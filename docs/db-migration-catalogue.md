@@ -13,20 +13,34 @@ Legend: ✅ exists · ⚠️ needs writing/updating at cutover · 🔒 dashboard
 
 Run in this order; all are idempotent.
 
+Two groups: **(i) app-owned tables** (create first), then **(ii) views + functions**
+(they splice the app tables into the read layer, guarded by `to_regclass`).
+
+**(i) App-owned tables + RLS — run first**
+
 | # | File | Creates | Status |
 |---|------|---------|--------|
-| 1 | `db/views.sql` | Catalog + per-user read views: `mobile_programs`, `mobile_modules`, `mobile_lessons`, `mobile_snippets`, `mobile_quotes`, `mobile_recommended_videos`, `mobile_use_tracking`, `mobile_wheel_areas`, `mobile_wheel_scores`, `mobile_leaderboard`, `mobile_assessments`, `mobile_me` | ✅ |
-| 2 | `db/mobile-checkins.sql` | App-owned `mobile_checkins` table (RLS) | ✅ |
-| 3 | `db/mobile-wheel-entries.sql` | App-owned `mobile_wheel_entries` table (RLS) | ✅ |
+| 1 | `db/mobile-checkins.sql` | App-owned `mobile_checkins` table (RLS) | ✅ |
+| 2 | `db/mobile-wheel-entries.sql` | App-owned `mobile_wheel_entries` table (RLS) | ✅ |
+| 3 | `db/mobile-favorites.sql` | App-owned `mobile_favorites` table — bookmark toggles (kind/item_id, `active` tombstone) (RLS) | ✅ |
 | 4 | `db/community.sql` | App-owned write tables: `mobile_feed_posts`, `mobile_feed_comments`, `mobile_feed_reactions` (the `mobile_dm_*` tables here are superseded by `db/chat.sql`) | ✅ |
-| 5 | `db/community-views.sql` | Community read views: `mobile_posts` (now exposes `author_id` for DM-from-post), `mobile_comments`, `mobile_channels`, `mobile_notifications` | ✅ |
-| 6 | `db/chat.sql` | Chat (conversation model): helpers `mobile_uid()` / `mobile_is_member()` / `mobile_blocked_in()`; app-owned `mobile_conversations`, `mobile_conversation_members`, `mobile_messages`, `mobile_blocks` (RLS); RPCs `mobile_start_direct()` / `mobile_start_group()`; read views `mobile_directory`, `mobile_threads`, `mobile_thread_messages`. A 1:1 DM is a 2-member, non-group conversation. | ✅ |
-| 6b | `db/groups.sql` | Meetings: app-owned `mobile_group_signups` (RLS) + read view `mobile_groups` over production `sds_groups` — role-gated via `subscription_role_groups`, coach resolved via `sds_user_id`→`users`, weekly schedule from `meet_day`/`meet_time_char` (anchor tz America/Los_Angeles). `join_url` exposed only to signed-up members; coach `start_url` never exposed. | ✅ |
-| 7 | `db/auth-and-storage.sql` | Imports users into Supabase Auth (keeps passwords), avatars bucket + storage policies | ✅ |
+| 5 | `db/chat.sql` | Chat (conversation model): helpers `mobile_uid()` / `mobile_is_member()` / `mobile_blocked_in()`; app-owned `mobile_conversations`, `mobile_conversation_members`, `mobile_messages`, `mobile_blocks` (RLS); RPCs `mobile_start_direct()` / `mobile_start_group()`; read views `mobile_directory`, `mobile_threads`, `mobile_thread_messages`. A 1:1 DM is a 2-member, non-group conversation. | ✅ |
+| 6 | `db/groups.sql` | Meetings: app-owned `mobile_group_signups` (RLS) + read view `mobile_groups` over `sds_groups` — role-gated via `subscription_role_groups`, coach via `sds_user_id`→`users`, weekly schedule from `meet_day`/`meet_time_char` (anchor tz America/Los_Angeles). `join_url` only for signed-up members; coach `start_url` never exposed. | ✅ |
 
-> **Order note:** run the app-owned table files (2–4) **before** the view files
-> (1, 5) — or re-run the views after — because the views splice in the app tables
-> only when they already exist (guarded by `to_regclass`).
+**(ii) Read views + functions — run after the tables**
+
+| # | File | Creates | Status |
+|---|------|---------|--------|
+| 7 | `db/views.sql` | Catalog + per-user read views: `mobile_programs`, `mobile_modules`, `mobile_lessons`, `mobile_snippets`, `mobile_quotes`, `mobile_recommended_videos`, `mobile_use_tracking`, `mobile_wheel_areas`, `mobile_wheel_scores`, `mobile_leaderboard` (legacy all-time), `mobile_assessments`, `mobile_me` | ✅ |
+| 8 | `db/checkin-history.sql` | `mobile_checkin_history` view = `mobile_checkins` ∪ `daily_assessments` (deduped by date). Run after files 1 + 7. | ✅ |
+| 9 | `db/community-views.sql` | Community read views: `mobile_posts` (exposes `author_id` for DM-from-post), `mobile_comments`, `mobile_channels`, `mobile_notifications`. Run after file 4. | ✅ |
+| 10 | `db/leaderboard.sql` | Leaderboard functions (SECURITY DEFINER): `mobile_leaderboard_metric(metric, period)` (points/lessons/workshops/community/videos/check-ins over `user_points`→`user_rewards`→`rewards`), `mobile_streak_leaderboard(period)` (longest check-in run over `daily_assessments`), legacy `mobile_leaderboard_period(period)`. Rolling windows (7/30 days). | ✅ |
+| 11 | `db/auth-and-storage.sql` | Imports users into Supabase Auth (keeps passwords), avatars bucket + storage policies | ✅ |
+
+> **Order note:** the group-(ii) view files use `to_regclass` guards, so they only
+> splice in an app table that already exists — run group (i) first, or just re-run
+> the view files afterward. `checkin-history.sql` needs `mobile_checkins`;
+> `community-views.sql` needs `community.sql`'s tables.
 
 ## B. App-owned data tables — PRESERVE on re-import ⚠️ (real user data)
 
@@ -59,6 +73,13 @@ and retires the app-owned tables. Each carries keys back to the real FKs.
 | `mobile_conversations` + `mobile_conversation_members` | `community_conversations` | 1:1 → `user_one_id`/`user_two_id`; groups have no direct prod equivalent (needs a prod group-thread mechanism at cutover) |
 | `mobile_messages` | `community_messages` | `sender_id`, `conversation_id`→prod conversation, `content`, `created_at`; `last_read_at` (on members) → prod read state |
 | `mobile_blocks` | *(prod block table TBD)* | `blocker_id`, `blocked_id`, `active` — map to the production block/mute mechanism at cutover |
+| `mobile_group_signups` | *(prod: `sds_group_subscribers`?)* | `app_user_id`→`user_id`, `sds_group_id`; reconcile to the prod group-membership/attendance mechanism |
+| `mobile_favorites` | `favorites` | `app_user_id`→`user_id`, `kind`+`item_id`→polymorphic `favoritable_type`/`favoritable_id` (`lesson`→`Lesson`, `video`→`Snippet`); `active=false` removes the prod favorite |
+
+**Read-only at cutover (no reconciliation):** the leaderboard functions
+(`db/leaderboard.sql`) and `mobile_groups` read production tables (`user_points`,
+`user_rewards`, `rewards`, `daily_assessments`, `sds_groups`) directly — nothing
+app-owned to write back; they keep working as-is against the migrated schema.
 
 After the job: app reads/writes prod directly; app-owned tables become a cache or
 are dropped. Document the executed job + date in `db/README.md` at cutover.
@@ -100,7 +121,7 @@ are dropped. Document the executed job + date in `db/README.md` at cutover.
 
 1. Import / refresh the production snapshot into Supabase (`public` schema).
 2. **Preserve app-owned tables** (section B) — back up before, restore after, never drop.
-3. Run section A files 1–6 (order note above).
+3. Run section A group (i) — the app-owned table files — then group (ii) — the views + functions (order note above).
 4. Confirm dashboard-only settings (section E).
 5. Run the contract audit (section F) — regression fails CI, not the app.
 
@@ -121,8 +142,17 @@ are dropped. Document the executed job + date in `db/README.md` at cutover.
 ---
 
 ### Status summary
-Read/write SQL layer for content, insights, check-ins, wheel, and community feed:
-**built ✅.** Remaining before a fully-comprehensive migration: chat views
-(`mobile_threads`), the reconciliation jobs (section C, written at cutover),
-consolidating enum/emoji maps into the field dictionary, the post-images bucket,
-and community audit checks.
+Read/write SQL layer — content, insights, check-ins, wheel, favorites, community
+feed, **chat (DMs + groups)**, **meetings/groups**, and the **multi-board
+leaderboard** (points/streak/lessons/workshops/community/videos/check-ins):
+**built ✅** (11 SQL files in section A, all validated).
+
+Remaining before a fully-comprehensive migration: the reconciliation jobs
+(section C, written at cutover); consolidating enum/emoji maps into the field
+dictionary; the post-images bucket; community audit checks; and the badges/
+Achievements + Hero Code layer (next build — will add its own app-owned
+`mobile_*` reward-state if any, documented here when it lands).
+
+> **Keep this current:** every new `db/*.sql` file or `mobile_*` object must be
+> added to section A (run order) and — if it's an app-owned write table — to
+> sections B (preserve) and C (reconcile). This catalogue is the migration bible.
