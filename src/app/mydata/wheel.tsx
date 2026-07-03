@@ -182,7 +182,7 @@ export default function WheelOfLife() {
             title="Contact my coach"
             variant="outline"
             iconLeft="calendar-outline"
-            onPress={() => router.push('/meetings/book')}
+            onPress={() => router.push('/meetings/coach')}
           />
         </Card>
 
