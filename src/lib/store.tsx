@@ -18,6 +18,8 @@ import {
 
 import { api } from '@/api';
 import { posts as basePosts, type Comment, type Meeting, type Post } from '@/data/content';
+import { computeStreak } from '@/lib/checkin';
+import { videoPointsEarned } from '@/lib/video-points';
 
 const KEY = 'igntd.store.v1';
 
@@ -58,7 +60,9 @@ type Persisted = {
   bookedIds: string[]; // ids of existing meetings the user reserved
   readNotifications: string[]; // notification ids marked read
   completedLessons: string[]; // lesson ids marked complete locally (until auth)
-  watchedVideos: string[]; // video ids the user has opened/played (until auth)
+  watchedVideos: string[]; // video ids the user has finished (≥95%) — checklist tick
+  videoProgress: Record<string, number>; // video id -> furthest percent already scored
+  videoPoints: number; // running total of streak-multiplied video watch points
   pwaBannerDismissed: boolean; // hide the "Install app" home banner once dismissed
 };
 
@@ -79,6 +83,8 @@ const EMPTY: Persisted = {
   readNotifications: [],
   completedLessons: [],
   watchedVideos: [],
+  videoProgress: {},
+  videoPoints: 0,
   pwaBannerDismissed: false,
 };
 
@@ -146,6 +152,12 @@ type StoreValue = {
   markVideoWatched: (id: string) => void;
   /** Merge server-recorded video watches in (cross-device). Called once on auth. */
   hydrateWatched: (ids: string[]) => void;
+  /** Award points for advancing a video's furthest-watched to `percent`, scaled
+   *  by the current check-in streak. Returns the points earned this step (0 if no
+   *  new tier crossed). Idempotent on re-watch. */
+  awardVideoProgress: (videoId: string, percent: number) => number;
+  /** Running total of streak-multiplied video watch points. */
+  videoPoints: number;
   // PWA install banner (home)
   pwaBannerDismissed: boolean;
   dismissPwaBanner: () => void;
@@ -342,6 +354,20 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
           if (next.length === s.watchedVideos.length) return s;
           return { ...s, watchedVideos: next };
         }),
+      videoPoints: state.videoPoints,
+      awardVideoProgress: (videoId, percent) => {
+        const prev = state.videoProgress[videoId] ?? 0;
+        const pct = Math.max(0, Math.min(100, Math.round(percent)));
+        if (pct <= prev) return 0;
+        const streak = computeStreak(state.checkins.map((c) => c.date));
+        const earned = videoPointsEarned(prev, pct, streak);
+        update((s) => ({
+          ...s,
+          videoProgress: { ...s.videoProgress, [videoId]: Math.max(s.videoProgress[videoId] ?? 0, pct) },
+          videoPoints: s.videoPoints + earned,
+        }));
+        return earned;
+      },
 
       pwaBannerDismissed: state.pwaBannerDismissed,
       dismissPwaBanner: () => update((s) => (s.pwaBannerDismissed ? s : { ...s, pwaBannerDismissed: true })),

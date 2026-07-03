@@ -26,34 +26,38 @@ export default function VideoDetail() {
   const byId = useAsync(() => (id ? api.content.videosByIds([id]) : Promise.resolve([])), [id]).data ?? [];
   const video = recommendedVideos.find((v) => v.id === id) ?? byId[0] ?? recommendedVideos[0];
 
-  const { isFav, toggleFav, markVideoWatched, isVideoWatched } = useStore();
+  const { isFav, toggleFav, markVideoWatched, isVideoWatched, awardVideoProgress } = useStore();
   const { appUserId } = useCurrentAuthor();
   const [liked, setLiked] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [celebrate, setCelebrate] = useState(false);
+  const [earned, setEarned] = useState(0); // points banked this video
 
-  // Persist partial watch progress (furthest percent) — server-only, best-effort;
-  // doesn't tick the checklist (that needs completion).
-  const recordProgress = (percent: number) => {
-    if (video) api.content.markVideoWatched(video.id, appUserId, percent).catch(() => {});
+  // Advance the video's furthest-watched to `percent`: bank streak-scaled points
+  // for any new tier crossed (local) and persist the percent (server, best-effort).
+  const progressTo = (percent: number) => {
+    if (!video) return;
+    const pts = awardVideoProgress(video.id, percent);
+    if (pts > 0) setEarned((e) => e + pts);
+    api.content.markVideoWatched(video.id, appUserId, percent).catch(() => {});
   };
 
-  // Record a finished video once: local (optimistic, ticks the checklist) +
-  // server at 100% (so it counts cross-device and can be rewarded). Celebrate
-  // the first time it's completed, not on a re-watch.
+  // Finished: tick the checklist (local), bank points up to 100%, and celebrate
+  // the first time it's completed (not on a re-watch).
   const complete = () => {
     if (!video) return;
     const firstTime = !isVideoWatched(video.id);
     markVideoWatched(video.id);
-    api.content.markVideoWatched(video.id, appUserId, 100).catch(() => {});
+    progressTo(100);
     if (firstTime) setCelebrate(true);
   };
 
-  // Web: mark watched when the player reports the video ended (onEnded below).
-  // Native: the fallback opens an external browser we can't observe, so mark it
-  // watched on open instead.
+  // Web: starting the video banks the first point; milestones + completion are
+  // reported by the player (onProgress/onEnded below). Native: the fallback opens
+  // an external browser we can't observe, so count it complete on open.
   const play = () => {
-    if (Platform.OS !== 'web') complete();
+    if (Platform.OS === 'web') progressTo(1);
+    else complete();
     setPlaying(true);
   };
 
@@ -161,7 +165,7 @@ export default function VideoDetail() {
         video={playing ? { url: playUrl, title: video.title, thumbnail: video.image } : null}
         onClose={() => setPlaying(false)}
         onEnded={complete}
-        onProgress={recordProgress}
+        onProgress={progressTo}
       />
 
       {celebrate && (
@@ -173,8 +177,17 @@ export default function VideoDetail() {
               <Txt variant="titleSm" style={{ textAlign: 'center' }}>
                 Video complete!
               </Txt>
+              {earned > 0 && (
+                <View style={styles.pointsPill}>
+                  <Ionicons name="star" size={15} color={Colors.star} />
+                  <Txt variant="bodySmBold" color={Colors.primaryDark}>
+                    +{earned} {earned === 1 ? 'point' : 'points'}
+                  </Txt>
+                </View>
+              )}
               <Txt variant="bodySm" color={Colors.textSub} style={{ textAlign: 'center' }}>
-                Nice work — this is checked off your program. Keep the momentum going.
+                Nice work — this is checked off your program. Keep your streak up to
+                earn more per video.
               </Txt>
               <View style={styles.celebrateBtn}>
                 <Txt variant="bodySmBold" color={Colors.white}>
@@ -241,6 +254,15 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
     alignItems: 'center',
     gap: Spacing.sm,
+  },
+  pointsPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.soft,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderRadius: Radius.pill,
   },
   celebrateBtn: {
     marginTop: Spacing.sm,

@@ -76,7 +76,7 @@ and retires the app-owned tables. Each carries keys back to the real FKs.
 | `mobile_messages` | `community_messages` | `sender_id`, `conversation_id`→prod conversation, `content`, `created_at`; `last_read_at` (on members) → prod read state |
 | `mobile_blocks` | *(prod block table TBD)* | `blocker_id`, `blocked_id`, `active` — map to the production block/mute mechanism at cutover |
 | `mobile_group_signups` | *(prod: `sds_group_subscribers`?)* | `app_user_id`→`user_id`, `sds_group_id`; reconcile to the prod group-membership/attendance mechanism |
-| `mobile_video_watches` | `user_rewards` + `user_points` | `app_user_id`→`user_id`, `video_id`→`Snippet`; `percent≥95` → emit a `watched_video` reward (`rewards.short_name`) + `user_points` (default_points) per completion, deduped on (user, video); partial `percent` can seed a progress/points board |
+| `mobile_video_watches` | `user_rewards` + `user_points` | `app_user_id`→`user_id`, `video_id`→`Snippet`; award points per non-linear tier reached (`src/lib/video-points.ts`: started/50%/finished = 1/2/3 base × streak multiplier ×1/×2/×3), `percent≥95` also emits a `watched_video` reward. Dedupe on (user, video). Pre-cutover these points live app-side (store `videoPoints`); at cutover materialize into `user_points` |
 | `mobile_favorites` | `favorites` | `app_user_id`→`user_id`, `kind`+`item_id`→polymorphic `favoritable_type`/`favoritable_id` (`lesson`→`Lesson`, `video`→`Snippet`); `active=false` removes the prod favorite |
 
 **Read-only at cutover (no reconciliation):** the leaderboard functions
