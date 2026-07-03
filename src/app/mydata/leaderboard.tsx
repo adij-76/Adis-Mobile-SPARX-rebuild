@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FlatList, StyleSheet, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { api } from '@/api';
@@ -9,46 +9,89 @@ import { Segmented } from '@/components/ui/segmented';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
-import type { LeaderboardPeriod } from '@/api';
+import type { LeaderboardBoard, LeaderboardPeriod } from '@/api';
 
 const MEDAL = ['#E8B923', '#9AA4B2', '#CD7F32'];
 
-const PERIODS: { key: LeaderboardPeriod; label: string }[] = [
-  { key: 'all', label: 'All-time' },
-  { key: 'month', label: 'This month' },
-  { key: 'week', label: 'This week' },
+type Board = { key: LeaderboardBoard; label: string; unit: string; streak?: boolean };
+const BOARDS: Board[] = [
+  { key: 'points', label: 'Points', unit: 'pts' },
+  { key: 'streak', label: 'Streak', unit: 'days', streak: true },
+  { key: 'lessons', label: 'Lessons', unit: 'lessons' },
+  { key: 'workshops', label: 'Workshops', unit: 'workshops' },
+  { key: 'community', label: 'Community', unit: 'posts' },
+  { key: 'videos', label: 'Videos', unit: 'videos' },
+  { key: 'checkins', label: 'Check-ins', unit: 'check-ins' },
 ];
 
-const SUBTITLE: Record<LeaderboardPeriod, string> = {
-  all: 'Top members of all time',
-  month: 'Top movers over the last 30 days',
-  week: 'Top movers over the last 7 days',
+const PERIODS: { key: LeaderboardPeriod; label: string }[] = [
+  { key: 'all', label: 'All-time' },
+  { key: 'month', label: '30 days' },
+  { key: 'week', label: '7 days' },
+];
+
+const PERIOD_WORD: Record<LeaderboardPeriod, string> = {
+  all: 'of all time',
+  month: 'over the last 30 days',
+  week: 'over the last 7 days',
 };
 
+/** "1,840 pts" · "12-day streak" · "23 lessons". */
+function formatValue(value: number, board: Board): string {
+  if (board.streak) return `${value}-day streak`;
+  return `${value.toLocaleString()} ${board.unit}`;
+}
+
 export default function Leaderboard() {
+  const [boardKey, setBoardKey] = useState<LeaderboardBoard>('points');
   const [period, setPeriod] = useState<LeaderboardPeriod>('all');
-  const { data, loading } = useAsync(() => api.insights.leaderboard(period), [period]);
-  const leaderboard = data ?? [];
-  const me = leaderboard.find((e) => e.you);
+  const board = BOARDS.find((b) => b.key === boardKey)!;
+
+  const { data, loading } = useAsync(() => api.insights.leaderboard(boardKey, period), [boardKey, period]);
+  const rows = data ?? [];
+  const me = rows.find((e) => e.you);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScreenHeader title="Back" largeTitle="Leaderboard" />
+
       <View style={styles.controls}>
-        <Segmented<LeaderboardPeriod> options={PERIODS} value={period} onChange={setPeriod} />
-        <Txt variant="bodySm" color={Colors.textSub}>
-          {SUBTITLE[period]}
-        </Txt>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.boardRow}>
+          {BOARDS.map((b) => {
+            const on = b.key === boardKey;
+            return (
+              <Pressable
+                key={b.key}
+                onPress={() => setBoardKey(b.key)}
+                style={[styles.chip, on && styles.chipOn]}>
+                <Txt variant="bodySmMedium" color={on ? Colors.white : Colors.textSub}>
+                  {b.label}
+                </Txt>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+        <View style={styles.padded}>
+          <Segmented<LeaderboardPeriod> options={PERIODS} value={period} onChange={setPeriod} />
+          <Txt variant="bodySm" color={Colors.textSub}>
+            {board.streak ? 'Longest check-in streak ' : `Top for ${board.label.toLowerCase()} `}
+            {PERIOD_WORD[period]}
+          </Txt>
+        </View>
       </View>
+
       <FlatList
-        data={leaderboard}
+        data={rows}
         keyExtractor={(e) => e.id}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           loading ? null : (
             <Txt variant="bodySm" color={Colors.textSub} center style={{ marginTop: Spacing.xxl }}>
-              No points earned {period === 'week' ? 'in the last 7 days' : period === 'month' ? 'in the last 30 days' : 'yet'}.
+              Nothing here yet {period === 'all' ? '' : PERIOD_WORD[period]} — be the first on the board.
             </Txt>
           )
         }
@@ -56,7 +99,7 @@ export default function Leaderboard() {
           me && me.rank > 3 ? (
             <View style={styles.youFooter}>
               <Txt variant="caption" color={Colors.textSub}>
-                You&apos;re #{me.rank} with {me.points.toLocaleString()} pts
+                You&apos;re #{me.rank} — {formatValue(me.points, board)}
               </Txt>
             </View>
           ) : null
@@ -74,7 +117,7 @@ export default function Leaderboard() {
               {item.name}
             </Txt>
             <Txt variant="bodySmBold" color={Colors.primary}>
-              {item.points.toLocaleString()} pts
+              {formatValue(item.points, board)}
             </Txt>
           </View>
         )}
@@ -85,7 +128,16 @@ export default function Leaderboard() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.screen },
-  controls: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.md, gap: Spacing.sm },
+  controls: { paddingTop: Spacing.md, gap: Spacing.sm },
+  padded: { paddingHorizontal: Spacing.lg, gap: Spacing.sm },
+  boardRow: { gap: Spacing.sm, paddingHorizontal: Spacing.lg },
+  chip: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.pill,
+    backgroundColor: Colors.soft,
+  },
+  chipOn: { backgroundColor: Colors.primary },
   list: { padding: Spacing.lg, gap: Spacing.sm, flexGrow: 1 },
   row: {
     flexDirection: 'row',

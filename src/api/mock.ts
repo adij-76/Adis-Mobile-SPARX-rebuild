@@ -177,17 +177,18 @@ export const mockInsights: InsightsApi = {
   wheelHistory: (anchor) => delay(wheelHistory(anchor?.current ?? 71, anchor?.last ?? 67)),
   wheelAreas: () => delay(wheelAreas),
   reports: () => delay(reports),
-  // Offline: fake period movement by scaling + re-ranking the seed board, so the
-  // All-time / Monthly / Weekly tabs each show a distinct, plausible order.
-  leaderboard: (period = 'all') => {
-    const factor = period === 'week' ? 0.14 : period === 'month' ? 0.45 : 1;
-    const jitter = period === 'week' ? 1.6 : period === 'month' ? 1.25 : 1;
+  // Offline: fake per-board + per-period movement by scaling + re-ranking the
+  // seed board, so each board/period shows a distinct, plausible order.
+  leaderboard: (board = 'points', period = 'all') => {
+    // Board scale: streak → small day counts; counts → tens; points → the seed.
+    const boardScale =
+      board === 'streak' ? 0.02 : board === 'points' ? 1 : 0.03;
+    const periodFactor = period === 'week' ? 0.2 : period === 'month' ? 0.5 : 1;
     const ranked = leaderboard
-      .map((e, i) => ({
-        ...e,
-        // deterministic per-period shuffle so shorter windows reorder the board
-        points: Math.round(e.points * factor * (1 + ((i * (period === 'week' ? 7 : 3)) % 5) / 10 / jitter)),
-      }))
+      .map((e, i) => {
+        const raw = e.points * boardScale * periodFactor * (1 + ((i * (period === 'week' ? 7 : 3)) % 5) / 10);
+        return { ...e, points: Math.max(board === 'points' ? 1 : 1, Math.round(raw)) };
+      })
       .sort((a, b) => b.points - a.points)
       .map((e, i) => ({ ...e, rank: i + 1 }));
     return delay(ranked);
