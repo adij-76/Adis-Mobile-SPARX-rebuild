@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -12,8 +12,7 @@ import { type MeetingStatus } from '@/data/content';
 import { useAsync } from '@/hooks/use-async';
 import { useAuth } from '@/lib/auth';
 import { useGoBack } from '@/hooks/use-go-back';
-import { deviceTz } from '@/lib/groups';
-import { useStore } from '@/lib/store';
+import { deviceTz, nextOccurrence, parseMeetLengthMin } from '@/lib/groups';
 
 const TABS: { key: MeetingStatus; label: string }[] = [
   { key: 'upcoming', label: 'Upcoming' },
@@ -21,29 +20,41 @@ const TABS: { key: MeetingStatus; label: string }[] = [
   { key: 'canceled', label: 'Canceled' },
 ];
 
+const EMPTY_COPY: Record<MeetingStatus, string> = {
+  upcoming: "You haven't signed up for any groups yet. Tap Book a group to join one.",
+  past: 'Your past sessions will show up here.',
+  canceled: 'Groups you cancel will show up here.',
+};
+
 export default function ManageMeetings() {
-  const router = useRouter();
   const goBack = useGoBack();
-  const { bookings, isBooked } = useStore();
   const { user } = useAuth();
   const userTz = user?.timeZone || deviceTz();
   const params = useLocalSearchParams<{ tab?: MeetingStatus }>();
   const [tab, setTab] = useState<MeetingStatus>(params.tab ?? 'upcoming');
-  const meetings = useAsync(() => api.meetings.all(), []).data ?? [];
-  // Signed-up coaching groups show at the top of Upcoming, with their join link.
+
   const { data: groupData, reload: reloadGroups } = useAsync(() => api.groups.list(), []);
   useFocusEffect(useCallback(() => void reloadGroups(), [])); // eslint-disable-line react-hooks/exhaustive-deps
-  const myGroups = (groupData ?? []).filter((g) => g.signedUp);
+
+  // Signed-up groups, soonest occurrence first. (Past/Canceled aren't tracked for
+  // recurring groups yet, so those tabs are honestly empty — no placeholders.)
+  const myGroups = useMemo(() => {
+    const next = (g: NonNullable<typeof groupData>[number]) =>
+      nextOccurrence({
+        meetDay: g.meetDay,
+        title: g.title,
+        meetTimeChar: g.meetTimeChar,
+        lengthMin: parseMeetLengthMin(g.meetLengthChar),
+        sourceTz: g.sourceTz,
+      })?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    return (groupData ?? []).filter((g) => g.signedUp).sort((a, b) => next(a) - next(b));
+  }, [groupData]);
 
   const cancelGroup = (id: string) => {
     api.groups.setSignup(id, false, user?.appUserId ?? null).catch(() => {}).finally(() => reloadGroups());
   };
 
-  // Booked sessions show at the top of Upcoming.
-  const data =
-    tab === 'upcoming'
-      ? [...bookings, ...meetings.filter((m) => m.status === 'upcoming')]
-      : meetings.filter((m) => m.status === tab);
+  const data = tab === 'upcoming' ? myGroups : [];
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -57,7 +68,7 @@ export default function ManageMeetings() {
           <Ionicons name="arrow-back" size={22} color={Colors.textMain} />
           <Txt variant="bodyMedium">Back</Txt>
         </Pressable>
-        <Txt variant="titleLg">Manage meeting</Txt>
+        <Txt variant="titleLg">Manage meetings</Txt>
       </View>
 
       <View style={styles.segment}>
@@ -78,65 +89,21 @@ export default function ManageMeetings() {
 
       <FlatList
         data={data}
-        keyExtractor={(m) => m.id}
+        keyExtractor={(g) => g.id}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
-        ItemSeparatorComponent={() => <View style={styles.divider} />}
-        ListHeaderComponent={
-          tab === 'upcoming' && myGroups.length ? (
-            <View style={styles.groups}>
-              <Txt variant="titleSm">Your groups</Txt>
-              {myGroups.map((g) => (
-                <GroupCard
-                  key={g.id}
-                  group={g}
-                  userTz={userTz}
-                  onToggleSignup={(on) => !on && cancelGroup(g.id)}
-                />
-              ))}
-              <Txt variant="bodySmMedium" color={Colors.textSub} style={{ marginTop: Spacing.sm }}>
-                Other sessions
-              </Txt>
-            </View>
-          ) : null
-        }
+        ItemSeparatorComponent={() => <View style={{ height: Spacing.lg }} />}
         ListEmptyComponent={
-          myGroups.length && tab === 'upcoming' ? null : (
-            <Txt variant="bodySm" color={Colors.textSub} center style={{ marginTop: Spacing.xxl }}>
-              No {tab} meetings.
-            </Txt>
-          )
+          <Txt variant="bodySm" color={Colors.textSub} center style={{ marginTop: Spacing.xxl, paddingHorizontal: Spacing.lg }}>
+            {EMPTY_COPY[tab]}
+          </Txt>
         }
         renderItem={({ item }) => (
-          <Pressable
-            style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]}
-            onPress={() => router.push(`/meetings/${item.id}`)}>
-            <View style={styles.avatar}>
-              <Ionicons name="person" size={16} color={Colors.white} />
-            </View>
-            <View style={{ flex: 1, gap: 2 }}>
-              <View style={styles.metaRow}>
-                <Txt variant="bodySmBold" color={Colors.primary}>
-                  {item.time}
-                </Txt>
-                {item.startsIn && (
-                  <Txt variant="caption" color={Colors.orange}>
-                    ⏱ {item.startsIn}
-                  </Txt>
-                )}
-              </View>
-              <Txt variant="bodyMedium">{item.title}</Txt>
-              <Txt variant="caption" color={Colors.primary}>
-                Meeting with {item.host}
-              </Txt>
-              {(item.id.startsWith('b') || isBooked(item.id)) && (
-                <Txt variant="caption" color={Colors.success}>
-                  ✓ Booked
-                </Txt>
-              )}
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={Colors.textSub} />
-          </Pressable>
+          <GroupCard
+            group={item}
+            userTz={userTz}
+            onToggleSignup={(on) => !on && cancelGroup(item.id)}
+          />
         )}
       />
     </SafeAreaView>
@@ -161,18 +128,5 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.soft,
   },
   segmentItemActive: { backgroundColor: Colors.primary },
-  list: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xl },
-  groups: { gap: Spacing.md, paddingBottom: Spacing.md },
-  divider: { height: 1, backgroundColor: Colors.stroke, marginVertical: Spacing.md },
-  row: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md, paddingVertical: Spacing.sm },
-  metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  avatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 2,
-  },
+  list: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xl, flexGrow: 1 },
 });
