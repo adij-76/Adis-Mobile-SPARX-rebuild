@@ -76,7 +76,8 @@ and retires the app-owned tables. Each carries keys back to the real FKs.
 | `mobile_messages` | `community_messages` | `sender_id`, `conversation_id`→prod conversation, `content`, `created_at`; `last_read_at` (on members) → prod read state |
 | `mobile_blocks` | *(prod block table TBD)* | `blocker_id`, `blocked_id`, `active` — map to the production block/mute mechanism at cutover |
 | `mobile_group_signups` | *(prod: `sds_group_subscribers`?)* | `app_user_id`→`user_id`, `sds_group_id`; reconcile to the prod group-membership/attendance mechanism |
-| `mobile_video_watches` | `user_rewards` + `user_points` | `app_user_id`→`user_id`, `video_id`→`Snippet`; award points per non-linear tier reached (`src/lib/video-points.ts`: started/50%/finished = 1/2/3 base × streak multiplier ×1/×2/×3), `percent≥95` also emits a `watched_video` reward. Dedupe on (user, video). Pre-cutover these points live app-side (store `videoPoints`); at cutover materialize into `user_points` |
+| `mobile_video_watches` | `user_rewards` + `user_points` | `app_user_id`→`user_id`, `video_id`→`Snippet`; award points per non-linear tier reached (`src/lib/video-points.ts`: started/50%/finished = 1/2/3 base × streak multiplier ×1/×1.5/×2), `percent≥95` also emits a `watched_video` reward. Dedupe on (user, video). Pre-cutover these points live app-side (store `videoPoints`); at cutover materialize into `user_points` |
+| *(app-local, no DB table yet)* streak badges + milestone bonuses | `user_rewards` + `user_points` | Store `streakBadges` / `streakBonusPoints` are **device-local** (AsyncStorage), not server-persisted — they don't cross devices or survive reinstall. At cutover, re-derive from `daily_assessments` streak history (badges are deterministic from streak runs) and emit milestone-bonus `user_points`. If cross-device durability is wanted sooner, add a `mobile_streak_state` table (documented here when it lands). Rules/values: `src/lib/streaks.ts`, `docs/gamification.md` |
 | `mobile_favorites` | `favorites` | `app_user_id`→`user_id`, `kind`+`item_id`→polymorphic `favoritable_type`/`favoritable_id` (`lesson`→`Lesson`, `video`→`Snippet`); `active=false` removes the prod favorite |
 
 **Read-only at cutover (no reconciliation):** the leaderboard functions
@@ -99,6 +100,8 @@ are dropped. Document the executed job + date in `db/README.md` at cutover.
 | **Enum maps** | `addictions.enum_id` (0=Alcohol…), `lesson_type` (1=workshop), `commentable_type`/`reactionable_type`/`notifiable_type` polymorphic values | ⚠️ consolidate into field-dictionary |
 | **Emoji map** | `reactions.emoji_id` → `emojis.e_character` (glyph) for per-emoji reaction display | ⚠️ document when reactions show emojis |
 | `db/introspect.sql` | One-shot schema dump (paste-back substitute for direct DB access) | ✅ |
+| `docs/gamification.md` | The points/streak/badge/bonus economy + research-backed roadmap and recovery-population guardrails; the "why" behind the reward reconciliation | ✅ |
+| `docs/native-build-notes.md` | Native (iOS/Android) requirements the web build fakes — incl. the WebView bridge needed for real video completion/percent tracking | ✅ |
 
 ## E. Dashboard-only settings 🔒 (set once; survive a data re-import)
 
