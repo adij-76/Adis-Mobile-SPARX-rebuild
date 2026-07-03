@@ -92,6 +92,11 @@ export type ContentApi = {
   quotes(): Promise<Quote[]>;
   /** Home "Challenges" tab. */
   challenges(): Promise<Challenge[]>;
+  /** Record that the user finished a video (persists cross-device so the daily
+   *  checklist stays ticked and the completion can be rewarded). Best-effort. */
+  markVideoWatched(videoId: string, appUserId: string | null): Promise<void>;
+  /** Ids of videos the user has finished (to hydrate the local watched set). */
+  watchedVideoIds(): Promise<string[]>;
 };
 
 export type MeetingsApi = {

@@ -49,7 +49,7 @@ function Splash() {
 function Shell() {
   const { isDesktop } = useBreakpoint();
   const { status } = useAuth();
-  const { mergeRemoteCheckins, hydrateFavorites } = useStore();
+  const { mergeRemoteCheckins, hydrateFavorites, hydrateWatched } = useStore();
   const segments = useSegments();
   const router = useRouter();
   const onLogin = segments[0] === 'login';
@@ -82,6 +82,13 @@ function Shell() {
         videos.forEach((v) => set.add(`video:${v.id}`));
         app.forEach((f) => (f.active ? set.add(`${f.kind}:${f.itemId}`) : set.delete(`${f.kind}:${f.itemId}`)));
         hydrateFavorites([...set]);
+      })
+      .catch(() => {});
+    // Hydrate finished-video records so the checklist ticks off across devices.
+    api.content
+      .watchedVideoIds()
+      .then((ids) => {
+        if (active && ids.length) hydrateWatched(ids);
       })
       .catch(() => {});
     return () => {

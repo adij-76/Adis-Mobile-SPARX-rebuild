@@ -26,6 +26,7 @@ Two groups: **(i) app-owned tables** (create first), then **(ii) views + functio
 | 4 | `db/community.sql` | App-owned write tables: `mobile_feed_posts`, `mobile_feed_comments`, `mobile_feed_reactions` (the `mobile_dm_*` tables here are superseded by `db/chat.sql`) | ✅ |
 | 5 | `db/chat.sql` | Chat (conversation model): helpers `mobile_uid()` / `mobile_is_member()` / `mobile_blocked_in()`; app-owned `mobile_conversations`, `mobile_conversation_members`, `mobile_messages`, `mobile_blocks` (RLS); RPCs `mobile_start_direct()` / `mobile_start_group()`; read views `mobile_directory`, `mobile_threads`, `mobile_thread_messages`. A 1:1 DM is a 2-member, non-group conversation. | ✅ |
 | 6 | `db/groups.sql` | Meetings: app-owned `mobile_group_signups` (RLS) + read view `mobile_groups` over `sds_groups` — role-gated via `subscription_role_groups`, coach via `sds_user_id`→`users`, weekly schedule from `meet_day`/`meet_time_char` (anchor tz America/Los_Angeles). `join_url` only for signed-up members; coach `start_url` never exposed. | ✅ |
+| 6b | `db/video-watches.sql` | Video completions: app-owned `mobile_video_watches` (RLS) — one row per (user, video), records a finished video (Vimeo `ended` / ≥95%) so the checklist ticks off across devices and completions can be rewarded. | ✅ |
 
 **(ii) Read views + functions — run after the tables**
 
@@ -54,6 +55,7 @@ production tables leaves them untouched.
 - `mobile_conversations` / `mobile_conversation_members` / `mobile_messages` — chat (DMs + groups)
 - `mobile_blocks` — one-directional block list ("X can't DM me")
 - `mobile_group_signups` — who signed up for which `sds_groups` coaching group
+- `mobile_video_watches` — finished videos (one row per user/video; drives checklist completion + rewards)
 - `mobile_favorites` — bookmark toggles (kind/item_id, `active` tombstones un-saves)
 - *(legacy, unused)* `mobile_dm_conversations` / `mobile_dm_messages` — superseded by `mobile_messages`
 - *(future)* notification read-state
@@ -74,6 +76,7 @@ and retires the app-owned tables. Each carries keys back to the real FKs.
 | `mobile_messages` | `community_messages` | `sender_id`, `conversation_id`→prod conversation, `content`, `created_at`; `last_read_at` (on members) → prod read state |
 | `mobile_blocks` | *(prod block table TBD)* | `blocker_id`, `blocked_id`, `active` — map to the production block/mute mechanism at cutover |
 | `mobile_group_signups` | *(prod: `sds_group_subscribers`?)* | `app_user_id`→`user_id`, `sds_group_id`; reconcile to the prod group-membership/attendance mechanism |
+| `mobile_video_watches` | `user_rewards` + `user_points` | `app_user_id`→`user_id`, `video_id`→`Snippet`; emit a `watched_video` reward (`rewards.short_name`) + `user_points` (default_points) per completion, deduped on (user, video) |
 | `mobile_favorites` | `favorites` | `app_user_id`→`user_id`, `kind`+`item_id`→polymorphic `favoritable_type`/`favoritable_id` (`lesson`→`Lesson`, `video`→`Snippet`); `active=false` removes the prod favorite |
 
 **Read-only at cutover (no reconciliation):** the leaderboard functions
@@ -145,9 +148,9 @@ are dropped. Document the executed job + date in `db/README.md` at cutover.
 
 ### Status summary
 Read/write SQL layer — content, insights, check-ins, wheel, favorites, community
-feed, **chat (DMs + groups)**, **meetings/groups**, and the **multi-board
-leaderboard** (points/streak/lessons/workshops/community/videos/check-ins):
-**built ✅** (11 SQL files in section A, all validated).
+feed, **chat (DMs + groups)**, **meetings/groups**, **video completions**, and the
+**multi-board leaderboard** (points/streak/lessons/workshops/community/videos/check-ins):
+**built ✅** (12 SQL files in section A, all validated).
 
 Remaining before a fully-comprehensive migration: the reconciliation jobs
 (section C, written at cutover); consolidating enum/emoji maps into the field

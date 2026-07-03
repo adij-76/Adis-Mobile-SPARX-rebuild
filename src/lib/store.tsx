@@ -144,6 +144,8 @@ type StoreValue = {
   // video watches (local until auth)
   isVideoWatched: (id: string) => boolean;
   markVideoWatched: (id: string) => void;
+  /** Merge server-recorded video watches in (cross-device). Called once on auth. */
+  hydrateWatched: (ids: string[]) => void;
   // PWA install banner (home)
   pwaBannerDismissed: boolean;
   dismissPwaBanner: () => void;
@@ -334,6 +336,12 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         update((s) =>
           s.watchedVideos.includes(id) ? s : { ...s, watchedVideos: [...s.watchedVideos, id] },
         ),
+      hydrateWatched: (ids) =>
+        update((s) => {
+          const next = [...new Set([...s.watchedVideos, ...ids])];
+          if (next.length === s.watchedVideos.length) return s;
+          return { ...s, watchedVideos: next };
+        }),
 
       pwaBannerDismissed: state.pwaBannerDismissed,
       dismissPwaBanner: () => update((s) => (s.pwaBannerDismissed ? s : { ...s, pwaBannerDismissed: true })),

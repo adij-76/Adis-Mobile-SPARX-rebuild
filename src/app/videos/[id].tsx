@@ -5,11 +5,13 @@ import { ActivityIndicator, Platform, Pressable, ScrollView, Share, StyleSheet, 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { api } from '@/api';
+import { Confetti } from '@/components/confetti';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { VideoPlayerModal } from '@/components/video-player-modal';
 import { VideoThumbnail } from '@/components/video-thumbnail';
 import { Colors, Radius, Spacing } from '@/constants/theme';
+import { useCurrentAuthor } from '@/lib/auth';
 import { DEMO_VIDEO_URL } from '@/data/content';
 import { useAsync } from '@/hooks/use-async';
 import { useStore } from '@/lib/store';
@@ -24,15 +26,28 @@ export default function VideoDetail() {
   const byId = useAsync(() => (id ? api.content.videosByIds([id]) : Promise.resolve([])), [id]).data ?? [];
   const video = recommendedVideos.find((v) => v.id === id) ?? byId[0] ?? recommendedVideos[0];
 
-  const { isFav, toggleFav, markVideoWatched } = useStore();
+  const { isFav, toggleFav, markVideoWatched, isVideoWatched } = useStore();
+  const { appUserId } = useCurrentAuthor();
   const [liked, setLiked] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const [celebrate, setCelebrate] = useState(false);
+
+  // Record a finished video once: local (optimistic) + server (best-effort, so
+  // the checklist ticks off across devices and the completion can be rewarded).
+  // Celebrate the first time it's completed, not on a re-watch.
+  const complete = () => {
+    if (!video) return;
+    const firstTime = !isVideoWatched(video.id);
+    markVideoWatched(video.id);
+    api.content.markVideoWatched(video.id, appUserId).catch(() => {});
+    if (firstTime) setCelebrate(true);
+  };
 
   // Web: mark watched when the player reports the video ended (onEnded below).
   // Native: the fallback opens an external browser we can't observe, so mark it
   // watched on open instead.
   const play = () => {
-    if (Platform.OS !== 'web' && video) markVideoWatched(video.id);
+    if (Platform.OS !== 'web') complete();
     setPlaying(true);
   };
 
@@ -139,8 +154,30 @@ export default function VideoDetail() {
       <VideoPlayerModal
         video={playing ? { url: playUrl, title: video.title, thumbnail: video.image } : null}
         onClose={() => setPlaying(false)}
-        onEnded={() => markVideoWatched(video.id)}
+        onEnded={complete}
       />
+
+      {celebrate && (
+        <>
+          <Confetti count={70} />
+          <Pressable style={styles.celebrate} onPress={() => setCelebrate(false)}>
+            <View style={styles.celebrateCard}>
+              <Ionicons name="checkmark-circle" size={34} color={Colors.success} />
+              <Txt variant="titleSm" style={{ textAlign: 'center' }}>
+                Video complete!
+              </Txt>
+              <Txt variant="bodySm" color={Colors.textSub} style={{ textAlign: 'center' }}>
+                Nice work — this is checked off your program. Keep the momentum going.
+              </Txt>
+              <View style={styles.celebrateBtn}>
+                <Txt variant="bodySmBold" color={Colors.white}>
+                  Keep going
+                </Txt>
+              </View>
+            </View>
+          </Pressable>
+        </>
+      )}
     </SafeAreaView>
   );
 }
@@ -178,4 +215,31 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', gap: Spacing.md, alignItems: 'center' },
   moreRow: { flexDirection: 'row', gap: Spacing.md, alignItems: 'center' },
   moreThumb: { width: 110, height: 70, borderRadius: Radius.sm, backgroundColor: Colors.soft },
+  celebrate: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(10,13,20,0.45)',
+    padding: Spacing.xl,
+  },
+  celebrateCard: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: Colors.white,
+    borderRadius: Radius.lg,
+    padding: Spacing.xl,
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  celebrateBtn: {
+    marginTop: Spacing.sm,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.md,
+  },
 });

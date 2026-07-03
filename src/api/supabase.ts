@@ -353,6 +353,35 @@ export const supabaseContent: ContentApi = {
   async challenges() {
     return challenges;
   },
+  // Record a finished video (app-owned mobile_video_watches). Upsert on
+  // (auth_uid, video_id) so re-watching doesn't duplicate. auth_uid fills from
+  // the column default; RLS enforces ownership.
+  async markVideoWatched(videoId, appUserId) {
+    const idNum = Number(appUserId);
+    const res = await fetch(`${BASE}/rest/v1/mobile_video_watches?on_conflict=auth_uid,video_id`, {
+      method: 'POST',
+      headers: {
+        apikey: ANON,
+        Authorization: `Bearer ${authToken ?? ANON}`,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates,return=minimal',
+      },
+      body: JSON.stringify({
+        video_id: String(videoId),
+        app_user_id: Number.isFinite(idNum) ? idNum : null,
+        watched_at: new Date().toISOString(),
+      }),
+    });
+    if (!res.ok) throw new Error(`Video watch save failed (${res.status})`);
+  },
+  async watchedVideoIds() {
+    try {
+      const rows = await rest<{ video_id: string }[]>('mobile_video_watches', { select: 'video_id' });
+      return rows.map((r) => String(r.video_id));
+    } catch {
+      return [];
+    }
+  },
 };
 
 export const supabaseMeetings: MeetingsApi = {

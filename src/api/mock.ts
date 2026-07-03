@@ -97,7 +97,15 @@ export const mockContent: ContentApi = {
   videosByIds: (ids) => delay(recommendedVideos.filter((v) => ids.includes(v.id))),
   quotes: () => delay(quotes),
   challenges: () => delay(challenges),
+  markVideoWatched: (videoId) => {
+    mockWatched.add(String(videoId));
+    return delay(undefined);
+  },
+  watchedVideoIds: () => delay([...mockWatched]),
 };
+
+// In-memory record of finished videos for the mock adapter (no backend).
+const mockWatched = new Set<string>();
 
 const nameFromEmail = (email: string) =>
   email
