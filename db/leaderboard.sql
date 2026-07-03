@@ -9,8 +9,11 @@
 -- period board is just the same sum filtered by created_at. SECURITY DEFINER so
 -- it can read users/user_points regardless of base-table RLS (like the view).
 --
--- Windows use the session zone (UTC on Supabase): a "week" starts Monday 00:00,
--- a "month" the 1st. Idempotent.
+-- Windows are ROLLING (last 7 / last 30 days), not calendar. Calendar periods
+-- created a paradox at a month boundary: right after the 1st, "this month" is
+-- empty while "this week" still reaches into the prior month — so weekly showed
+-- movers but monthly looked dead. Rolling windows guarantee month ⊇ week ⊇ recent
+-- activity, so the boards always reflect who's active. Idempotent.
 -- =============================================================================
 
 drop function if exists public.mobile_leaderboard_period(text);
@@ -30,8 +33,8 @@ as $$
   from public.users u
   join public.user_points up on up.user_id = u.id
   where case
-          when p_period = 'week'  then up.created_at >= date_trunc('week',  now()::timestamp)
-          when p_period = 'month' then up.created_at >= date_trunc('month', now()::timestamp)
+          when p_period = 'week'  then up.created_at >= now()::timestamp - interval '7 days'
+          when p_period = 'month' then up.created_at >= now()::timestamp - interval '30 days'
           else true
         end
   group by u.id, u.first_name, u.email, u.avatar_link
