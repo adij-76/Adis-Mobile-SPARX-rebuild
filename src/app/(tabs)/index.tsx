@@ -254,16 +254,7 @@ export default function HomeScreen() {
         onSeeAll={() => router.push('/meetings')}
       />
       <View style={styles.meetingActions}>
-        <View style={{ flex: 1 }}>
-          <Button title="Book a group" variant="primary" onPress={() => router.push('/meetings/book')} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Button
-            title="Book a session"
-            variant="primary"
-            onPress={() => router.push('/meetings/book?paid=1')}
-          />
-        </View>
+        <Button title="Book a group" variant="primary" onPress={() => router.push('/meetings/book')} />
       </View>
       <MeetingStack meetings={upcomingMeetings} onOpen={(id) => router.push(`/meetings/${id}`)} />
     </>
@@ -712,7 +703,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  meetingActions: { flexDirection: 'row', gap: Spacing.md },
+  meetingActions: { gap: Spacing.md },
   videoRow: { gap: Spacing.md, paddingRight: Spacing.lg },
   videoCard: { width: 220 },
   videoImage: {

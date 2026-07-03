@@ -25,6 +25,8 @@ import type {
   CommunityApi,
   ContentApi,
   DirectoryUser,
+  Group,
+  GroupsApi,
   InsightsApi,
   Lesson,
   MeResult,
@@ -319,5 +321,69 @@ export const mockMessages: MessagesApi = {
     const conv: MockConv = { id: `c${mockConvSeq++}`, isGroup: true, title: title ?? null, members: [...memberIds] };
     mockConvs.push(conv);
     return delay(conv.id);
+  },
+};
+
+// --- Mock coaching groups (offline dev; sign-up state kept in-memory). ---
+const mockGroupData: Group[] = [
+  {
+    id: '1',
+    title: 'Monday - Gratitude Group',
+    coachName: 'Coach Belle',
+    coachAvatar: '',
+    description:
+      'Start your week with gratitude + mindfulness — meditation, journaling, and sharing. Leave grounded and ready for the week.',
+    meetDay: 'Monday',
+    meetTimeChar: '9:00 AM',
+    meetLengthChar: '60 Min',
+    sourceTz: 'America/Los_Angeles',
+    zoomMeetingId: '84569311345',
+    signedUp: false,
+    joinUrl: 'https://us06web.zoom.us/j/84569311345',
+  },
+  {
+    id: '2',
+    title: "Monday - Inclusive Men's",
+    coachName: 'Dr. Jaffe',
+    coachAvatar: '',
+    description:
+      'A group for men, male-identifying, non-binary, or gender non-conforming members to focus on challenges unique to them.',
+    meetDay: 'Monday',
+    meetTimeChar: '5:00 PM',
+    meetLengthChar: '60 Min',
+    sourceTz: 'America/Los_Angeles',
+    zoomMeetingId: '89270133935',
+    signedUp: false,
+    joinUrl: 'https://us06web.zoom.us/j/89270133935',
+  },
+  {
+    id: '3',
+    title: 'Tuesday - Dr. Jaffe Deep Dive',
+    coachName: 'Dr. Jaffe',
+    coachAvatar: '',
+    description: "Dr. Jaffe's weekly group diving deep into individual topics with participation.",
+    meetDay: 'Tuesday',
+    meetTimeChar: '12:00 PM',
+    meetLengthChar: '60 Min',
+    sourceTz: 'America/Los_Angeles',
+    zoomMeetingId: '85400136812',
+    signedUp: false,
+    joinUrl: 'https://us06web.zoom.us/j/85400136812',
+  },
+];
+const mockSignups = new Set<string>();
+
+export const mockGroups: GroupsApi = {
+  list: () =>
+    delay(
+      mockGroupData.map((g) => {
+        const signedUp = mockSignups.has(g.id);
+        return { ...g, signedUp, joinUrl: signedUp ? g.joinUrl : null };
+      }),
+    ),
+  setSignup: (groupId, on) => {
+    if (on) mockSignups.add(groupId);
+    else mockSignups.delete(groupId);
+    return delay(undefined);
   },
 };

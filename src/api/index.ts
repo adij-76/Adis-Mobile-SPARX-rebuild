@@ -11,6 +11,7 @@ import {
   mockCommunity,
   mockContent,
   mockFavorites,
+  mockGroups,
   mockInsights,
   mockMeetings,
   mockMessages,
@@ -22,6 +23,7 @@ import {
   supabaseCommunity,
   supabaseContent,
   supabaseFavorites,
+  supabaseGroups,
   supabaseInsights,
   supabaseMeetings,
   supabaseMessages,
@@ -42,6 +44,7 @@ export const api: Api = {
   favorites: useSupabase ? supabaseFavorites : mockFavorites,
   checkins: useSupabase ? supabaseCheckins : mockCheckins,
   messages: useSupabase ? supabaseMessages : mockMessages,
+  groups: useSupabase ? supabaseGroups : mockGroups,
 };
 
 export { setSupabaseToken, setOnUnauthorized } from '@/api/supabase';
@@ -55,6 +58,8 @@ export type {
   CommunityApi,
   ContentApi,
   DirectoryUser,
+  Group,
+  GroupsApi,
   InsightsApi,
   Lesson,
   MeResult,
