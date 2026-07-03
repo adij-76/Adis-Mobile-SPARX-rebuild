@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { api } from '@/api';
@@ -69,7 +69,10 @@ export default function HomeScreen() {
   const recommendedVideos = useAsync(() => api.content.recommendedVideos(), []).data ?? [];
   // Upcoming meetings = the user's signed-up coaching groups' next occurrences
   // (real, in the user's time zone), soonest first — no fake placeholders.
-  const groups = useAsync(() => api.groups.list(), []).data ?? [];
+  // Reload on focus so a group signed up on another screen shows immediately.
+  const { data: groupData, reload: reloadGroups } = useAsync(() => api.groups.list(), []);
+  useFocusEffect(useCallback(() => void reloadGroups(), [])); // eslint-disable-line react-hooks/exhaustive-deps
+  const groups = groupData ?? [];
   const upcomingMeetings = useMemo<UpcomingMeeting[]>(() => {
     return groups
       .filter((g) => g.signedUp)
