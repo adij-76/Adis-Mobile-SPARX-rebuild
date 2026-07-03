@@ -592,12 +592,10 @@ export const supabaseInsights: InsightsApi = {
   async reports() {
     return reports;
   },
-  async leaderboard() {
+  async leaderboard(period = 'all') {
     type Row = { user_id: number | string; name: string | null; avatar: string | null; points: number; you: boolean };
-    try {
-      const rows = await rest<Row[]>('mobile_leaderboard', { order: 'points.desc', limit: '50' });
-      if (!rows.length) return leaderboard;
-      return rows.map((r, i) => ({
+    const toEntries = (rows: Row[]) =>
+      rows.map((r, i) => ({
         id: String(r.user_id),
         rank: i + 1,
         name: r.name || 'Member',
@@ -605,8 +603,20 @@ export const supabaseInsights: InsightsApi = {
         points: r.points ?? 0,
         you: !!r.you,
       }));
+    // Period-windowed board via the RPC (all / month / week). Falls back to the
+    // all-time view if the function isn't present yet (older DB); month/week are
+    // empty in that case rather than silently showing all-time.
+    try {
+      const rows = await rpc<Row[]>('mobile_leaderboard_period', { p_period: period });
+      return toEntries(rows);
     } catch {
-      return leaderboard;
+      if (period !== 'all') return [];
+      try {
+        const rows = await rest<Row[]>('mobile_leaderboard', { order: 'points.desc', limit: '50' });
+        return rows.length ? toEntries(rows) : leaderboard;
+      } catch {
+        return leaderboard;
+      }
     }
   },
   async useTracking() {

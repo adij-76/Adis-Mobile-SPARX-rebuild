@@ -61,6 +61,7 @@ export type {
   Group,
   GroupsApi,
   InsightsApi,
+  LeaderboardPeriod,
   Lesson,
   MeResult,
   MeetingsApi,
