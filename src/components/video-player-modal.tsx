@@ -33,11 +33,15 @@ export function VideoPlayerModal({
   video,
   onClose,
   onEnded,
+  onProgress,
 }: {
   video: SparkyVideo | null;
   onClose: () => void;
   /** Fired once when the video reaches the end (web only). */
   onEnded?: () => void;
+  /** Fired as the video is watched, at the 25/50/75% milestones, with the
+   *  furthest percent reached so far (0-100). Web only. */
+  onProgress?: (percent: number) => void;
 }) {
   const { width, height } = useWindowDimensions();
   const embed = video ? vimeoEmbedUrl(video.url) : null;
@@ -45,6 +49,8 @@ export function VideoPlayerModal({
   const iframeRef = useRef<{ contentWindow?: { postMessage: (m: string, o: string) => void } } | null>(null);
   const onEndedRef = useRef(onEnded);
   onEndedRef.current = onEnded;
+  const onProgressRef = useRef(onProgress);
+  onProgressRef.current = onProgress;
 
   // Wire the Vimeo postMessage API: subscribe to the player's `ended` and
   // `timeupdate` events and fire onEnded exactly once when the video completes.
@@ -53,6 +59,7 @@ export function VideoPlayerModal({
     const win = (globalThis as { window?: any }).window;
     if (!win) return;
     let done = false;
+    let milestone = 0; // highest 25/50/75 milestone already reported
     const post = (method: string, value?: string) =>
       iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ method, value }), '*');
     const subscribe = () => {
@@ -63,6 +70,16 @@ export function VideoPlayerModal({
       if (done) return;
       done = true;
       onEndedRef.current?.();
+    };
+    // Report the furthest 25/50/75% milestone crossed, once each, so partial
+    // progress is captured without a write on every timeupdate tick.
+    const progress = (percent: number) => {
+      const pct = Math.round(percent * 100);
+      const next = pct >= 75 ? 75 : pct >= 50 ? 50 : pct >= 25 ? 25 : 0;
+      if (next > milestone) {
+        milestone = next;
+        onProgressRef.current?.(next);
+      }
     };
     const onMessage = (e: { origin?: string; data?: unknown }) => {
       if (typeof e.origin === 'string' && !/player\.vimeo\.com/.test(e.origin)) return;
@@ -75,7 +92,11 @@ export function VideoPlayerModal({
       if (!data) return;
       if (data.event === 'ready') subscribe();
       else if (data.event === 'ended') fire();
-      else if (data.event === 'timeupdate' && (data.data?.percent ?? 0) >= 0.95) fire();
+      else if (data.event === 'timeupdate') {
+        const p = data.data?.percent ?? 0;
+        if (p >= 0.95) fire();
+        else progress(p);
+      }
     };
     win.addEventListener('message', onMessage);
     // The player may already be ready before we attached; nudge it.

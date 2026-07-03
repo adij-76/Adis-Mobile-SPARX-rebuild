@@ -22,6 +22,37 @@ The Vimeo player (`src/components/video-player-modal.tsx`) currently:
 3. `react-native-webview` is a native module → it requires a **dev/EAS build**,
    not Expo Go, and won't affect the web export.
 
+### Completion + percent-watched tracking on native ⚠️ REQUIRES the WebView
+
+The app records **how much of a video was watched** (`mobile_video_watches.percent`,
+furthest point reached, 0–100) and marks a video **complete** at ≥95% — this powers
+the checklist tick and, at cutover, points/leaderboard from watch progress.
+
+This only works when we can **observe the player**, which today we can only do on
+**web** via the Vimeo `postMessage` API (`timeupdate.percent` + `ended`, wired in
+`video-player-modal.tsx`). On native the current `Linking.openURL` fallback opens
+an external browser we cannot observe, so native **cannot** report real progress —
+it records a completion-on-open proxy only.
+
+**To get real completion + percent on native**, after adding the WebView (steps
+1–3 above), inject the same Vimeo bridge into it and post events back to RN:
+
+```js
+// injectedJavaScript in the WebView — forwards Vimeo player events to RN
+const f = document.querySelector('iframe');
+const post = (m) => f.contentWindow.postMessage(JSON.stringify(m), '*');
+window.addEventListener('message', (e) => {
+  const d = JSON.parse(e.data);
+  if (d.event === 'ready') { post({method:'addEventListener',value:'ended'});
+                             post({method:'addEventListener',value:'timeupdate'}); }
+  window.ReactNativeWebView.postMessage(e.data); // → onMessage in RN
+});
+```
+
+Then `onMessage` in RN mirrors the web handler: fire `onProgress(percent)` at the
+25/50/75 milestones and `onEnded` at `ended`/≥0.95. Until this lands, native watch
+percent is not real — treat native progress as unavailable and lean on web.
+
 ### Vimeo settings (applies to web too)
 
 - Videos must **allow embedding on the app's domain**. For the web build that's

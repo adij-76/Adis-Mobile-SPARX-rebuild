@@ -92,10 +92,12 @@ export type ContentApi = {
   quotes(): Promise<Quote[]>;
   /** Home "Challenges" tab. */
   challenges(): Promise<Challenge[]>;
-  /** Record that the user finished a video (persists cross-device so the daily
-   *  checklist stays ticked and the completion can be rewarded). Best-effort. */
-  markVideoWatched(videoId: string, appUserId: string | null): Promise<void>;
-  /** Ids of videos the user has finished (to hydrate the local watched set). */
+  /** Record watch progress for a video — `percent` is the furthest point reached
+   *  (0-100); the server keeps the max. 100 (or ≥95) counts as completed, ticking
+   *  the checklist and enabling rewards. Persists cross-device. Best-effort. */
+  markVideoWatched(videoId: string, appUserId: string | null, percent: number): Promise<void>;
+  /** Ids of videos the user has *completed* (percent ≥ 95) — hydrates the local
+   *  watched set / checklist. Partial progress is stored but doesn't tick here. */
   watchedVideoIds(): Promise<string[]>;
 };
 

@@ -32,14 +32,20 @@ export default function VideoDetail() {
   const [playing, setPlaying] = useState(false);
   const [celebrate, setCelebrate] = useState(false);
 
-  // Record a finished video once: local (optimistic) + server (best-effort, so
-  // the checklist ticks off across devices and the completion can be rewarded).
-  // Celebrate the first time it's completed, not on a re-watch.
+  // Persist partial watch progress (furthest percent) — server-only, best-effort;
+  // doesn't tick the checklist (that needs completion).
+  const recordProgress = (percent: number) => {
+    if (video) api.content.markVideoWatched(video.id, appUserId, percent).catch(() => {});
+  };
+
+  // Record a finished video once: local (optimistic, ticks the checklist) +
+  // server at 100% (so it counts cross-device and can be rewarded). Celebrate
+  // the first time it's completed, not on a re-watch.
   const complete = () => {
     if (!video) return;
     const firstTime = !isVideoWatched(video.id);
     markVideoWatched(video.id);
-    api.content.markVideoWatched(video.id, appUserId).catch(() => {});
+    api.content.markVideoWatched(video.id, appUserId, 100).catch(() => {});
     if (firstTime) setCelebrate(true);
   };
 
@@ -155,6 +161,7 @@ export default function VideoDetail() {
         video={playing ? { url: playUrl, title: video.title, thumbnail: video.image } : null}
         onClose={() => setPlaying(false)}
         onEnded={complete}
+        onProgress={recordProgress}
       />
 
       {celebrate && (

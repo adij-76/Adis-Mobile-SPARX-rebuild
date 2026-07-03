@@ -353,30 +353,36 @@ export const supabaseContent: ContentApi = {
   async challenges() {
     return challenges;
   },
-  // Record a finished video (app-owned mobile_video_watches). Upsert on
-  // (auth_uid, video_id) so re-watching doesn't duplicate. auth_uid fills from
-  // the column default; RLS enforces ownership.
-  async markVideoWatched(videoId, appUserId) {
+  // Record watch progress (app-owned mobile_video_watches) via the
+  // mobile_record_watch RPC, which upserts on (auth_uid, video_id) keeping the
+  // MAX percent — a partial re-watch never lowers a higher recorded value.
+  async markVideoWatched(videoId, appUserId, percent) {
     const idNum = Number(appUserId);
-    const res = await fetch(`${BASE}/rest/v1/mobile_video_watches?on_conflict=auth_uid,video_id`, {
+    const pct = Math.max(0, Math.min(100, Math.round(percent)));
+    const res = await fetch(`${BASE}/rest/v1/rpc/mobile_record_watch`, {
       method: 'POST',
       headers: {
         apikey: ANON,
         Authorization: `Bearer ${authToken ?? ANON}`,
         'Content-Type': 'application/json',
-        Prefer: 'resolution=merge-duplicates,return=minimal',
+        Prefer: 'return=minimal',
       },
       body: JSON.stringify({
-        video_id: String(videoId),
-        app_user_id: Number.isFinite(idNum) ? idNum : null,
-        watched_at: new Date().toISOString(),
+        p_video_id: String(videoId),
+        p_percent: pct,
+        p_app_user_id: Number.isFinite(idNum) ? idNum : null,
       }),
     });
     if (!res.ok) throw new Error(`Video watch save failed (${res.status})`);
   },
   async watchedVideoIds() {
     try {
-      const rows = await rest<{ video_id: string }[]>('mobile_video_watches', { select: 'video_id' });
+      // Only completed videos (≥95%) tick the checklist; partial progress is
+      // stored but doesn't count as watched here.
+      const rows = await rest<{ video_id: string }[]>('mobile_video_watches', {
+        select: 'video_id',
+        percent: 'gte.95',
+      });
       return rows.map((r) => String(r.video_id));
     } catch {
       return [];
