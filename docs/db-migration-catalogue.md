@@ -114,6 +114,8 @@ are dropped. Document the executed job + date in `db/README.md` at cutover.
 |---|---|---|
 | `scripts/audit-db-contract.mjs` | Enforces: one row per lesson, no placeholder titles, compat columns present | ✅ |
 | `.github/workflows/audit-db.yml` | Runs the audit daily / on `db/**` merges / on demand | ✅ |
+| `scripts/check-migration-catalogue.mjs` | **Keeps THIS doc current** — fails if any `db/*.sql` file or `mobile_*` object isn't documented here | ✅ |
+| `.github/workflows/check-catalogue.yml` | Runs the catalogue check daily + on every `db/**` / catalogue change (PR + merge) | ✅ |
 | Repo secrets `AUDIT_USER_EMAIL` / `AUDIT_USER_PASSWORD` | Enable per-user audit checks | 🔒 |
 | **Community audit checks** | Extend the audit for `mobile_posts`/`mobile_channels` (no dupes, active-only, author resolves) | ⚠️ add when feed ships |
 
