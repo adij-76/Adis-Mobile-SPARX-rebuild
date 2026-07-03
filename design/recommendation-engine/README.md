@@ -1,167 +1,178 @@
-# SPARx Recommendation Engine — n8n build guide (v2)
+# SPARx Recommendation Engine — n8n build guide (v3)
 
-The n8n flow that turns a user's real data (check-ins, Wheel of Life, lesson
-progress, addiction focus) into the personalised video picks the app shows on
-the home "Recommended Videos" rail, the check-in summary screen, and the
-Videos tab.
+The n8n pipeline that turns a client's real data — daily check-ins, Wheel of
+Life, lesson progress, addiction focus, and **clinical session notes from
+individual and group sessions** — into personalised content: video snippets
+today (the app's "Recommended Videos" rail, check-in summary, Videos tab),
+lessons and workshops in the same ledger, and exercises when that library
+lands.
 
-> **Where the live flow lives:** in the IGNTD n8n cloud instance — it is not in
-> this repo. This folder is the versioned reference implementation: import
-> `recommendation-engine.workflow.json` to replace/refine the live flow, and
-> keep this folder as the source of truth for how it's wired. If you export the
-> current live flow's JSON into this folder, future refinements can be made as
-> reviewable diffs instead of rebuilds.
+This is the deployment vehicle for the patent-pending **Adaptive
+Behavioral-Health Treatment Planning and Delivery System** (see
+"Patent alignment" below).
+
+> **Where the live flows run:** the IGNTD n8n cloud instance. This folder is
+> the versioned source of truth — import the `.workflow.json` files there and
+> keep changes flowing through this repo as reviewable diffs.
+
+## The three moving parts
+
+```
+                       coach tool / Fathom relay / Rails
+                                    │  POST note
+                                    ▼
+              ┌── notes-ingestion.workflow.json ─────────────────┐
+              │ extract insights (Claude, structured)            │
+              │ → client_note_insights (+ client_notes_vectors)  │
+              │ → elevated-risk Slack alert                      │
+              │ → POST re-rank for that user ──────────────┐     │
+              └─────────────────────────────────────────────│────┘
+                                                            ▼
+Schedule (daily 06:00) ─┐                    ┌── recommendation-engine.workflow.json (v3)
+Supabase DB webhook     ├──▶ Resolve targets─▶ Gather signals + candidates (1 SQL)
+(mobile_checkins INSERT)┘                    │   check-ins · assessments · wheel ·
+                                             │   lessons · SESSION NOTES ·
+                                             │   video pool · lesson/workshop pool
+                                             ▼
+                                       Rank with Claude (structured output)
+                                             ▼
+                                       Validate picks (hallucination guard)
+                                        ┌────┴───────────────┐
+                                        ▼                    ▼
+                             user_snippets (videos,   mobile_recommended_content
+                             live app contract)       (ALL picks + reason +
+                                                       signal snapshot = provenance)
+
+              chatbot (live, patched per chatbot-notes-patch.md):
+              Session_Notes node → user-context block → note-aware
+              conversational recommendations, with a hard never-quote rule
+```
 
 ## The contract with the app (must stay true)
 
-The app side is already built and deployed; the flow's only job is to write
-rows the app can read.
+Derived from `db/views.sql` and `src/api/supabase.ts`:
 
-```
-n8n flow ──INSERT──▶ public.user_snippets (user_id, snippet_id, created_at)
-                              │
-                              ▼  (join snippets, email-scoped)
-                     mobile_recommended_videos view          ← db/views.sql
-                              │
-                              ▼  (newest first, deduped, top 8)
-        app: home rail · check-in summary · /videos · Sparky context
-```
+1. **INSERT-only into `user_snippets`** (production table): the app reads it
+   through `mobile_recommended_videos`, newest-first, deduped, top 8.
+2. **Only classified snippets with a playable video** — the view hides
+   anything else, so a bad pick silently vanishes.
+3. **Empty is safe** — the app falls back to newest real snippets.
+4. **Never change `mobile_*` views from these flows** — view changes ship in
+   lock-step with `main` (AGENTS.md).
+5. Lessons/workshops have **no app surface yet** — they accumulate in
+   `mobile_recommended_content` until the "Suggested next lesson" app build
+   ships (the ready-to-run view is commented at the bottom of `schema.sql`).
 
-Hard rules, derived from `db/views.sql` and `src/api/supabase.ts`:
+## What v3 adds over v2
 
-1. **INSERT-only into `user_snippets`.** It's a production table — never
-   update/delete other rows, never alter its schema.
-2. **Only recommend playable, classified snippets** (`classified = true` and
-   `vimeo_id`/`vimeo_url` present). The view filters unplayable rows out, so a
-   bad pick silently vanishes — wasted quota.
-3. **Recency is the ordering signal.** The app sorts by `us.created_at desc`
-   and de-duplicates by snippet id, keeping the newest 8. Inserting 3–5 fresh
-   picks per run naturally rotates the rail.
-4. **Empty is safe.** If the flow inserts nothing, the app falls back to the
-   newest real snippets — so the flow can safely skip users with no signals.
-5. **Never touch the `mobile_*` views from this flow.** View changes ship in
-   lock-step with `main` (see `AGENTS.md`).
+| Area | v3 |
+|---|---|
+| **Session notes** | New ingestion workflow: any source POSTs a note → Claude extracts a structured insight record (summary, themes, concerns, wins, focus areas, risk) → stored in `client_note_insights`. The ranking prompt weights note focus-areas **above every other signal**, and a fresh note immediately re-ranks that user's content. |
+| **Multi-content** | Candidates now include entitled, not-completed lessons and workshops (entitlement mirrors `mobile_lessons.accessible`: user's program + subscription-role unlocks). Model returns up to 5 videos + up to 2 lessons/workshops. `exercise` is reserved in the ledger's type enum for when the exercises library exists. |
+| **Provenance / explainability** | Every pick is appended to `mobile_recommended_content` with its reason, the exact signal snapshot that drove it (`signals_used` jsonb), model id, prompt version, and run source. Append-only; nothing updates or deletes rows. |
+| **Production signals** | Signals now also read legacy `daily_assessments` + emotions (the same source the live chatbot uses), so long-time clients aren't cold-started. |
+| **Safety** | Elevated-risk language in a session note fires a Slack alert to the coaching channel (mirrors the chatbot's crisis-alert pattern). |
+| **Privacy** | Prompts see note *summaries*, never raw text. User-facing reasons are forbidden (by prompt) from quoting or revealing notes; the chatbot patch carries the same rule. |
 
-## What v2 refines
+## Deployment runbook (in order)
 
-| Area | Before (v1 behaviour to avoid) | v2 |
-|---|---|---|
-| **Freshness** | Recs only as fresh as the last batch run; the check-in summary screen ("Based on your inputs…") shows stale picks | Second trigger: a Supabase Database Webhook on `mobile_checkins` INSERT re-ranks **that user immediately after they check in** |
-| **Signals** | Little/none — picks not grounded in user data | Latest 5 check-ins (mood, emotion tags, use behaviour), 3 lowest Wheel of Life areas, last 5 lessons touched, addiction focus |
-| **Hallucination** | Model may emit snippet ids that don't exist | Model chooses **only from a SQL-built candidate pool**; a Code node then drops any id not in that pool before insert |
-| **Repeats** | Same video recommended over and over | Candidate pool excludes anything recommended to that user in the last 60 days; insert has a matching `NOT EXISTS` so re-runs are idempotent |
-| **Playability** | Picks could be unclassified / videoless snippets that the view hides | Candidate SQL enforces `classified = true` + playable video up front |
-| **Cost/scale** | Rank every user every run | Daily batch covers only users active in the last 14 days (capped at 500/run); everyone else gets the webhook path when they next check in |
-| **Observability** | No record of why a video was picked | Optional `mobile_recommendation_log` table records reason/model/source per pick (`log-table.sql`) |
-| **Model** | Old pinned model ids rot (the chat agent's `claude-sonnet-4-20250514` is now retired) | Pinned to `claude-opus-4-8`; **no `temperature`** — current Claude models reject sampling params |
+1. **Schema:** run `schema.sql` once in the SQL editor. Additive only; the
+   app can't see any of it.
+2. **Notes ingestion:** import `notes-ingestion.workflow.json` → set the
+   Postgres / Anthropic / Slack credentials marked `REPLACE` and the Slack
+   channel id → add **Header Auth** on the webhook → Save, Activate.
+3. **Recommendation engine:** import `recommendation-engine.workflow.json`
+   (replaces v2 if you imported it) → set credentials → Header Auth → Save,
+   Activate. Copy its **production** webhook URL into:
+   - the `Re-rank this user's content` node of the notes workflow, and
+   - a Supabase Database Webhook: *Database → Webhooks → Create*, table
+     `public.mobile_checkins`, event `INSERT`, POST to that URL (sends
+     `body.record.app_user_id`).
+4. **Chatbot:** apply `chatbot-notes-patch.md` to the live chatbot workflow
+   (one pasted node, one JS edit, two `ai_prompts` row addenda).
+5. **Point note sources at the webhook.** POST
+   `{ user_id | email, note_text, source: individual|group, session_date, coach, external_ref }`
+   to `/webhook/note-created` from wherever notes originate:
+   - **Coach tooling / Rails admin:** an after-save hook.
+   - **Fathom (session recordings):** a relay that maps the meeting summary →
+     `note_text`, attendee email → `email`, call id → `external_ref`
+     (`external_ref` is unique-indexed, so re-sends are deduped).
+   - **Existing notes table:** if session notes already live in a Postgres
+     table, add a Schedule trigger + "select new rows" Postgres node in front
+     of `Normalize note payload` — the pipeline is source-agnostic.
+6. **Verify** with the testing checklist below, then let the 06:00 batch run.
 
-## Architecture
+### Embeddings note (`client_notes_vectors`)
 
-```
-Schedule (daily 06:00) ─┐
-                        ├─▶ Resolve run targets ─▶ Gather user signals + candidates (1 SQL)
-Webhook (post check-in) ┘         (Code)                        │  one row per user
-                                                                ▼
-                                              Rank with Claude (LLM chain)
-                                                 ▲ Claude (claude-opus-4-8)
-                                                 ▲ Structured Output (JSON schema)
-                                                                │
-                                                                ▼
-                                                    Validate picks (Code)
-                                                    · id ∈ candidate pool
-                                                    · cap 5 · escape for SQL
-                                                       ┌────────┴────────┐
-                                                       ▼                 ▼
-                                        INSERT user_snippets   INSERT mobile_recommendation_log
-                                        (NOT EXISTS dedupe)    (optional, continue-on-error)
-```
-
-Everything runs against the **same Postgres** the app's Supabase views read —
-no new services.
-
-## Setup — step by step
-
-1. **Import** `recommendation-engine.workflow.json` (*Workflows → Import from
-   File*).
-2. **Credentials** — open the nodes marked `REPLACE`:
-   - the three **Postgres** nodes → your existing Postgres credential (same one
-     Sparky uses);
-   - **Claude (Anthropic)** → your Anthropic API key. Leave options empty — do
-     **not** add `temperature` (current Claude models reject it with a 400).
-3. *(Optional but recommended)* run `log-table.sql` once in the Supabase SQL
-   editor to enable the per-pick reason log. Without it, the log node fails
-   quietly (it's set to continue on error) and everything else still works.
-4. **Save**, toggle **Active**. The daily batch now runs at 06:00 (n8n
-   instance timezone — adjust the cron in "Daily 06:00" if you want a
-   different hour).
-5. **Instant post-check-in recs** (the biggest UX win): in Supabase,
-   *Database → Webhooks → Create*: table `public.mobile_checkins`, event
-   `INSERT`, method `POST`, URL = the workflow's **production** webhook URL
-   (`https://igntd.app.n8n.cloud/webhook/recommend-user`). Supabase sends the
-   inserted row as `body.record`; the flow reads `record.app_user_id`. Users
-   whose check-in has no `app_user_id` (not linked to a production user) are
-   skipped silently.
-6. **Security:** unlike the Sparky webhook, this URL is never shipped in the
-   app bundle — only Supabase calls it. Still, add **Header Auth** on the
-   Webhook node and set the same header in the Supabase webhook config, so
-   random POSTs can't burn Anthropic credit. (Same fix the pre-launch
-   checklist wants for Sparky.)
+The ingestion flow stores note summaries + metadata into
+`client_notes_vectors` with a NULL embedding — nothing queries this table yet
+(the chatbot patch deliberately uses SQL context injection instead of a shared
+vector tool; see the privacy warning in `chatbot-notes-patch.md`). When you
+want per-user semantic search over notes, swap the "Store note vector row"
+node for a PGVector *insert* node (+ Default Data Loader + your OpenAI
+embeddings credential, matching `snippet_vectors`' 1536-dim family) and add
+the filtered tool per the patch doc.
 
 ## Testing checklist
 
-- **Single-user dry run:** in n8n, run the workflow manually with pinned data
-  on "Resolve run targets": `{ "user_id": <your users.id>, "source": "checkin" }`.
-  Check the execution: candidates non-empty → 3–5 picks → inserted rows.
-- **Verify in SQL:**
-  `select * from user_snippets where user_id = <id> order by created_at desc limit 5;`
-- **Verify in the app:** sign in as that user → home rail should show the new
-  picks (newest first). The check-in summary screen reads the same rail.
-- **Idempotency:** run it twice for the same user — the second run must insert
-  0 rows for the same snippet ids (`NOT EXISTS` + 60-day window).
-- **Batch:** trigger the schedule path manually; confirm it only picks up
-  users with a `mobile_checkins` row in the last 14 days.
-- **Failure mode:** temporarily break the Anthropic credential and confirm the
-  app still shows the fallback rail (it does — the app treats an empty/missing
-  view result as "fall back to newest snippets").
+- **Note path:** POST a fake note for a test user → `client_note_insights`
+  row appears with sane themes/focus areas → the re-rank fires → new rows in
+  `user_snippets` + `mobile_recommended_content` whose `signals_used`
+  contains `session_note_themes`.
+- **Confidentiality:** read every `reason` for that run —
+  `select reason from mobile_recommended_content order by id desc limit 10;`
+  — none may reference notes, coaches, or sessions.
+- **Cross-user isolation:** ingest notes for user A, chat/rank as user B →
+  B's picks and chat show zero trace of A's themes.
+- **Risk path:** POST a note with crisis language → `risk = 'elevated'` +
+  Slack alert fires.
+- **Idempotency:** re-POST the same note (`external_ref` unchanged) → no
+  duplicate insight row; re-run the engine → no duplicate recs inside the
+  60-day window.
+- **Entitlement:** for a test user, confirm every `lesson`/`workshop` row in
+  the ledger is accessible to them in the app (their program or
+  subscription-role unlock).
+- **Fallback:** break the Anthropic credential → app rail still renders
+  (falls back to newest snippets); fix credential.
 
-## Tuning knobs (all in one place)
+## Tuning knobs
 
 | Knob | Where | Default |
 |---|---|---|
-| Picks per run | "Validate picks" Code node (`slice(0, 5)`) and the prompt ("3 to 5") | 3–5 |
-| No-repeat window | candidate SQL + insert SQL (`interval '60 days'`) — keep the two in sync | 60 days |
-| Candidate pool size | candidate SQL `limit 40` | 40 newest |
+| Picks per run | "Validate picks" (`slice(0, 5)` / `slice(0, 2)`) + prompt | 3–5 videos, ≤2 lessons |
+| Note history depth | signals SQL notes lateral (`limit 5`) | last 5 notes |
+| Signal priority | ranking prompt "priority order" list | notes → check-ins → wheel → lessons |
+| No-repeat window | candidate + insert SQL (`interval '60 days'`) | 60 days |
+| Candidate pool sizes | candidate SQL `limit 40` / `limit 30` | 40 videos, 30 lessons |
 | "Active user" window (batch) | signals SQL `interval '14 days'` | 14 days |
 | Batch cap | signals SQL `limit 500` | 500 users/run |
-| Model | Claude node | `claude-opus-4-8` (swap to `claude-haiku-4-5` if the daily batch gets expensive — rankings from a fixed candidate list are a task it handles well; update the model string in the log node too) |
-| Voice/criteria | the prompt inside "Rank with Claude" | Adi-voice, shame-free, variety |
+| Completed-lesson threshold | lesson candidates SQL (`progress_value >= 100`) | 100 (change if 0–1 scale) |
+| Models | Anthropic nodes | `claude-opus-4-8` both flows (swap the ranker to `claude-haiku-4-5` if batch cost bites; keep Opus for note extraction — it's clinical). Never set `temperature`. |
 
-## Phase 2 — lesson recommendations (not built yet)
+## Patent alignment (provisional: Adaptive Behavioral-Health Treatment Planning…)
 
-Videos ship first because the app already renders them. Lessons need an
-app-side surface, so they must land in lock-step with `main` (AGENTS.md):
+What this deployment implements today, mapped to the claim elements:
 
-1. **DB (additive, safe any time):** an app-owned
-   `mobile_recommended_lessons_data` table (like the log table: `user_id`,
-   `lesson_id`, `reason`, `created_at`; no app grants yet) + later an
-   email-scoped `mobile_recommended_lessons` view joining `mobile_lessons`.
-2. **Flow:** add a second candidate lateral (from `lessons`, excluding
-   completed ones via `completed_lessons`, respecting the `accessible` gating
-   logic from `mobile_lessons`) and a second output array in the schema
-   (`recommended_lessons`), inserted into the new table.
-3. **App:** a "Suggested next lesson" card (home or check-in summary) reading
-   the new view. Merge app change to `main` **before or together with**
-   granting the view to `authenticated`.
+| Claim element | Implemented by |
+|---|---|
+| (a) multi-source data ingestion | check-ins (app + legacy assessments), Wheel of Life, lesson telemetry, **transcribed/group session notes**, addiction profile |
+| (b) feature construction / longitudinal semantic representations | structured note-insight extraction (themes, concerns, wins, focus areas) + summary embeddings table; trend blocks in the chatbot context builder |
+| (c) hybrid decision engine + explainability | rule layer = candidate SQL (entitlement, playability, recency windows); ML layer = Claude ranking; explainability = per-pick `reason` + `signals_used` snapshot |
+| (d) safety manager + fallback | crisis guardrails in chat; elevated-risk note alerts; hard caps on picks/run + no-repeat windows; fallback = app's static evidence-based rail when the engine yields nothing |
+| (g) contextual orchestration | event-driven re-ranking on check-in and on new session note + daily batch window |
+| (h) provenance subsystem | append-only `mobile_recommended_content` ledger (inputs snapshot, model, prompt version, timestamp) |
 
-Also worth doing later: once the Sparky **ingestion workflow** exists
-(`design/sparky-ai/README.md`, Workflow 2), snippet transcripts will have
-pgvector embeddings — the candidate pool can then be *retrieved by similarity
-to the user's check-in text* instead of "newest 40", which scales better as
-the library grows. The ranking stage stays the same.
+Not yet implemented (roadmap, in rough order of value): dynamic temporal
+windows (shorten re-rank cadence when risk/volatility rises — the `risk` field
+in `client_note_insights` is the ready-made trigger), outcome optimization
+(U = 0.6·ΔSymptom + 0.4·ΔEngagement — needs engagement telemetry on
+recommended content), background adaptive re-ordering in the app UI,
+hierarchical population models, and cryptographic hashing on the ledger rows.
 
 ## Files in this folder
 
-- `recommendation-engine.workflow.json` — importable workflow (triggers, SQL,
-  prompt, guards, inserts all pre-wired).
-- `log-table.sql` — optional per-pick reason log (run once).
+- `recommendation-engine.workflow.json` — importable v3 engine.
+- `notes-ingestion.workflow.json` — importable notes pipeline.
+- `chatbot-notes-patch.md` — 10-minute patch for the live chatbot.
+- `schema.sql` — all DB objects (run once; supersedes the old `log-table.sql`).
 - `README.md` — this guide.

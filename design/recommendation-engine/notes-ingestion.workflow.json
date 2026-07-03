@@ -1,0 +1,189 @@
+{
+  "name": "SPARx — Client Notes Ingestion",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "note-created",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "note-webhook",
+      "name": "Webhook (note created)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 300],
+      "webhookId": "note-created"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalise the incoming note payload. Accepts POSTs from any source —\n// coach tooling, the Rails admin, Zapier, or a Fathom webhook relay — as long\n// as it carries the note text and a way to identify the client:\n//   { user_id? , email? , note_text, source?, session_date?, coach?, external_ref? }\n// Fathom-style payloads: map summary/transcript into note_text and the\n// attendee email into email before calling this webhook (or extend this node).\nconst results = [];\nfor (const item of $input.all()) {\n  const b = (item.json.body && (item.json.body.record ?? item.json.body)) || item.json;\n  const text = String(b.note_text ?? b.summary ?? b.text ?? '').trim();\n  if (text.length < 20) continue; // nothing clinically useful to extract\n  const userId = Number(b.user_id ?? b.app_user_id ?? NaN);\n  // sanitise email for safe SQL inlining (identifier lookup only)\n  const email = String(b.email ?? '').toLowerCase().replace(/[^a-z0-9@._+-]/g, '');\n  if (!Number.isInteger(userId) && !email) continue;\n  const src = ['individual', 'group', 'intake', 'other'].includes(b.source) ? b.source : 'individual';\n  results.push({\n    json: {\n      user_id: Number.isInteger(userId) ? userId : null,\n      email,\n      source: src,\n      session_date: /^\\d{4}-\\d{2}-\\d{2}/.test(String(b.session_date ?? '')) ? String(b.session_date).slice(0, 10) : null,\n      coach: String(b.coach ?? '').slice(0, 200),\n      external_ref: String(b.external_ref ?? b.call_id ?? '').slice(0, 200),\n      note_text: text.slice(0, 20000),\n    },\n  });\n}\nreturn results;"
+      },
+      "id": "normalize-note",
+      "name": "Normalize note payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=-- Resolve the client to a production users.id (by id when given, else email).\nselect u.id as user_id\nfrom public.users u\nwhere ({{ $json.user_id ?? 'NULL' }}::int is not null and u.id = {{ $json.user_id ?? 'NULL' }}::int)\n   or ({{ $json.user_id ?? 'NULL' }}::int is null and lower(u.email) = '{{ $json.email }}')\nlimit 1;",
+        "options": {}
+      },
+      "id": "resolve-user",
+      "name": "Resolve user",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [480, 300],
+      "credentials": { "postgres": { "id": "REPLACE", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a clinical-insights extractor for IGNTD's recovery program (Dr. Adi Jaffe's approach: compassionate, shame-free, strengths-based).\n\nBelow is a session note from a {{ $('Normalize note payload').item.json.source }} session. Extract a structured insight record that will drive personalised content recommendations (videos, lessons, workshops, exercises).\n\nSESSION NOTE:\n{{ $('Normalize note payload').item.json.note_text }}\n\nRules:\n- summary: 2-3 sentences, clinically useful, no identifying details about third parties.\n- themes: short kebab-case tags of what the session was actually about (e.g. cravings, family-conflict, shame, sleep, boundaries).\n- concerns: active clinical concerns raised in the note.\n- wins: strengths/progress worth reinforcing with content.\n- focus_areas: 2-4 kebab-case tags for what CONTENT should focus on next for this client.\n- risk: 'elevated' only for suicidality, self-harm, harm to others, or acute relapse crisis; 'monitor' for worrying-but-not-acute; else 'none'.",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "id": "extract-insights",
+      "name": "Extract clinical insights",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.5,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "model": "claude-opus-4-8",
+        "options": {}
+      },
+      "id": "anthropic-notes",
+      "name": "Claude (Anthropic)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.2,
+      "position": [640, 540],
+      "credentials": { "anthropicApi": { "id": "REPLACE", "name": "Anthropic account" } }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"summary\": { \"type\": \"string\" },\n    \"themes\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n    \"concerns\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n    \"wins\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n    \"focus_areas\": { \"type\": \"array\", \"items\": { \"type\": \"string\" } },\n    \"risk\": { \"type\": \"string\", \"enum\": [\"none\", \"monitor\", \"elevated\"] }\n  },\n  \"required\": [\"summary\", \"themes\", \"focus_areas\", \"risk\"]\n}"
+      },
+      "id": "insights-parser",
+      "name": "Insights Output",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [860, 540]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Shape + escape everything for safe SQL inlining, and build the vector-store\n// content string (summary + tags — NEVER the raw note text).\nconst esc = (s) => String(s ?? '').replace(/'/g, \"''\");\nconst arr = (a) => '{' + (a ?? []).map((x) => '\"' + esc(x).replace(/\"/g, '') + '\"').join(',') + '}';\nconst results = [];\nfor (const item of $input.all()) {\n  const out = item.json.output ?? item.json;\n  const meta = $('Normalize note payload').itemMatching(item.index)?.json ?? {};\n  const uid = Number($('Resolve user').itemMatching(item.index)?.json?.user_id ?? NaN);\n  if (!Number.isInteger(uid)) continue; // client not found -> drop (no orphan notes)\n  const risk = ['none', 'monitor', 'elevated'].includes(out.risk) ? out.risk : 'none';\n  const vectorText = `${out.summary}\\nThemes: ${(out.themes ?? []).join(', ')}\\nFocus next: ${(out.focus_areas ?? []).join(', ')}`;\n  results.push({\n    json: {\n      user_id: uid,\n      source: meta.source,\n      session_date_sql: meta.session_date ? `'${meta.session_date}'` : 'NULL',\n      coach: esc(meta.coach),\n      external_ref: esc(meta.external_ref),\n      raw_text: esc(meta.note_text),\n      summary: esc(out.summary),\n      themes: arr(out.themes),\n      concerns: arr(out.concerns),\n      wins: arr(out.wins),\n      focus_areas: arr(out.focus_areas),\n      risk,\n      vector_text: vectorText,\n    },\n  });\n}\nreturn results;"
+      },
+      "id": "shape-insight",
+      "name": "Shape insight row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=insert into public.client_note_insights\n  (user_id, source, session_date, coach, external_ref, raw_text,\n   summary, themes, concerns, wins, focus_areas, risk, model)\nselect\n  {{ $json.user_id }}, '{{ $json.source }}', {{ $json.session_date_sql }}, '{{ $json.coach }}',\n  nullif('{{ $json.external_ref }}',''), '{{ $json.raw_text }}',\n  '{{ $json.summary }}', '{{ $json.themes }}'::text[], '{{ $json.concerns }}'::text[],\n  '{{ $json.wins }}'::text[], '{{ $json.focus_areas }}'::text[], '{{ $json.risk }}', 'claude-opus-4-8'\nwhere not exists (\n  select 1 from public.client_note_insights\n  where external_ref = nullif('{{ $json.external_ref }}','')\n)\nreturning id, user_id;",
+        "options": {}
+      },
+      "id": "insert-insight",
+      "name": "Insert note insight",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [1340, 300],
+      "credentials": { "postgres": { "id": "REPLACE", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=-- Store the summary-level embedding row. The embedding itself is written by a\n-- follow-up UPDATE from the PGVector insert path in your instance if you prefer\n-- the vector-store node; this direct path keeps the workflow self-contained by\n-- storing content + metadata now and letting the nightly embed backfill run\n-- (see README 'Embeddings' note). If you wire an Embeddings node instead,\n-- replace this node with a PGVector insert on client_notes_vectors.\ninsert into public.client_notes_vectors (content, meta_data)\nselect '{{ $json.vector_text.replace(/'/g, \"''\") }}',\n       json_build_object('user_id', {{ $json.user_id }},\n                         'note_id', {{ $('Insert note insight').item.json.id ?? 'NULL' }},\n                         'source', '{{ $json.source }}',\n                         'session_date', {{ $json.session_date_sql }})::jsonb\nwhere {{ $('Insert note insight').item.json.id ?? 'NULL' }} is not null;",
+        "options": {}
+      },
+      "id": "store-vector-row",
+      "name": "Store note vector row",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [1580, 180],
+      "onError": "continueRegularOutput",
+      "credentials": { "postgres": { "id": "REPLACE", "name": "Postgres account" } }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            {
+              "id": "risk-check",
+              "leftValue": "={{ $('Shape insight row').item.json.risk }}",
+              "rightValue": "elevated",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "risk-gate",
+      "name": "Elevated risk?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1580, 420]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "channel",
+        "channelId": { "__rl": true, "value": "REPLACE", "mode": "id" },
+        "text": "=🚨 Elevated-risk flag from session note\n\nUser ID: {{ $('Shape insight row').item.json.user_id }}\nSource: {{ $('Shape insight row').item.json.source }} session\nConcerns: {{ $('Shape insight row').item.json.concerns }}\nSummary: {{ $('Shape insight row').item.json.summary }}",
+        "otherOptions": { "includeLinkToWorkflow": false }
+      },
+      "id": "risk-slack",
+      "name": "Slack risk alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [1820, 420],
+      "credentials": { "slackOAuth2Api": { "id": "REPLACE", "name": "Sparxy Slack" } }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "REPLACE — production URL of the recommendation engine's 'recommend-user' webhook",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"app_user_id\": {{ $('Shape insight row').item.json.user_id }}, \"trigger\": \"note\" }",
+        "options": {}
+      },
+      "id": "trigger-rerank",
+      "name": "Re-rank this user's content",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1820, 180],
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Webhook (note created)": { "main": [[{ "node": "Normalize note payload", "type": "main", "index": 0 }]] },
+    "Normalize note payload": { "main": [[{ "node": "Resolve user", "type": "main", "index": 0 }]] },
+    "Resolve user": { "main": [[{ "node": "Extract clinical insights", "type": "main", "index": 0 }]] },
+    "Claude (Anthropic)": { "ai_languageModel": [[{ "node": "Extract clinical insights", "type": "ai_languageModel", "index": 0 }]] },
+    "Insights Output": { "ai_outputParser": [[{ "node": "Extract clinical insights", "type": "ai_outputParser", "index": 0 }]] },
+    "Extract clinical insights": { "main": [[{ "node": "Shape insight row", "type": "main", "index": 0 }]] },
+    "Shape insight row": { "main": [[{ "node": "Insert note insight", "type": "main", "index": 0 }]] },
+    "Insert note insight": {
+      "main": [[
+        { "node": "Store note vector row", "type": "main", "index": 0 },
+        { "node": "Elevated risk?", "type": "main", "index": 0 }
+      ]]
+    },
+    "Store note vector row": { "main": [[{ "node": "Re-rank this user's content", "type": "main", "index": 0 }]] },
+    "Elevated risk?": { "main": [[{ "node": "Slack risk alert", "type": "main", "index": 0 }], []] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "meta": {
+    "_comment": "Client-notes ingestion: POST a session note -> extract clinical insights -> client_note_insights (+ summary row in client_notes_vectors) -> elevated-risk Slack alert -> re-rank that user's recommendations. After import: (1) run schema.sql once; (2) set the Postgres/Anthropic/Slack credentials marked REPLACE and the Slack channel id; (3) put the recommendation engine's production webhook URL into the 'Re-rank this user's content' node; (4) add Header Auth on the webhook and share the header with whatever posts notes (coach tool, Fathom relay, Rails). If a note source lives in a Postgres table, add a Schedule trigger + a select-new-rows Postgres node feeding 'Normalize note payload' — the rest of the pipeline is source-agnostic."
+  }
+}
