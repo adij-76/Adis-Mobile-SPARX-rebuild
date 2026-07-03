@@ -249,7 +249,7 @@ export const supabaseContent: ContentApi = {
     // shows genuine content with Vimeo thumbnails, never placeholder stock.
     const snippetVideos = async (): Promise<VideoItem[]> => {
       try {
-        const rows = await rest<SnippetRow[]>('mobile_snippets', { order: 'created_at.desc', limit: '12' });
+        const rows = await rest<SnippetRow[]>('mobile_snippets', { order: 'created_at.desc,id.desc', limit: '12' });
         if (!rows.length) return recommendedVideos;
         return rows.map(
           (r) =>
@@ -269,8 +269,12 @@ export const supabaseContent: ContentApi = {
       }
     };
     try {
+      // Stable secondary sort by id: recommended_at (= user_snippets.created_at)
+      // ties for batch-recommended snippets, and an unstable order made the home
+      // checklist/rail and the video detail resolve different items for the same
+      // slice — so a tapped card could open a different video. id.desc pins it.
       const rows = await rest<RecRow[]>('mobile_recommended_videos', {
-        order: 'recommended_at.desc',
+        order: 'recommended_at.desc,id.desc',
         limit: '40',
       });
       if (!rows.length) return snippetVideos();

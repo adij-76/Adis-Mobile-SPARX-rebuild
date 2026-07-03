@@ -18,7 +18,11 @@ export default function VideoDetail() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const recommendedVideos = useAsync(() => api.content.recommendedVideos(), []).data ?? [];
-  const video = recommendedVideos.find((v) => v.id === id) ?? recommendedVideos[0];
+  // Resolve the video by id from the recommendations (keeps the title identical
+  // to the home checklist/rail); if it isn't in that list, fetch the exact video
+  // by id so a tap never lands on a different video. Only then fall back to [0].
+  const byId = useAsync(() => (id ? api.content.videosByIds([id]) : Promise.resolve([])), [id]).data ?? [];
+  const video = recommendedVideos.find((v) => v.id === id) ?? byId[0] ?? recommendedVideos[0];
 
   const { isFav, toggleFav, markVideoWatched } = useStore();
   const [liked, setLiked] = useState(false);
