@@ -52,6 +52,14 @@ export default function VideoDetail() {
     if (firstTime) setCelebrate(true);
   };
 
+  // The player reached the end (web): record completion AND close the player so
+  // the celebration — a normal overlay that would otherwise sit *behind* the
+  // full-screen player Modal — is actually visible.
+  const onVideoEnded = () => {
+    complete();
+    setPlaying(false);
+  };
+
   // Web: starting the video banks the first point; milestones + completion are
   // reported by the player (onProgress/onEnded below). Native: the fallback opens
   // an external browser we can't observe, so count it complete on open.
@@ -164,7 +172,7 @@ export default function VideoDetail() {
       <VideoPlayerModal
         video={playing ? { url: playUrl, title: video.title, thumbnail: video.image } : null}
         onClose={() => setPlaying(false)}
-        onEnded={complete}
+        onEnded={onVideoEnded}
         onProgress={progressTo}
       />
 
