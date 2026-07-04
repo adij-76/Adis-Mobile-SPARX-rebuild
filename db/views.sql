@@ -78,14 +78,16 @@ create view mobile_lessons as
          --      subscription role explicitly unlocks (premium add-ons).
          --   Anyone signed out, or content outside both, is locked.
          case
-           when me.id is null then false
-           when p.program_id is not null and p.program_id = me.program_id then true
-           when l.lesson_type = 1 then exists (
+           when me.id is not null and p.program_id is not null and p.program_id = me.program_id then true
+           when me.id is not null and l.lesson_type = 1 then exists (
              select 1 from subscription_role_workshops srw
              where srw.role_id = me.subscription_role_id and srw.workshop_id = l.id)
-           else exists (
+           when me.id is not null then exists (
              select 1 from subscription_role_lessons srl
              where srl.role_id = me.subscription_role_id and srl.lesson_id = l.id)
+           -- new July tester (no prod row) → all content unlocked for testing
+           when public.mobile_is_new_tester() then true
+           else false
          end as accessible
   from lessons l
   left join portions p on p.id = l.portion_id
@@ -164,7 +166,32 @@ create view mobile_recommended_videos as
   join public.snippets s on s.id = us.snippet_id
   join public.users    u on u.id = us.user_id
   where lower(u.email) = lower(auth.jwt() ->> 'email')
-    and (s.vimeo_id is not null or s.vimeo_url is not null);   -- must have a playable video
+    and (s.vimeo_id is not null or s.vimeo_url is not null)   -- must have a playable video
+  -- New July testers have no personal recommendations (no user_snippets rows), so
+  -- fall back to a general set of recent playable snippets — otherwise the home
+  -- video rail/checklist would be empty for them.
+  union all
+  select t.id,
+         case
+           when nullif(trim(t.title), '') is not null then t.title
+           when t.description is not null and trim(t.description) <> ''
+                and lower(trim(t.description)) <> 'no description available' then t.description
+           when nullif(trim(t.ai_summary), '') is not null then left(t.ai_summary, 70)
+           else 'SPARx video'
+         end                                          as title,
+         t.ai_summary                                 as description,
+         t.length_seconds,
+         t.vimeo_url,
+         t.vimeo_id,
+         t.created_at                                 as recommended_at
+  from (
+    select s2.*
+    from public.snippets s2
+    where public.mobile_is_new_tester()
+      and (s2.vimeo_id is not null or s2.vimeo_url is not null)
+    order by s2.created_at desc nulls last
+    limit 20
+  ) t;
 
 grant select on mobile_recommended_videos to authenticated;
 
@@ -290,16 +317,26 @@ create view mobile_me as
   -- (from main) still reads the pre-rename names (avatar, addiction,
   -- days_counter_updated_at). We expose both so a view update never breaks the
   -- live app; the old aliases can be dropped once the new build ships to main.
+  --
+  -- LEFT JOIN off a single dummy row (not `from users`) so a NEW July tester —
+  -- an authenticated email with no production users row — still gets exactly one
+  -- profile row, with all-access flags. Existing users are untouched: `u` joins,
+  -- so every field is their real value (subscribed = their real subscription).
   select u.id                                          as app_user_id,
          u.first_name                                  as name,
-         u.email,
+         coalesce(u.email, auth.jwt() ->> 'email')     as email,
          u.avatar_link                                 as avatar_url,
          u.avatar_link                                 as avatar,           -- compat
          u.program_id,
-         coalesce(u.subscribed, false)                 as subscribed,
+         -- Existing users keep their real entitlements; new July testers get
+         -- all-access (subscribed / stripe / advanced coaching).
+         case when u.id is not null then coalesce(u.subscribed, false) else true end
+                                                       as subscribed,
          -- production column has the typo "subsctiption"; the clean name hides it.
-         coalesce(u.stripe_subsctiption_active, false) as stripe_active,
-         coalesce(u.advanced_coaching, false)          as advanced_coaching,
+         case when u.id is not null then coalesce(u.stripe_subsctiption_active, false) else true end
+                                                       as stripe_active,
+         case when u.id is not null then coalesce(u.advanced_coaching, false) else true end
+                                                       as advanced_coaching,
          a.title                                       as addiction_label,
          a.title                                       as addiction,        -- compat
          u.days_counter_amount                         as days_count,
@@ -309,11 +346,13 @@ create view mobile_me as
          u.time_zone,
          u.team_id,
          u.zoom_email
-  from public.users u
+  from (select 1) d
+  left join public.users u on lower(u.email) = lower(auth.jwt() ->> 'email')
   -- users.addiction stores the addictions ENUM_ID (0=Alcohol, 1=Cannabis, …),
   -- NOT the primary key, so we join on enum_id to resolve the title.
   left join public.addictions a on a.enum_id = u.addiction
-  where lower(u.email) = lower(auth.jwt() ->> 'email');   -- self-scope, no RLS needed
+  where u.id is not null                       -- an existing user (self-scoped), or
+     or public.mobile_is_new_tester();         -- a new July tester → all-access
 
 grant select on mobile_me to authenticated;
 

@@ -20,6 +20,7 @@ Two groups: **(i) app-owned tables** (create first), then **(ii) views + functio
 
 | # | File | Creates | Status |
 |---|------|---------|--------|
+| 0 | `db/testing-access.sql` | **Run FIRST** (before `groups.sql` + `views.sql`, which reference it). Testing-window helpers: `mobile_testing_open()` (true through July 2026) and `mobile_is_new_tester()` (true for an authenticated caller with no prod `users` row while the window is open). Grants invited testers all-access; existing users unaffected. | ✅ |
 | 1 | `db/mobile-checkins.sql` | App-owned `mobile_checkins` table (RLS) | ✅ |
 | 2 | `db/mobile-wheel-entries.sql` | App-owned `mobile_wheel_entries` table (RLS) | ✅ |
 | 3 | `db/mobile-favorites.sql` | App-owned `mobile_favorites` table — bookmark toggles (kind/item_id, `active` tombstone) (RLS) | ✅ |
@@ -42,7 +43,16 @@ Two groups: **(i) app-owned tables** (create first), then **(ii) views + functio
 > **Order note:** the group-(ii) view files use `to_regclass` guards, so they only
 > splice in an app table that already exists — run group (i) first, or just re-run
 > the view files afterward. `checkin-history.sql` needs `mobile_checkins`;
-> `community-views.sql` needs `community.sql`'s tables.
+> `community-views.sql` needs `community.sql`'s tables. **`testing-access.sql` (file 0)
+> must run before `groups.sql` and `views.sql`** — their views call its functions.
+
+> **July 2026 testing window:** `mobile_me`, `mobile_lessons`,
+> `mobile_recommended_videos` (`views.sql`) and `mobile_groups` (`groups.sql`) grant
+> **all-access to any authenticated user with no production `users` row**, via
+> `mobile_is_new_tester()`, so invited testers can use the whole app. It is purely
+> additive — existing users keep exactly their historical role/entitlements. Turn it
+> off after testing by editing the date in `mobile_testing_open()` (or dropping the
+> two functions and re-running the four views).
 
 ## B. App-owned data tables — PRESERVE on re-import ⚠️ (real user data)
 
