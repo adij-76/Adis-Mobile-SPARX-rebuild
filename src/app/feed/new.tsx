@@ -31,7 +31,7 @@ const RULES = [
 
 export default function NewPost() {
   const router = useRouter();
-  const { addPost } = useStore();
+  const { addPost, awardCommunityXp } = useStore();
   const author = useCurrentAuthor();
   const { text: prefill, channel } = useLocalSearchParams<{ text?: string; channel?: string }>();
   // Coming from a shared quote → skip the rules gate and prefill the text.
@@ -49,6 +49,7 @@ export default function NewPost() {
     // Optimistic local insert (keeps the seed/offline path working) + persist to
     // the backend so it shows for everyone; the feed refetches on focus.
     addPost({ community: name, text: body, image: photo ?? undefined, author });
+    if (body) awardCommunityXp('community_post');
     api.posts
       .createPost({
         channelId: selectedCommunity,

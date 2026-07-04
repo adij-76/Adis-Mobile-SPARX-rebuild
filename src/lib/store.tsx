@@ -23,6 +23,7 @@ import { activeBonusMultiplier } from '@/lib/bonus-events';
 import { computeStreak } from '@/lib/checkin';
 import { milestonesReached, type StreakMilestone } from '@/lib/streaks';
 import { videoPointsEarned } from '@/lib/video-points';
+import { XP_BASE, xpEarned, type XpActivity } from '@/lib/xp';
 
 const KEY = 'igntd.store.v1';
 
@@ -75,11 +76,12 @@ type Persisted = {
   completedLessons: string[]; // lesson ids marked complete locally (until auth)
   watchedVideos: string[]; // video ids the user has finished (≥95%) — checklist tick
   videoProgress: Record<string, number>; // video id -> furthest percent already scored
-  videoPoints: number; // running total of streak-multiplied video watch points
+  xp: number; // total streak-multiplied XP across all activities (videos, lessons, community, …)
   streakBadges: Record<string, number>; // milestone days (as string) -> times reached
   streakCreditedDays: number; // highest milestone length credited for the current run
   streakRunStart: string | null; // YYYY-MM-DD start of the run credited_days applies to
   streakBonusPoints: number; // running total of one-time streak-milestone bonuses
+  communityXpDay: { date: string; count: number }; // per-day community XP awards (anti-farm cap)
   pwaBannerDismissed: boolean; // hide the "Install app" home banner once dismissed
 };
 
@@ -101,11 +103,12 @@ const EMPTY: Persisted = {
   completedLessons: [],
   watchedVideos: [],
   videoProgress: {},
-  videoPoints: 0,
+  xp: 0,
   streakBadges: {},
   streakCreditedDays: 0,
   streakRunStart: null,
   streakBonusPoints: 0,
+  communityXpDay: { date: '', count: 0 },
   pwaBannerDismissed: false,
 };
 
@@ -168,6 +171,13 @@ type StoreValue = {
   isLessonComplete: (id: string) => boolean;
   markLessonComplete: (id: string) => void;
   completedLessonIds: string[];
+  // XP — every activity except check-ins earns XP, scaled by the streak multiplier
+  /** Total streak-multiplied XP across all activities. */
+  xp: number;
+  /** Award `base` XP × the current streak & bonus-day multiplier; returns earned. */
+  awardXp: (base: number) => number;
+  /** Award community XP for a post/reply, capped per day to deter farming; returns earned. */
+  awardCommunityXp: (kind: 'community_post' | 'community_reply') => number;
   // video watches (local until auth)
   isVideoWatched: (id: string) => boolean;
   markVideoWatched: (id: string) => void;
@@ -177,8 +187,6 @@ type StoreValue = {
    *  by the current check-in streak. Returns the points earned this step (0 if no
    *  new tier crossed). Idempotent on re-watch. */
   awardVideoProgress: (videoId: string, percent: number) => number;
-  /** Running total of streak-multiplied video watch points. */
-  videoPoints: number;
   // streak milestones + badges
   /** Milestone length (as string, e.g. "7") → how many times it's been reached. */
   streakBadges: Record<string, number>;
@@ -373,9 +381,16 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
       isLessonComplete: (id) => state.completedLessons.includes(id),
       markLessonComplete: (id) =>
-        update((s) =>
-          s.completedLessons.includes(id) ? s : { ...s, completedLessons: [...s.completedLessons, id] },
-        ),
+        update((s) => {
+          if (s.completedLessons.includes(id)) return s;
+          // Finishing a lesson earns XP (streak- and bonus-scaled).
+          const earned = xpEarned(
+            XP_BASE.lesson_complete,
+            computeStreak(s.checkins.map((c) => c.date)),
+            activeBonusMultiplier(),
+          );
+          return { ...s, completedLessons: [...s.completedLessons, id], xp: s.xp + earned };
+        }),
       completedLessonIds: state.completedLessons,
 
       isVideoWatched: (id) => state.watchedVideos.includes(id),
@@ -389,7 +404,27 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
           if (next.length === s.watchedVideos.length) return s;
           return { ...s, watchedVideos: next };
         }),
-      videoPoints: state.videoPoints,
+      xp: state.xp,
+      awardXp: (base) => {
+        const streak = computeStreak(state.checkins.map((c) => c.date));
+        const earned = xpEarned(base, streak, activeBonusMultiplier());
+        if (earned > 0) update((s) => ({ ...s, xp: s.xp + earned }));
+        return earned;
+      },
+      awardCommunityXp: (kind) => {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const CAP = 5; // max community XP awards counted per day (anti-farm)
+        const day = state.communityXpDay.date === todayStr ? state.communityXpDay : { date: todayStr, count: 0 };
+        if (day.count >= CAP) return 0;
+        const streak = computeStreak(state.checkins.map((c) => c.date));
+        const earned = xpEarned(XP_BASE[kind], streak, activeBonusMultiplier());
+        update((s) => ({
+          ...s,
+          xp: s.xp + earned,
+          communityXpDay: { date: todayStr, count: day.count + 1 },
+        }));
+        return earned;
+      },
       awardVideoProgress: (videoId, percent) => {
         const prev = state.videoProgress[videoId] ?? 0;
         const pct = Math.max(0, Math.min(100, Math.round(percent)));
@@ -399,7 +434,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         update((s) => ({
           ...s,
           videoProgress: { ...s.videoProgress, [videoId]: Math.max(s.videoProgress[videoId] ?? 0, pct) },
-          videoPoints: s.videoPoints + earned,
+          xp: s.xp + earned,
         }));
         return earned;
       },
@@ -437,7 +472,9 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       },
 
       gameState: {
-        videoPoints: state.videoPoints,
+        // wire/DB field `videoPoints` (mobile_game_state.video_points) now carries
+        // the unified activity XP total.
+        videoPoints: state.xp,
         streakBonusPoints: state.streakBonusPoints,
         streakCreditedDays: state.streakCreditedDays,
         streakRunStart: state.streakRunStart,
@@ -453,7 +490,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
             !!g.streakRunStart && (!s.streakRunStart || g.streakRunStart > s.streakRunStart);
           return {
             ...s,
-            videoPoints: Math.max(s.videoPoints, g.videoPoints),
+            xp: Math.max(s.xp, g.videoPoints),
             streakBonusPoints: Math.max(s.streakBonusPoints, g.streakBonusPoints),
             streakCreditedDays: serverRunNewer
               ? g.streakCreditedDays

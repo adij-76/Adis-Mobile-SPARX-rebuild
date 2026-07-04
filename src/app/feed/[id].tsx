@@ -122,6 +122,7 @@ function CommentItem({
 export default function PostDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const author = useCurrentAuthor();
+  const { awardCommunityXp } = useStore();
   const postQ = useAsync(() => api.posts.post(id), [id]);
   const commentsQ = useAsync(() => api.posts.comments(id), [id]);
   const post = postQ.data;
@@ -132,6 +133,7 @@ export default function PostDetail() {
   const repliesOf = (cid: string) => comments.filter((c) => c.parentRef === cid);
 
   const addReply = (parentRef: string, body: string) => {
+    awardCommunityXp('community_reply');
     api.posts
       .createComment({ postRef: id, parentRef, text: body, appUserId: author.appUserId })
       .then(() => commentsQ.reload())
@@ -141,6 +143,7 @@ export default function PostDetail() {
     if (!text.trim()) return;
     const body = text.trim();
     setText('');
+    awardCommunityXp('community_reply');
     api.posts
       .createComment({ postRef: id, text: body, appUserId: author.appUserId })
       .then(() => commentsQ.reload())

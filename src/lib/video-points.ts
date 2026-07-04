@@ -11,10 +11,9 @@
  * difference, so someone who watches half and leaves keeps 2 points, and a
  * partial re-watch never re-awards. The furthest tier reached is what counts.
  *
- * Every award is scaled by the STREAK MULTIPLIER — the same daily check-in streak
- * that drives check-in points (see src/lib/checkin.ts) — capped so tenure never
- * dominates the board: ×1 under a week, ×1.5 at a 7-day streak, ×2 at 14+. A
- * finished video (3 base) is worth 3 / ~5 / 6 points at those tiers.
+ * Every award is scaled by the shared XP STREAK MULTIPLIER (src/lib/xp.ts) —
+ * capped so tenure never dominates the board: ×1 under a week, ×1.5 at a 7-day
+ * streak, ×2 at 14+. A finished video (3 base) is worth 3 / ~5 / 6 at those tiers.
  *
  * An optional bonus-event multiplier (special/double-points days, see
  * bonus-events.ts) stacks on top of the streak multiplier for POINTS only — it
@@ -22,6 +21,7 @@
  *
  * All the numbers below are meant to be tuned — this is the one place to do it.
  */
+import { streakMultiplier } from '@/lib/xp';
 
 /** Cumulative base points at each progress tier (highest reached wins). */
 const TIERS: { minPercent: number; cumulative: number }[] = [
@@ -30,24 +30,11 @@ const TIERS: { minPercent: number; cumulative: number }[] = [
   { minPercent: 1, cumulative: 1 }, // started (covers 1–49%)
 ];
 
-/** Streak → multiplier applied to every point earned (capped at ×2). */
-const STREAK_MULTIPLIER: { minStreak: number; mult: number }[] = [
-  { minStreak: 14, mult: 2 }, // maintaining two weeks+
-  { minStreak: 7, mult: 1.5 }, // reached a week
-  { minStreak: 0, mult: 1 }, // no/short streak
-];
-
 /** Cumulative base points for the furthest percent reached (0 if not started). */
 export function basePointsForPercent(percent: number): number {
   const p = Math.max(0, Math.min(100, percent));
   for (const t of TIERS) if (p >= t.minPercent) return t.cumulative;
   return 0;
-}
-
-/** Integer multiplier for the current daily-check-in streak (≥1). */
-export function streakMultiplier(streak: number): number {
-  for (const s of STREAK_MULTIPLIER) if (streak >= s.minStreak) return s.mult;
-  return 1;
 }
 
 /**
