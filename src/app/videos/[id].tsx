@@ -151,6 +151,24 @@ export default function VideoDetail() {
           {video.description}
         </Txt>
 
+        {/* Reliable completion: auto-detection via the player can be flaky, so
+            always offer an explicit way to tick it off (fires the reward too). */}
+        {isVideoWatched(video.id) ? (
+          <View style={styles.watchedChip}>
+            <Ionicons name="checkmark-circle" size={20} color={Colors.success} />
+            <Txt variant="bodySmBold" color={Colors.success}>
+              Watched — nice work
+            </Txt>
+          </View>
+        ) : (
+          <Pressable style={styles.markBtn} onPress={complete}>
+            <Ionicons name="checkmark-circle-outline" size={20} color={Colors.white} />
+            <Txt variant="bodySmBold" color={Colors.white}>
+              Mark as watched
+            </Txt>
+          </Pressable>
+        )}
+
         <Txt variant="titleSm" style={{ marginTop: Spacing.sm }}>
           More like this
         </Txt>
@@ -241,6 +259,24 @@ const styles = StyleSheet.create({
   },
   meta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   actions: { flexDirection: 'row', gap: Spacing.md, alignItems: 'center' },
+  markBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.primary,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.md,
+  },
+  watchedChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.highlight,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.md,
+  },
   moreRow: { flexDirection: 'row', gap: Spacing.md, alignItems: 'center' },
   moreThumb: { width: 110, height: 70, borderRadius: Radius.sm, backgroundColor: Colors.soft },
   celebrate: {
