@@ -24,7 +24,6 @@ import {
   type Challenge,
 } from '@/data/content';
 import { useAuth } from '@/lib/auth';
-import { isDoneToday } from '@/lib/checkin';
 import { gradientFor } from '@/lib/gradient';
 import { deviceTz, formatOccurrence, joinOpen, nextOccurrence, parseMeetLengthMin, untilLabel } from '@/lib/groups';
 import { recommendQuote } from '@/lib/quote-pick';
@@ -87,19 +86,15 @@ export default function HomeScreen() {
   const workshopsQ = useAsync(() => api.content.workshops(), []);
   const workshops = workshopsQ.data ?? [];
   const challenges = useAsync(() => api.content.challenges(), []).data ?? [];
-  const recommendedQ = useAsync(() => api.content.recommendedVideos(), []);
-  const recommendedVideos = recommendedQ.data ?? [];
+  // Fetched once and kept stable for the session so the daily "video" task stays
+  // the same video and simply gets a check when watched (don't refetch on focus,
+  // which could reorder/exclude it and swap the task out from under the check).
+  const recommendedVideos = useAsync(() => api.content.recommendedVideos(), []).data ?? [];
   // Upcoming meetings = the user's signed-up coaching groups' next occurrences
   // (real, in the user's time zone), soonest first — no fake placeholders.
-  // Reload on focus so a group signed up on another screen shows immediately, and
-  // so the recommended videos refresh after one is watched on the video screen.
+  // Reload on focus so a group signed up on another screen shows immediately.
   const { data: groupData, reload: reloadGroups } = useAsync(() => api.groups.list(), []);
-  useFocusEffect(
-    useCallback(() => {
-      reloadGroups();
-      recommendedQ.reload();
-    }, []), // eslint-disable-line react-hooks/exhaustive-deps
-  );
+  useFocusEffect(useCallback(() => void reloadGroups(), [])); // eslint-disable-line react-hooks/exhaustive-deps
   const groups = groupData ?? [];
   const upcomingMeetings = useMemo<UpcomingMeeting[]>(() => {
     return groups
@@ -133,9 +128,10 @@ export default function HomeScreen() {
   // its actual destination and ticks off when the underlying action is done:
   // check-in saved today, the day's video watched, the day's workshop completed.
   const today = new Date().toISOString().slice(0, 10);
-  // The next recommended video the user hasn't finished — so when they complete
-  // one, the checklist reactively advances to the next without a manual refresh.
-  const todayVideo = recommendedVideos.find((v) => !isVideoWatched(v.id)) ?? recommendedVideos[0];
+  // Today's designated video. Stays put and gets a check when watched
+  // (isVideoWatched is reactive, so the tick appears the moment it completes —
+  // no refresh, and the task isn't swapped out for the next video).
+  const todayVideo = recommendedVideos[0];
   const todayWorkshop = workshops[0];
   const checklistItems = [
     { id: 'checkin', label: 'Your daily check-in', route: '/checkin', done: checkins.some((c) => c.date === today) },
@@ -153,16 +149,42 @@ export default function HomeScreen() {
     },
   ].filter(Boolean) as { id: string; label: string; route: string; done: boolean }[];
 
-  // Auto-present the daily check-in once per day when the app opens.
+  // Auto-present the daily check-in once per day when the app opens — but only if
+  // it hasn't been done today on ANY device. The store's check-ins are hydrated
+  // cross-device on auth, but that's async, so also confirm against the server
+  // before prompting (otherwise a fresh device re-asks for a check-in already done
+  // elsewhere today).
   const prompted = useRef(false);
   useEffect(() => {
     if (prompted.current) return;
-    prompted.current = true;
+    const todayStr = new Date().toISOString().slice(0, 10);
+    if (checkins.some((c) => c.date === todayStr)) {
+      prompted.current = true;
+      return;
+    }
     let timer: ReturnType<typeof setTimeout> | undefined;
-    isDoneToday().then((done) => {
-      if (!done) timer = setTimeout(() => router.push('/checkin'), 400);
-    });
-    return () => clearTimeout(timer);
+    let cancelled = false;
+    api.checkins
+      .list()
+      .then((remote) => {
+        if (cancelled) return;
+        prompted.current = true;
+        const doneToday =
+          remote.some((c) => c.date === todayStr) || checkins.some((c) => c.date === todayStr);
+        if (!doneToday) timer = setTimeout(() => router.push('/checkin'), 400);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        prompted.current = true;
+        if (!checkins.some((c) => c.date === todayStr)) {
+          timer = setTimeout(() => router.push('/checkin'), 400);
+        }
+      });
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   // Dismissable "Install app" banner: hidden once dismissed (persisted) or when
