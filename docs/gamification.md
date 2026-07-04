@@ -8,23 +8,40 @@ research-backed roadmap for what to add (and what to deliberately avoid) for a
 
 | Concern | File |
 |---|---|
-| Video watch points (non-linear tiers) + streak multiplier | `src/lib/video-points.ts` |
+| **XP rule — streak multiplier + XP base per activity** | `src/lib/xp.ts` |
+| Video watch points (non-linear tiers) | `src/lib/video-points.ts` |
 | Streak milestones, badges, milestone bonuses | `src/lib/streaks.ts` |
 | Special bonus-day / promo multipliers | `src/lib/bonus-events.ts` |
-| Check-in points (streak-scaled schedule) | `src/lib/checkin.ts` |
+| Check-in points (own schedule, NOT multiplied) | `src/lib/checkin.ts` |
 | Persisted totals + award/credit logic | `src/lib/store.tsx` |
 
 ## The economy as built
 
-**Video watch points — non-linear, progress-based.** Cumulative base points for the
-furthest point watched: started `1` · past 50% `2` · finished (≥95%) `3`. Starting
-already banks a point; finishing is the big step; a half-watch keeps its 2 points;
-re-watching earns 0.
+### Two point pools: check-in points and XP
 
-**Streak multiplier — capped so tenure never dominates.** The daily check-in streak
-scales points earned: `×1` under 7 days, `×1.5` at a 7-day streak, `×2` at 14+. A
-finished video is worth 3 / ~5 / 6 points at those tiers. Cumulative rounding means
-a fractional ×1.5 can't inflate a straight-through watch.
+**Check-in points — their own schedule, no multiplier.** Daily check-in pays
+`1 · 2 · 3 · 4 · 5 · 6` over the first six days, then **10/day from a 7-day streak
+onward** (stays 10/day while the streak continues). The streak multiplier does
+**not** apply here — the streak *is* the check-in reward mechanism.
+
+**XP — everything else, scaled by the streak multiplier.** Every *other* way of
+earning is "XP" and is multiplied by the streak (and any bonus-day event):
+
+> `earned = round(base × streakMultiplier(streak) × bonusMultiplier)`
+
+- **Streak multiplier** (`xp.ts`), capped so tenure never dominates: **×1** (streak
+  < 7) · **×1.5** (7-day) · **×2** (14+).
+- **XP base per activity** (`XP_BASE` in `xp.ts`): lesson complete `10` · module
+  complete `25` · assessment complete `15` · community post `5` · community reply
+  `3`. *(assessment + module are wired ahead of the features that fire them.)*
+- **Videos** use their own progress-tiered base (`video-points.ts`): started `1` ·
+  past 50% `2` · finished (≥95%) `3`, cumulative — then × the same streak/bonus
+  multiplier. Cumulative rounding means a fractional ×1.5 can't inflate a watch.
+- **Community anti-farm**: community XP (posts + replies) is capped per day
+  (`store.awardCommunityXp`) so it can't be spam-farmed.
+- All XP lands in one **`xp`** total (`store.tsx`), shown as **XP** on the profile.
+- **Check-ins are deliberately excluded** from the multiplier (self-reported; the
+  streak already scales them via their own schedule).
 
 **Streak milestones + numeric badges.** Reaching a milestone length (7, 14, 30, 60,
 100, 180, 365 days) credits a badge **once per streak run** and pays a chunky
@@ -51,10 +68,14 @@ they are **persisted durably**, not just on-device. The store mirrors them to th
 app-owned `mobile_game_state` table (`db/game-state.sql`): hydrated on auth,
 pushed on every change, MAX-merged server-side so a stale/offline write can never
 lower a total and progress survives reinstall + follows the user across devices.
-At cutover they reconcile into the real `user_points` / `user_rewards` ledger (see
-the migration catalogue — dedupe watch points against any `watched_video` reward
-already emitted from `mobile_video_watches`). A live points *leaderboard* before
-cutover needs the streak multiplier computed server-side — deliberately deferred.
+The `video_points` column now carries the **unified XP total** (videos + lessons +
+community + …), not just videos — no schema change needed (it's app-owned).
+At cutover the app-side XP is **superseded** by the real `user_points` /
+`user_rewards` ledger, which already tracks each activity as its own reward type
+(`watched_video`, `lesson_complete`, `comm_post`, `daily_assessment`, …) — so
+cutover recomputes points from the real ledger rather than trusting the app total.
+A live points *leaderboard* before cutover needs the streak multiplier computed
+server-side — deliberately deferred.
 
 ## Research-backed roadmap (recovery-population aware)
 

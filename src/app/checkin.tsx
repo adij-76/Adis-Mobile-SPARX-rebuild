@@ -410,15 +410,16 @@ function Acknowledgement({
             </View>
           ) : result.streak < 7 ? (
             <Txt variant="bodySm" color={Colors.tealLight} center style={{ marginTop: Spacing.lg }}>
-              Keep it going — a 7-day streak earns a 1.5× points boost!
+              Keep it going — a 7-day streak earns 10 points per check-in and a 1.5×
+              boost on all your other XP (videos, lessons, community).
             </Txt>
           ) : result.streak < 14 ? (
             <Txt variant="bodySm" color={Colors.tealLight} center style={{ marginTop: Spacing.lg }}>
-              🔥 1.5× points active. Hit 14 days for the full 2× boost.
+              🔥 10 points a day and a 1.5× XP boost active. Reach 14 days for the full 2×.
             </Txt>
           ) : (
             <Txt variant="bodySm" color={Colors.tealLight} center style={{ marginTop: Spacing.lg }}>
-              You&apos;re at the 2× points boost. Incredible consistency. 🌟
+              10 points a day and a 2× boost on all your XP. Incredible consistency. 🌟
             </Txt>
           )}
 

@@ -22,7 +22,7 @@ import { useStore } from '@/lib/store';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { clearAll, checkins, completedLessonIds, videoPoints } = useStore();
+  const { clearAll, checkins, completedLessonIds, xp } = useStore();
   const { user: authUser, signOut, updateAvatar } = useAuth();
   const [confirm, setConfirm] = useState<null | 'logout' | 'delete'>(null);
   const [uploading, setUploading] = useState(false);
@@ -38,7 +38,7 @@ export default function ProfileScreen() {
   const STATS: { label: string; value: string; route: string }[] = [
     { label: 'Lessons done', value: String(completedLessonIds.length), route: '/lessons' },
     { label: 'Day streak',   value: String(computeStreak(checkins.map((c) => c.date))), route: '/checkin' },
-    { label: 'Video points', value: String(videoPoints), route: '/videos' },
+    { label: 'XP', value: String(xp), route: '/videos' },
     { label: 'Days count',   value: daysCount != null ? String(daysCount) : '—', route: '/checkin' },
   ];
 

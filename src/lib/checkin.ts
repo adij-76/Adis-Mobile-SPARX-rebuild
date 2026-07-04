@@ -2,9 +2,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
  * Daily check-in streak + points.
- * Points scale with the current streak, capped at 10/day from a 7-day streak.
+ *
+ * Check-in points scale with the streak: 1,2,3,4,5,6 over the first six days,
+ * then 10/day from a 7-day streak onward (and it stays 10/day as long as the
+ * streak continues). These are a distinct pool from XP — the streak MULTIPLIER
+ * (see src/lib/xp.ts) does NOT apply to check-in points; it applies to every
+ * other way of earning (videos, lessons, community, assessments, …).
  */
-const STREAK_POINTS = [1, 3, 4, 6, 7, 9, 10]; // day 1..7+
+const STREAK_POINTS = [1, 2, 3, 4, 5, 6, 10]; // day 1..7+ (10/day from day 7 on)
 const KEY = 'igntd.checkin.v1';
 
 export type CheckinState = {
