@@ -70,28 +70,31 @@ export default function Leaderboard() {
       <ScreenHeader title="Back" largeTitle="Leaderboard" />
 
       {/* Board switcher — icon chips, tinted by the active board */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.boardRow}>
-        {BOARDS.map((b) => {
-          const on = b.key === boardKey;
-          return (
-            <Pressable
-              key={b.key}
-              onPress={() => setBoardKey(b.key)}
-              style={[styles.chip, on && { backgroundColor: b.colors[1] }]}>
-              <Ionicons name={b.icon} size={15} color={on ? Colors.white : Colors.textSub} />
-              <Txt variant="bodySmMedium" color={on ? Colors.white : Colors.textSub}>
-                {b.label}
-              </Txt>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+      <View style={styles.controls}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.boardScroll}
+          contentContainerStyle={styles.boardRow}>
+          {BOARDS.map((b) => {
+            const on = b.key === boardKey;
+            return (
+              <Pressable
+                key={b.key}
+                onPress={() => setBoardKey(b.key)}
+                style={[styles.chip, on && { backgroundColor: b.colors[1] }]}>
+                <Ionicons name={b.icon} size={15} color={on ? Colors.white : Colors.textSub} />
+                <Txt variant="bodySmMedium" color={on ? Colors.white : Colors.textSub}>
+                  {b.label}
+                </Txt>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
 
-      <View style={styles.periodWrap}>
-        <Segmented<LeaderboardPeriod> options={PERIODS} value={period} onChange={setPeriod} />
+        <View style={styles.periodWrap}>
+          <Segmented<LeaderboardPeriod> options={PERIODS} value={period} onChange={setPeriod} />
+        </View>
       </View>
 
       <FlatList
@@ -138,15 +141,36 @@ function Hero({ board, period, top3 }: { board: Board; period: LeaderboardPeriod
   // Visual order: 2nd, 1st, 3rd (winner centre, tallest).
   const order = [top3[1], top3[0], top3[2]].filter(Boolean) as LeaderboardEntry[];
   return (
-    <LinearGradient colors={board.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
-      <View style={styles.heroHead}>
-        <Ionicons name={board.icon} size={18} color={Colors.white} />
-        <Txt variant="bodySmBold" color={Colors.white}>
-          {board.streak ? 'Longest streaks' : `Top ${board.label.toLowerCase()}`} · {PERIOD_WORD[period]}
-        </Txt>
-      </View>
+    <View style={styles.heroWrap}>
+      <LinearGradient
+        colors={[board.colors[0], board.colors[1]]}
+        start={{ x: 0.1, y: 0 }}
+        end={{ x: 0.9, y: 1 }}
+        style={styles.hero}>
+        {/* Depth + texture: translucent "bokeh" spheres, a top sheen and a
+            bottom shade — all clipped to the rounded card by overflow:hidden. */}
+        <View pointerEvents="none" style={[styles.blob, styles.blobTL]} />
+        <View pointerEvents="none" style={[styles.blob, styles.blobBR]} />
+        <View pointerEvents="none" style={[styles.blob, styles.blobSm]} />
+        <LinearGradient
+          pointerEvents="none"
+          colors={['rgba(255,255,255,0.28)', 'rgba(255,255,255,0)']}
+          style={styles.sheen}
+        />
+        <LinearGradient
+          pointerEvents="none"
+          colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.18)']}
+          style={styles.shade}
+        />
 
-      <View style={styles.podium}>
+        <View style={styles.heroHead}>
+          <Ionicons name={board.icon} size={18} color={Colors.white} />
+          <Txt variant="bodySmBold" color={Colors.white}>
+            {board.streak ? 'Longest streaks' : `Top ${board.label.toLowerCase()}`} · {PERIOD_WORD[period]}
+          </Txt>
+        </View>
+
+        <View style={styles.podium}>
         {order.map((e) => {
           const place = e.rank; // 1 | 2 | 3
           const medal = MEDAL[place - 1];
@@ -155,19 +179,12 @@ function Hero({ board, period, top3 }: { board: Board; period: LeaderboardPeriod
           return (
             <View key={e.id} style={styles.podCol}>
               {place === 1 && <Ionicons name="star" size={20} color={medal} style={{ marginBottom: 2 }} />}
-              <View>
-                <Avatar
-                  uri={e.avatar}
-                  name={e.name}
-                  size={avatarSize}
-                  style={{ borderWidth: 3, borderColor: medal }}
-                />
-                <View style={[styles.medalBadge, { backgroundColor: medal }]}>
-                  <Txt variant="caption" color={Colors.white}>
-                    {place}
-                  </Txt>
-                </View>
-              </View>
+              <Avatar
+                uri={e.avatar}
+                name={e.name}
+                size={avatarSize}
+                style={{ borderWidth: 3, borderColor: medal }}
+              />
               <Txt variant="bodySmBold" color={Colors.white} numberOfLines={1} style={styles.podName}>
                 {e.you ? 'You' : e.name}
               </Txt>
@@ -182,8 +199,9 @@ function Hero({ board, period, top3 }: { board: Board; period: LeaderboardPeriod
             </View>
           );
         })}
-      </View>
-    </LinearGradient>
+        </View>
+      </LinearGradient>
+    </View>
   );
 }
 
@@ -208,6 +226,8 @@ function Row({ item, board }: { item: LeaderboardEntry; board: Board }) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.screen },
+  controls: {},
+  boardScroll: { flexGrow: 0 },
   boardRow: { gap: Spacing.sm, paddingHorizontal: Spacing.lg, paddingTop: Spacing.md },
   chip: {
     flexDirection: 'row',
@@ -221,29 +241,31 @@ const styles = StyleSheet.create({
   periodWrap: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md },
   list: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xxl, gap: Spacing.sm, flexGrow: 1 },
 
+  heroWrap: {
+    borderRadius: Radius.lg,
+    marginBottom: Spacing.lg,
+    // lift the card off the background for depth
+    shadowColor: '#3A1E00',
+    shadowOpacity: 0.28,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
+  },
   hero: {
     borderRadius: Radius.lg,
+    overflow: 'hidden', // clip the texture layers to the rounded card
     padding: Spacing.lg,
-    marginBottom: Spacing.lg,
     gap: Spacing.lg,
   },
+  blob: { position: 'absolute', borderRadius: 999 },
+  blobTL: { top: -36, left: -24, width: 150, height: 150, backgroundColor: 'rgba(255,255,255,0.16)' },
+  blobBR: { bottom: -50, right: -34, width: 200, height: 200, backgroundColor: 'rgba(0,0,0,0.10)' },
+  blobSm: { top: 24, right: 44, width: 64, height: 64, backgroundColor: 'rgba(255,255,255,0.12)' },
+  sheen: { position: 'absolute', top: 0, left: 0, right: 0, height: 72 },
+  shade: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 110 },
   heroHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   podium: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: Spacing.sm },
   podCol: { flex: 1, alignItems: 'center', gap: 3 },
-  medalBadge: {
-    position: 'absolute',
-    bottom: -4,
-    alignSelf: 'center',
-    left: '50%',
-    marginLeft: -11,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.9)',
-  },
   podName: { maxWidth: '100%', marginTop: 6 },
   pedestal: {
     width: '86%',
