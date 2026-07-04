@@ -13,6 +13,7 @@ import {
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { vimeoEmbedUrl, type SparkyVideo } from '@/lib/sparky';
+import { attachVimeo } from '@/lib/vimeo-attach';
 
 /** Only allow opening https Vimeo URLs externally. Sparky replies can carry
  *  arbitrary text, so an unvalidated openURL could launch any scheme/host on
@@ -24,10 +25,12 @@ function safeVimeoUrl(url?: string): string | null {
 /**
  * Full-screen modal that plays a Vimeo video.
  *
- * On web we embed the Vimeo player in an iframe and listen to its postMessage
- * API to detect when the video finishes (fires `onEnded` at end, or once ≥95%
- * is watched). On native (no webview dependency yet) we fall back to opening the
- * video in the system browser — swap in react-native-webview for native builds.
+ * On web we embed the Vimeo player in an iframe and drive it with the official
+ * @vimeo/player SDK to detect completion reliably — `onEnded` fires at the end
+ * (or ≥95% watched), and `onProgress` at 25/50/75% milestones. The SDK is loaded
+ * lazily and only on web (dynamic import behind a Platform guard), so it never
+ * enters the native bundle. If it fails to load, the "Mark as watched" button on
+ * the video screen is the fallback. On native we open the system browser.
  */
 export function VideoPlayerModal({
   video,
@@ -46,65 +49,24 @@ export function VideoPlayerModal({
   const { width, height } = useWindowDimensions();
   const embed = video ? vimeoEmbedUrl(video.url) : null;
 
-  const iframeRef = useRef<{ contentWindow?: { postMessage: (m: string, o: string) => void } } | null>(null);
+  // Holds the real DOM <iframe> on web so @vimeo/player can attach to it.
+  const iframeRef = useRef<any>(null);
   const onEndedRef = useRef(onEnded);
   onEndedRef.current = onEnded;
   const onProgressRef = useRef(onProgress);
   onProgressRef.current = onProgress;
 
-  // Wire the Vimeo postMessage API: subscribe to the player's `ended` and
-  // `timeupdate` events and fire onEnded exactly once when the video completes.
+  // Attach the official Vimeo Player SDK (web only; native no-op) to detect
+  // completion + progress. If it can't attach, the "Mark as watched" button on
+  // the video screen is the fallback.
   useEffect(() => {
     if (Platform.OS !== 'web' || !embed) return;
-    const win = (globalThis as { window?: any }).window;
-    if (!win) return;
-    let done = false;
-    let milestone = 0; // highest 25/50/75 milestone already reported
-    const post = (method: string, value?: string) =>
-      iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ method, value }), '*');
-    const subscribe = () => {
-      post('addEventListener', 'ended');
-      post('addEventListener', 'timeupdate');
-    };
-    const fire = () => {
-      if (done) return;
-      done = true;
-      onEndedRef.current?.();
-    };
-    // Report the furthest 25/50/75% milestone crossed, once each, so partial
-    // progress is captured without a write on every timeupdate tick.
-    const progress = (percent: number) => {
-      const pct = Math.round(percent * 100);
-      const next = pct >= 75 ? 75 : pct >= 50 ? 50 : pct >= 25 ? 25 : 0;
-      if (next > milestone) {
-        milestone = next;
-        onProgressRef.current?.(next);
-      }
-    };
-    const onMessage = (e: { origin?: string; data?: unknown }) => {
-      if (typeof e.origin === 'string' && !/player\.vimeo\.com/.test(e.origin)) return;
-      let data: { event?: string; data?: { percent?: number } } | null = null;
-      try {
-        data = typeof e.data === 'string' ? JSON.parse(e.data) : (e.data as typeof data);
-      } catch {
-        return;
-      }
-      if (!data) return;
-      if (data.event === 'ready') subscribe();
-      else if (data.event === 'ended') fire();
-      else if (data.event === 'timeupdate') {
-        const p = data.data?.percent ?? 0;
-        if (p >= 0.95) fire();
-        else progress(p);
-      }
-    };
-    win.addEventListener('message', onMessage);
-    // The player may already be ready before we attached; nudge it.
-    const t = setTimeout(subscribe, 800);
-    return () => {
-      win.removeEventListener('message', onMessage);
-      clearTimeout(t);
-    };
+    const el = iframeRef.current;
+    if (!el) return;
+    return attachVimeo(el, {
+      onEnded: () => onEndedRef.current?.(),
+      onProgress: (pct) => onProgressRef.current?.(pct),
+    });
   }, [embed]);
 
   const frameWidth = Math.min(width - Spacing.lg * 2, 720);
