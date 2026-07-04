@@ -20,7 +20,7 @@ Two groups: **(i) app-owned tables** (create first), then **(ii) views + functio
 
 | # | File | Creates | Status |
 |---|------|---------|--------|
-| 0 | `db/testing-access.sql` | **Run FIRST** (before `groups.sql` + `views.sql`, which reference it). Testing-window helpers: `mobile_testing_open()` (true through July 2026) and `mobile_is_new_tester()` (true for an authenticated caller with no prod `users` row while the window is open). Grants invited testers all-access; existing users unaffected. | ✅ |
+| 0 | `db/testing-access.sql` | **Run FIRST** (before `groups.sql` + `views.sql`, which reference it). A "Mobile Tester" role modelled in the read layer: `mobile_testing_open()` (window, through July 2026), `mobile_tester_role_id()` (sentinel `-100`), `mobile_effective_role_id()` (caller's real `users.subscription_role_id`, or the tester role for a new July enrollee, else NULL), `mobile_is_tester()`. Existing users always resolve to their real role (never a tester); new enrollees hold the tester role = all-access. | ✅ |
 | 1 | `db/mobile-checkins.sql` | App-owned `mobile_checkins` table (RLS) | ✅ |
 | 2 | `db/mobile-wheel-entries.sql` | App-owned `mobile_wheel_entries` table (RLS) | ✅ |
 | 3 | `db/mobile-favorites.sql` | App-owned `mobile_favorites` table — bookmark toggles (kind/item_id, `active` tombstone) (RLS) | ✅ |
@@ -46,13 +46,22 @@ Two groups: **(i) app-owned tables** (create first), then **(ii) views + functio
 > `community-views.sql` needs `community.sql`'s tables. **`testing-access.sql` (file 0)
 > must run before `groups.sql` and `views.sql`** — their views call its functions.
 
-> **July 2026 testing window:** `mobile_me`, `mobile_lessons`,
-> `mobile_recommended_videos` (`views.sql`) and `mobile_groups` (`groups.sql`) grant
-> **all-access to any authenticated user with no production `users` row**, via
-> `mobile_is_new_tester()`, so invited testers can use the whole app. It is purely
-> additive — existing users keep exactly their historical role/entitlements. Turn it
-> off after testing by editing the date in `mobile_testing_open()` (or dropping the
-> two functions and re-running the four views).
+> **July 2026 "Mobile Tester" role:** `mobile_me`, `mobile_lessons`,
+> `mobile_recommended_videos` (`views.sql`) and `mobile_groups` (`groups.sql`) treat
+> the tester role (held by any authenticated caller with no production `users` row,
+> while the window is open) as **all-access**, via `mobile_is_tester()`. Purely
+> additive — existing users always resolve to their real role and are unaffected.
+> **Teardown** = close the window in `mobile_testing_open()` (or drop the functions
+> and re-run the views); the role then resolves to nobody and access ends — no
+> per-view permission edits.
+>
+> **Converting a tester → subscriber (they keep all their July data):** a tester's
+> data lives in the app-owned `mobile_*` tables keyed by `auth.uid()`, not by the
+> role, so it survives untouched. When they subscribe, a production `users` row
+> exists for their email → they resolve to a real role automatically. To tie their
+> July data to the new prod id, backfill once per converting user:
+> `update <each mobile_* table> set app_user_id = <new users.id> where auth_uid = <their auth uid>;`
+> (Only promote users who actually convert — testers who don't never touch production.)
 
 ## B. App-owned data tables — PRESERVE on re-import ⚠️ (real user data)
 

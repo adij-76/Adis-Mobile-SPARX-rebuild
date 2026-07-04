@@ -82,7 +82,7 @@ create or replace view mobile_groups as
           and srg.role_id = (select subscription_role_id from me)
       )
       -- new July tester (no prod row) → all active groups unlocked for testing
-      or public.mobile_is_new_tester()
+      or public.mobile_is_tester()
     )
   order by g.sort_order, g.id;
 grant select on mobile_groups to authenticated;

@@ -86,7 +86,7 @@ create view mobile_lessons as
              select 1 from subscription_role_lessons srl
              where srl.role_id = me.subscription_role_id and srl.lesson_id = l.id)
            -- new July tester (no prod row) → all content unlocked for testing
-           when public.mobile_is_new_tester() then true
+           when public.mobile_is_tester() then true
            else false
          end as accessible
   from lessons l
@@ -187,7 +187,7 @@ create view mobile_recommended_videos as
   from (
     select s2.*
     from public.snippets s2
-    where public.mobile_is_new_tester()
+    where public.mobile_is_tester()
       and (s2.vimeo_id is not null or s2.vimeo_url is not null)
     order by s2.created_at desc nulls last
     limit 20
@@ -352,7 +352,7 @@ create view mobile_me as
   -- NOT the primary key, so we join on enum_id to resolve the title.
   left join public.addictions a on a.enum_id = u.addiction
   where u.id is not null                       -- an existing user (self-scoped), or
-     or public.mobile_is_new_tester();         -- a new July tester → all-access
+     or public.mobile_is_tester();         -- a new July tester → all-access
 
 grant select on mobile_me to authenticated;
 
