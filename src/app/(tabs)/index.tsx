@@ -49,6 +49,7 @@ function isInstalledOrNative(): boolean {
 export default function HomeScreen() {
   const router = useRouter();
   const {
+    ready,
     isFav,
     toggleFav,
     completedLessonIds,
@@ -150,13 +151,14 @@ export default function HomeScreen() {
   ].filter(Boolean) as { id: string; label: string; route: string; done: boolean }[];
 
   // Auto-present the daily check-in once per day when the app opens — but only if
-  // it hasn't been done today on ANY device. The store's check-ins are hydrated
-  // cross-device on auth, but that's async, so also confirm against the server
-  // before prompting (otherwise a fresh device re-asks for a check-in already done
-  // elsewhere today).
+  // it hasn't been done today on ANY device. CRITICAL: wait for `ready` so the
+  // local store has loaded from storage first; otherwise this runs against an
+  // empty `checkins` on every refresh and re-prompts for a check-in already done
+  // on this device. Local is authoritative for THIS device; the server check only
+  // covers a check-in done today on ANOTHER device.
   const prompted = useRef(false);
   useEffect(() => {
-    if (prompted.current) return;
+    if (!ready || prompted.current) return;
     const todayStr = new Date().toISOString().slice(0, 10);
     if (checkins.some((c) => c.date === todayStr)) {
       prompted.current = true;
@@ -185,7 +187,7 @@ export default function HomeScreen() {
       clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router]);
+  }, [ready, router]);
 
   // Dismissable "Install app" banner: hidden once dismissed (persisted) or when
   // there's nothing to install (native / already-installed PWA). It's also
