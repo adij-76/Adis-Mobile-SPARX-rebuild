@@ -87,12 +87,19 @@ export default function HomeScreen() {
   const workshopsQ = useAsync(() => api.content.workshops(), []);
   const workshops = workshopsQ.data ?? [];
   const challenges = useAsync(() => api.content.challenges(), []).data ?? [];
-  const recommendedVideos = useAsync(() => api.content.recommendedVideos(), []).data ?? [];
+  const recommendedQ = useAsync(() => api.content.recommendedVideos(), []);
+  const recommendedVideos = recommendedQ.data ?? [];
   // Upcoming meetings = the user's signed-up coaching groups' next occurrences
   // (real, in the user's time zone), soonest first — no fake placeholders.
-  // Reload on focus so a group signed up on another screen shows immediately.
+  // Reload on focus so a group signed up on another screen shows immediately, and
+  // so the recommended videos refresh after one is watched on the video screen.
   const { data: groupData, reload: reloadGroups } = useAsync(() => api.groups.list(), []);
-  useFocusEffect(useCallback(() => void reloadGroups(), [])); // eslint-disable-line react-hooks/exhaustive-deps
+  useFocusEffect(
+    useCallback(() => {
+      reloadGroups();
+      recommendedQ.reload();
+    }, []), // eslint-disable-line react-hooks/exhaustive-deps
+  );
   const groups = groupData ?? [];
   const upcomingMeetings = useMemo<UpcomingMeeting[]>(() => {
     return groups
@@ -126,7 +133,9 @@ export default function HomeScreen() {
   // its actual destination and ticks off when the underlying action is done:
   // check-in saved today, the day's video watched, the day's workshop completed.
   const today = new Date().toISOString().slice(0, 10);
-  const todayVideo = recommendedVideos[0];
+  // The next recommended video the user hasn't finished — so when they complete
+  // one, the checklist reactively advances to the next without a manual refresh.
+  const todayVideo = recommendedVideos.find((v) => !isVideoWatched(v.id)) ?? recommendedVideos[0];
   const todayWorkshop = workshops[0];
   const checklistItems = [
     { id: 'checkin', label: 'Your daily check-in', route: '/checkin', done: checkins.some((c) => c.date === today) },
