@@ -10,6 +10,10 @@
  *   3. Back-compat columns exist: mobile_lessons exposes module_id AND portion_id;
  *      mobile_me exposes avatar_url+avatar, addiction_label+addiction,
  *      days_updated_at+days_counter_updated_at (renames that once broke the live app).
+ *   3b. Base-table lockdown holds: sensitive production tables (users,
+ *      daily_assessments, wheel_of_life_scores) are NOT readable with the anon key.
+ *      Regresses if a re-import re-applies Supabase's permissive default grants
+ *      without re-running db/lockdown-base-tables.sql.
  *
  * Checks (with AUDIT_USER_EMAIL/PASSWORD — per-user views):
  *   4. mobile_me returns exactly one row with a non-null name.
@@ -102,6 +106,17 @@ async function run() {
   // 3. Back-compat columns
   await assertColumns('mobile_lessons', ['module_id', 'portion_id']);
   await assertColumns('mobile_me', ['avatar_url', 'avatar', 'addiction_label', 'addiction', 'days_updated_at', 'days_counter_updated_at']);
+
+  // 3b. Base-table lockdown: the anon role must NOT be able to read sensitive
+  //     production tables directly (db/lockdown-base-tables.sql). A 200 here means
+  //     the anon key can read the raw table — e.g. users.encrypted_password — which
+  //     is the exact pre-launch exposure the lockdown closes. PostgREST returns
+  //     401/403 (permission denied) or 404 once the grant is revoked.
+  for (const table of ['users', 'daily_assessments', 'wheel_of_life_scores']) {
+    const { status } = await get(`${table}?select=*&limit=1`);
+    if (status === 200) fail(`base table public.${table} is READABLE with the anon key (HTTP 200) — re-run db/lockdown-base-tables.sql`);
+    else ok(`base table public.${table} is not anon-readable (HTTP ${status})`);
+  }
 
   // Per-user checks
   if (!EMAIL || !PASSWORD) {

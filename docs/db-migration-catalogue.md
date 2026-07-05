@@ -43,12 +43,16 @@ Two groups: **(i) app-owned tables** (create first), then **(ii) views + functio
 | 9 | `db/community-views.sql` | Community read views: `mobile_posts` (exposes `author_id` for DM-from-post), `mobile_comments`, `mobile_channels`, `mobile_notifications`. Run after file 4. | ✅ |
 | 10 | `db/leaderboard.sql` | Leaderboard functions (SECURITY DEFINER): `mobile_leaderboard_metric(metric, period)` (points/lessons/workshops/community/videos/check-ins over `user_points`→`user_rewards`→`rewards`), `mobile_streak_leaderboard(period)` (longest check-in run over `daily_assessments`), legacy `mobile_leaderboard_period(period)`. Rolling windows (7/30 days). | ✅ |
 | 11 | `db/auth-and-storage.sql` | Imports users into Supabase Auth (keeps passwords), avatars bucket + storage policies | ✅ |
+| 12 | `db/lockdown-base-tables.sql` | **Run LAST.** Base-table hardening: revokes `anon`/`authenticated` from every non-`mobile_` object (the production base tables) so the public anon key can't read `users.encrypted_password` / PII or write/`TRUNCATE` prod tables. Leaves the whole `mobile_*` surface untouched (each file grants its own) — needs no re-grants. Last line of `db/apply-order.txt`; idempotent. | ✅ |
 
 > **Order note:** the group-(ii) view files use `to_regclass` guards, so they only
 > splice in an app table that already exists — run group (i) first, or just re-run
 > the view files afterward. `checkin-history.sql` needs `mobile_checkins`;
 > `community-views.sql` needs `community.sql`'s tables. **`testing-access.sql` (file 0)
 > must run before `groups.sql` and `views.sql`** — their views call its functions.
+> **`lockdown-base-tables.sql` (file 12) must run LAST** — after every view/table
+> above exists and has been granted, so there is nothing left to lock down. It is
+> the final entry in `db/apply-order.txt`, so the auto-apply runs it last for you.
 
 > **July 2026 "Mobile Tester" role:** `mobile_me`, `mobile_lessons`,
 > `mobile_recommended_videos` (`views.sql`) and `mobile_groups` (`groups.sql`) treat
@@ -139,9 +143,16 @@ are dropped. Document the executed job + date in `db/README.md` at cutover.
 - **Storage buckets:** `avatars` (exists) + a **post-images** bucket when feed image upload lands
 - **Repo / build variables:** `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`
   (anon/publishable key only — never service_role), `SPARKY_WEBHOOK`
-- **Base-table RLS decision:** production tables were imported without RLS; the
-  `mobile_*` views self-scope by email, but locking down direct PostgREST reads of
-  base tables (`GET /rest/v1/users`) is a deliberate pre-launch hardening step
+- **Base-table lockdown (DONE — `db/lockdown-base-tables.sql`, section A #12):**
+  production tables were imported with Supabase's permissive default grants, giving
+  `anon`/`authenticated` full read **and** INSERT/UPDATE/DELETE/TRUNCATE on every
+  `public` table — readable and destroyable with the public anon key. The lockdown
+  SQL revokes that from every non-`mobile_` object; the self-scoping views are
+  unaffected (they run with owner privileges). It runs last in `db/apply-order.txt`,
+  so a re-import re-locks automatically — **but only if that auto-apply runs
+  (`SUPABASE_DB_URL` secret set); otherwise run the file by hand, last.** Applying
+  it is a SQL step, not a dashboard toggle — listed here only because it is easy to
+  forget after a manual re-import.
 
 ## F. Contract invariants + automated audit
 
@@ -153,6 +164,7 @@ are dropped. Document the executed job + date in `db/README.md` at cutover.
 | `.github/workflows/check-catalogue.yml` | Runs the catalogue check daily + on every `db/**` / catalogue change (PR + merge) | ✅ |
 | `db/apply-order.txt` + `.github/workflows/apply-migrations.yml` | **Auto-applies the SQL** to Supabase: on merge to `main` (db changes) it runs the recreatable layer in `db/apply-order.txt` order; `workflow_dispatch` applies one named file (seeds/imports). Needs repo secret `SUPABASE_DB_URL` (Supabase **Session pooler** URI — the direct `db.<ref>.supabase.co` host is IPv6-only and unreachable from IPv4-only Actions runners); skips gracefully until set. Never runs on PRs. | ✅ |
 | Repo secrets `AUDIT_USER_EMAIL` / `AUDIT_USER_PASSWORD` | Enable per-user audit checks | 🔒 |
+| **Base-table exposure check** | `audit-db-contract.mjs` asserts `anon` canNOT read `users` / `daily_assessments` / `wheel_of_life_scores` — catches a re-import that re-exposed the base tables without re-running `lockdown-base-tables.sql` | ✅ |
 | **Community audit checks** | Extend the audit for `mobile_posts`/`mobile_channels` (no dupes, active-only, author resolves) | ⚠️ add when feed ships |
 
 ## G. Re-import playbook (order of operations)
@@ -160,8 +172,13 @@ are dropped. Document the executed job + date in `db/README.md` at cutover.
 1. Import / refresh the production snapshot into Supabase (`public` schema).
 2. **Preserve app-owned tables** (section B) — back up before, restore after, never drop.
 3. Run section A group (i) — the app-owned table files — then group (ii) — the views + functions (order note above).
-4. Confirm dashboard-only settings (section E).
-5. Run the contract audit (section F) — regression fails CI, not the app.
+4. **Run `db/lockdown-base-tables.sql` LAST (section A #12).** A re-import re-applies
+   Supabase's permissive default grants, re-exposing every production table (incl.
+   password hashes) to the anon key until this is re-run. Then run its verify block
+   (anon must not read `users`; authenticated must still read `mobile_me`). If the
+   `apply-migrations` workflow ran (SUPABASE_DB_URL set), this already happened.
+5. Confirm dashboard-only settings (section E).
+6. Run the contract audit (section F) — regression fails CI, not the app.
 
 ## H. Rules & gotchas (must hold at migration time)
 
@@ -183,7 +200,9 @@ are dropped. Document the executed job + date in `db/README.md` at cutover.
 Read/write SQL layer — content, insights, check-ins, wheel, favorites, community
 feed, **chat (DMs + groups)**, **meetings/groups**, **video completions**, and the
 **multi-board leaderboard** (points/streak/lessons/workshops/community/videos/check-ins):
-**built ✅** (12 SQL files in section A, all validated).
+**built ✅** (section A files, all validated). Base-table lockdown (anon/
+authenticated stripped to the `mobile_*` surface only) is **applied ✅, CI-guarded,
+and the required last step of every re-import** (`db/lockdown-base-tables.sql`).
 
 Remaining before a fully-comprehensive migration: the reconciliation jobs
 (section C, written at cutover); consolidating enum/emoji maps into the field
