@@ -187,6 +187,12 @@ export default function OnboardingScreen() {
       <Finish
         reward={reward}
         community={matchLabel(gender, age)}
+        onIntroduce={() => {
+          // Flip the gate to done, then drop them straight into composing an
+          // intro post — the +50 activation bonus is awarded when they post.
+          markComplete();
+          router.replace('/feed/new?intro=1');
+        }}
         onEnter={() => {
           // Flip the gate to done; the Shell redirects into the app.
           markComplete();
@@ -532,10 +538,12 @@ function OptionalPicker({
 function Finish({
   reward,
   community,
+  onIntroduce,
   onEnter,
 }: {
   reward: number;
   community: string;
+  onIntroduce: () => void;
   onEnter: () => void;
 }) {
   const firstName = useFirstName();
@@ -569,8 +577,29 @@ function Finish({
             </View>
           )}
 
+          {/* Activation nudge: introducing yourself is the single strongest
+              predictor of sticking around, so we reward it big and make it the
+              primary action. */}
+          <View style={styles.introCard}>
+            <Ionicons name="hand-left" size={22} color={Colors.orange} />
+            <Txt variant="bodySm" color={Colors.textOnDark} center>
+              Say hi in {community} and earn an extra{' '}
+              <Txt variant="bodySmBold" color={Colors.orange}>
+                +50 XP
+              </Txt>
+              .
+            </Txt>
+          </View>
+
           <View style={styles.ackButtonWrap}>
-            <Button title="Enter SPARx" variant="white" onPress={onEnter} />
+            <Button
+              title="Introduce yourself  ·  +50 XP"
+              variant="primary"
+              iconLeft="chatbubbles"
+              onPress={onIntroduce}
+            />
+            <View style={{ height: Spacing.md }} />
+            <Button title="Maybe later" variant="white" onPress={onEnter} />
           </View>
         </View>
       </SafeAreaView>
@@ -687,5 +716,17 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.lg,
     paddingHorizontal: Spacing.xxl,
   },
-  ackButtonWrap: { marginTop: Spacing.xxl, width: '100%', maxWidth: 280, alignSelf: 'center' },
+  introCard: {
+    marginTop: Spacing.xl,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    backgroundColor: 'rgba(255,157,75,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,157,75,0.35)',
+    borderRadius: Radius.lg,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+  },
+  ackButtonWrap: { marginTop: Spacing.xxl, width: '100%', maxWidth: 300, alignSelf: 'center' },
 });

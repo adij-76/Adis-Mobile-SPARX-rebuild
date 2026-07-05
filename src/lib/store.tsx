@@ -176,6 +176,10 @@ type StoreValue = {
   xp: number;
   /** Award `base` XP × the current streak & bonus-day multiplier; returns earned. */
   awardXp: (base: number) => number;
+  /** Award a flat, one-time bonus (no streak multiplier, no daily cap) — for
+   *  activation rewards like the onboarding "introduce yourself" bonus. Returns
+   *  the points added. */
+  awardBonus: (points: number) => number;
   /** Award community XP for a post/reply, capped per day to deter farming; returns earned. */
   awardCommunityXp: (kind: 'community_post' | 'community_reply') => number;
   // video watches (local until auth)
@@ -410,6 +414,11 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         const earned = xpEarned(base, streak, activeBonusMultiplier());
         if (earned > 0) update((s) => ({ ...s, xp: s.xp + earned }));
         return earned;
+      },
+      awardBonus: (points) => {
+        const p = Math.max(0, Math.round(points));
+        if (p > 0) update((s) => ({ ...s, xp: s.xp + p }));
+        return p;
       },
       awardCommunityXp: (kind) => {
         const todayStr = new Date().toISOString().slice(0, 10);
