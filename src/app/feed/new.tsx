@@ -31,11 +31,18 @@ const RULES = [
 
 export default function NewPost() {
   const router = useRouter();
-  const { addPost, awardCommunityXp } = useStore();
+  const { addPost, awardCommunityXp, awardBonus } = useStore();
   const author = useCurrentAuthor();
-  const { text: prefill, channel } = useLocalSearchParams<{ text?: string; channel?: string }>();
-  // Coming from a shared quote → skip the rules gate and prefill the text.
-  const [agreed, setAgreed] = useState(!!prefill);
+  const { text: prefill, channel, intro } = useLocalSearchParams<{
+    text?: string;
+    channel?: string;
+    intro?: string;
+  }>();
+  // Coming from onboarding's "introduce yourself" → skip the rules gate and, on
+  // post, award the one-time +50 activation bonus.
+  const isIntro = intro === '1';
+  // Coming from a shared quote or the intro flow → skip the rules gate.
+  const [agreed, setAgreed] = useState(!!prefill || isIntro);
   const communities = useAsync(() => api.community.communities(), []).data ?? [];
   // Preselect the channel when composing from inside a room.
   const [community, setCommunity] = useState<string | null>(channel ?? null);
@@ -49,7 +56,11 @@ export default function NewPost() {
     // Optimistic local insert (keeps the seed/offline path working) + persist to
     // the backend so it shows for everyone; the feed refetches on focus.
     addPost({ community: name, text: body, image: photo ?? undefined, author });
-    if (body) awardCommunityXp('community_post');
+    if (body) {
+      awardCommunityXp('community_post');
+      // One-time onboarding activation bonus for actually introducing yourself.
+      if (isIntro) awardBonus(50);
+    }
     api.posts
       .createPost({
         channelId: selectedCommunity,
@@ -96,8 +107,20 @@ export default function NewPost() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <ScreenHeader title="Back" largeTitle="Make a post" />
+      <ScreenHeader title="Back" largeTitle={isIntro ? 'Introduce yourself' : 'Make a post'} />
       <ScrollView contentContainerStyle={styles.body}>
+        {isIntro && (
+          <View style={styles.introBanner}>
+            <Ionicons name="sparkles" size={18} color={Colors.orange} />
+            <Txt variant="bodySm" color={Colors.textMain} style={{ flex: 1 }}>
+              Share a little about yourself and what brought you here — post to earn{' '}
+              <Txt variant="bodySmBold" color={Colors.orange}>
+                +50 XP
+              </Txt>
+              .
+            </Txt>
+          </View>
+        )}
         <Txt variant="bodySmMedium">Post to</Txt>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: Spacing.sm }}>
           {communities.map((c) => {
@@ -118,7 +141,11 @@ export default function NewPost() {
         <TextInput
           value={text}
           onChangeText={setText}
-          placeholder="Share what's on your mind…"
+          placeholder={
+            isIntro
+              ? "Hi everyone! I'm new here. A bit about me and what I'm working on…"
+              : "Share what's on your mind…"
+          }
           placeholderTextColor={Colors.textSub}
           style={styles.input}
           multiline
@@ -152,6 +179,16 @@ export default function NewPost() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.white },
   body: { padding: Spacing.lg, gap: Spacing.lg },
+  introBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    backgroundColor: Colors.highlight,
+    borderWidth: 1,
+    borderColor: Colors.highlightBorder,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+  },
   rule: { flexDirection: 'row', gap: Spacing.md, alignItems: 'flex-start' },
   chip: {
     paddingHorizontal: Spacing.lg,

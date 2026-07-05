@@ -19,7 +19,9 @@ import { BottomNav } from '@/components/nav/bottom-nav';
 import { DesktopSidebar } from '@/components/nav/desktop-sidebar';
 import { Colors } from '@/constants/theme';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
+import { AssessmentGateProvider, useAssessmentGate } from '@/lib/assessment-gate';
 import { AuthProvider, useAuth } from '@/lib/auth';
+import { OnboardingProvider, useOnboarding } from '@/lib/onboarding';
 import { AppStoreProvider, useStore } from '@/lib/store';
 
 SplashScreen.preventAutoHideAsync();
@@ -31,7 +33,7 @@ SplashScreen.preventAutoHideAsync();
  */
 /** Routes that take over the whole screen with no nav — must be completed
  *  or explicitly closed, not navigated away from (e.g. the daily check-in). */
-const NAV_LOCKED = ['/checkin'];
+const NAV_LOCKED = ['/checkin', '/onboarding'];
 
 /** Brand splash shown while auth resolves / before the login redirect lands,
  *  so protected content never flashes for a signed-out visitor. */
@@ -49,11 +51,14 @@ function Splash() {
 function Shell() {
   const { isDesktop } = useBreakpoint();
   const { status, user } = useAuth();
+  const { status: onboarding } = useOnboarding();
+  const assessmentGate = useAssessmentGate();
   const { mergeRemoteCheckins, hydrateFavorites, hydrateWatched, hydrateGameState, gameState } =
     useStore();
   const segments = useSegments();
   const router = useRouter();
   const onLogin = segments[0] === 'login';
+  const onOnboarding = segments[0] === 'onboarding';
 
   // Redirect by auth state once it resolves: guests → login, signed-in → app.
   useEffect(() => {
@@ -61,6 +66,26 @@ function Shell() {
     if (status === 'guest' && !onLogin) router.replace('/login');
     else if (status === 'authed' && onLogin) router.replace('/');
   }, [status, onLogin, router]);
+
+  // Onboarding gate: a signed-in new user who hasn't finished onboarding is held
+  // on /onboarding; once done (or an existing user), they're let into the app.
+  // Waits for the auth redirect to settle (not on /login) and for the gate to
+  // resolve past 'unknown' so we never bounce during the initial check.
+  useEffect(() => {
+    if (status !== 'authed' || onLogin) return;
+    if (onboarding === 'needed' && !onOnboarding) router.replace('/onboarding');
+    else if (onboarding === 'done' && onOnboarding) router.replace('/');
+  }, [status, onboarding, onOnboarding, onLogin, router]);
+
+  // Assessment soft-gate: while a day-1 assessment is owed, opening CONTENT
+  // (a video / lesson / workshop) redirects to the assessment hub. Home,
+  // check-in, and community stay open. Only ever locks onboarded new users.
+  const onContentRoute =
+    segments[0] === 'videos' || segments[0] === 'lesson' || segments[0] === 'workshop';
+  useEffect(() => {
+    if (status !== 'authed' || onLogin || onOnboarding) return;
+    if (assessmentGate.locked && onContentRoute) router.replace('/assessments');
+  }, [status, assessmentGate.locked, onContentRoute, onLogin, onOnboarding, router]);
 
   // Hydrate server-side check-ins once signed in, so streaks/reports reflect
   // check-ins from any device (local entries still win for a shared date).
@@ -118,6 +143,8 @@ function Shell() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="login" options={{ animation: 'fade' }} />
+      <Stack.Screen name="onboarding" options={{ animation: 'fade', gestureEnabled: false }} />
+      <Stack.Screen name="assessments" options={{ presentation: 'card' }} />
       <Stack.Screen name="workshop" options={{ presentation: 'card' }} />
       <Stack.Screen name="meetings" options={{ presentation: 'card' }} />
       <Stack.Screen name="videos" options={{ presentation: 'card' }} />
@@ -155,8 +182,13 @@ function Shell() {
     !navLocked &&
     !onTabs &&
     segments[0] !== 'quotes';
-  // Cover protected content while loading or during the guest→login redirect.
-  const covering = status === 'loading' || (status === 'guest' && !onLogin);
+  // Cover protected content while loading, during the guest→login redirect, or
+  // while a new user is being routed into onboarding (so the app never flashes
+  // behind the redirect).
+  const covering =
+    status === 'loading' ||
+    (status === 'guest' && !onLogin) ||
+    (status === 'authed' && onboarding === 'needed' && !onOnboarding && !onLogin);
   return (
     <View style={{ flex: 1, flexDirection: 'row' }}>
       {showSidebar && <DesktopSidebar />}
@@ -202,10 +234,14 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <AuthProvider>
-          <AppStoreProvider>
-            <StatusBar style="auto" />
-            <Shell />
-          </AppStoreProvider>
+          <OnboardingProvider>
+            <AssessmentGateProvider>
+              <AppStoreProvider>
+                <StatusBar style="auto" />
+                <Shell />
+              </AppStoreProvider>
+            </AssessmentGateProvider>
+          </OnboardingProvider>
         </AuthProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
