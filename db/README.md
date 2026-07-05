@@ -54,14 +54,20 @@ only the signed-in user's rows and anon callers get catalog data with no persona
 fields. Because that filter lives *inside* the view, we don't need to enable RLS
 on `public.users` or any other base table.
 
-> **Separate hardening note (your decision, not done here):** if the production
-> tables were imported *without* row-level security, the `anon`/`authenticated`
-> API roles may be able to read base tables (e.g. `GET /rest/v1/users`) directly
-> via PostgREST, independent of our views. That's a pre-existing property of the
-> imported copy, not something these files create. Locking it down (enable RLS on
-> sensitive tables, or restrict the API to the `mobile_*` views only) is a
-> deliberate security step worth doing before launch — flag it when you're ready
-> and we'll scope it carefully.
+> **Base-table lockdown — DONE (`db/lockdown-base-tables.sql`).** The production
+> tables were imported with Supabase's default grants, which gave the
+> `anon`/`authenticated` API roles **ALL** privileges (read *and*
+> INSERT/UPDATE/DELETE/TRUNCATE) on every table in `public`. Since PostgREST
+> exposes those roles to anyone holding the public anon key (it ships in the app
+> bundle), that meant an anonymous caller could read every user's row — including
+> `users.encrypted_password` hashes and all substance-use/assessment data — and
+> could even delete/truncate production tables. `db/lockdown-base-tables.sql`
+> revokes that access and re-grants **only** the `mobile_*` surface the app uses.
+> The self-scoping views keep working because they run with their owner's
+> privileges, not the caller's. **This must be re-run after every re-import** — a
+> re-import recreates the tables and Supabase re-applies the permissive default
+> grants, silently re-exposing everything (see the playbook below). CI guards it:
+> `audit-db-contract.mjs` fails if `anon` can read `public.users` again.
 
 ## Contract invariants (audited automatically)
 
@@ -119,9 +125,15 @@ Both carry the same two consequences for a production re-import:
    `db/mobile-wheel-entries.sql`. (Run the two app-owned-table files *before*
    `views.sql`, or re-run `views.sql` after — `mobile_wheel_areas` only unions in
    `mobile_wheel_entries` when that table already exists.)
-3. **Preserve `mobile_checkins` + `mobile_wheel_entries` data** (see the ⚠️ note
+3. **Run `db/lockdown-base-tables.sql`** — REQUIRED. A re-import recreates the
+   base tables with Supabase's permissive default grants, re-exposing every
+   production table (incl. password hashes) to the anon key until this is re-run.
+   Run it **last**, after the views/tables exist, so the re-grants land on them.
+   Then run the verify block at the bottom of that file (anon must not read
+   `users`; authenticated must still read `mobile_me`).
+4. **Preserve `mobile_checkins` + `mobile_wheel_entries` data** (see the ⚠️ note
    above) — never drop them.
-4. Confirm the dashboard-only settings below (a data import never changes them).
+5. Confirm the dashboard-only settings below (a data import never changes them).
 
 ## Dashboard-only settings (not SQL — set once, survive re-import)
 
