@@ -47,21 +47,27 @@ Run `views.sql` anytime — it's pure read-layer. Run `auth-and-storage.sql` whe
 you're doing the sign-in cutover. Both are **idempotent**: re-run them as often as
 you like (after every re-import) and you land in the same place.
 
-## Security model (why no row-level security on base tables)
+## Security model (self-scoping views + base-table lockdown)
 
 Every per-user view filters internally on `auth.jwt() ->> 'email'`, so it returns
 only the signed-in user's rows and anon callers get catalog data with no personal
-fields. Because that filter lives *inside* the view, we don't need to enable RLS
-on `public.users` or any other base table.
+fields. Because that filter lives *inside* the view, the views don't rely on RLS
+on the base tables.
 
-> **Separate hardening note (your decision, not done here):** if the production
-> tables were imported *without* row-level security, the `anon`/`authenticated`
-> API roles may be able to read base tables (e.g. `GET /rest/v1/users`) directly
-> via PostgREST, independent of our views. That's a pre-existing property of the
-> imported copy, not something these files create. Locking it down (enable RLS on
-> sensitive tables, or restrict the API to the `mobile_*` views only) is a
-> deliberate security step worth doing before launch — flag it when you're ready
-> and we'll scope it carefully.
+That protects the views — but **not** the base tables underneath. The production
+tables were imported with Supabase's permissive default grants, so `anon`/
+`authenticated` had full read **and** INSERT/UPDATE/DELETE/TRUNCATE on every
+`public` table — meaning the public anon key (it ships in the client bundle) could
+read `users.encrypted_password` and all PII, and even delete/truncate prod tables.
+
+> **Base-table lockdown — DONE (`db/lockdown-base-tables.sql`).** Revokes
+> `anon`/`authenticated` from every non-`mobile_` object (the base tables) and
+> leaves the whole `mobile_*` surface untouched (the views keep working because
+> they run with their owner's privileges, not the caller's). It runs **last** in
+> `db/apply-order.txt`, so the auto-apply re-locks after every import — but a
+> **manual** re-import must run it by hand, last, or the base tables silently
+> re-expose. CI guards it: `scripts/audit-db-contract.mjs` fails if `anon` can read
+> `public.users` again.
 
 ## Contract invariants (audited automatically)
 
@@ -115,13 +121,16 @@ Both carry the same two consequences for a production re-import:
 ## Re-import playbook
 
 1. Import / refresh the production snapshot into Supabase (`public` schema).
-2. Run `db/views.sql`, `db/auth-and-storage.sql`, `db/mobile-checkins.sql`, and
-   `db/mobile-wheel-entries.sql`. (Run the two app-owned-table files *before*
-   `views.sql`, or re-run `views.sql` after — `mobile_wheel_areas` only unions in
-   `mobile_wheel_entries` when that table already exists.)
+2. Apply the recreatable layer in `db/apply-order.txt` order (the `apply-migrations`
+   workflow does this automatically on merge to `main`; or run the files by hand).
 3. **Preserve `mobile_checkins` + `mobile_wheel_entries` data** (see the ⚠️ note
    above) — never drop them.
-4. Confirm the dashboard-only settings below (a data import never changes them).
+4. **Run `db/lockdown-base-tables.sql` LAST** — REQUIRED. A re-import recreates the
+   base tables with Supabase's permissive default grants, re-exposing every prod
+   table (incl. password hashes) to the anon key until this is re-run. It is the
+   last entry in `db/apply-order.txt`, so the auto-apply handles it; after a manual
+   import, run it yourself and then its verify block (anon must not read `users`).
+5. Confirm the dashboard-only settings below (a data import never changes them).
 
 ## Dashboard-only settings (not SQL — set once, survive re-import)
 
