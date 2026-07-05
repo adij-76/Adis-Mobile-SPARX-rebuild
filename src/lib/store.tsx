@@ -169,7 +169,9 @@ type StoreValue = {
   markAllNotifsRead: (ids: string[]) => void;
   // lesson progress (local until auth)
   isLessonComplete: (id: string) => boolean;
-  markLessonComplete: (id: string) => void;
+  /** Mark a lesson complete and award XP (streak/bonus-scaled). Returns the XP
+   *  earned, or 0 if it was already complete (so the UI can skip the reward). */
+  markLessonComplete: (id: string) => number;
   completedLessonIds: string[];
   // XP — every activity except check-ins earns XP, scaled by the streak multiplier
   /** Total streak-multiplied XP across all activities. */
@@ -384,17 +386,22 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         })),
 
       isLessonComplete: (id) => state.completedLessons.includes(id),
-      markLessonComplete: (id) =>
-        update((s) => {
-          if (s.completedLessons.includes(id)) return s;
-          // Finishing a lesson earns XP (streak- and bonus-scaled).
-          const earned = xpEarned(
-            XP_BASE.lesson_complete,
-            computeStreak(s.checkins.map((c) => c.date)),
-            activeBonusMultiplier(),
-          );
-          return { ...s, completedLessons: [...s.completedLessons, id], xp: s.xp + earned };
-        }),
+      markLessonComplete: (id) => {
+        // Already done → no re-award (returns 0 so the UI can skip the XP celebration).
+        if (state.completedLessons.includes(id)) return 0;
+        // Finishing a lesson earns XP (streak- and bonus-scaled).
+        const earned = xpEarned(
+          XP_BASE.lesson_complete,
+          computeStreak(state.checkins.map((c) => c.date)),
+          activeBonusMultiplier(),
+        );
+        update((s) =>
+          s.completedLessons.includes(id)
+            ? s
+            : { ...s, completedLessons: [...s.completedLessons, id], xp: s.xp + earned },
+        );
+        return earned;
+      },
       completedLessonIds: state.completedLessons,
 
       isVideoWatched: (id) => state.watchedVideos.includes(id),

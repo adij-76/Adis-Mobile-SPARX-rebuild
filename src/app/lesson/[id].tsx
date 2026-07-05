@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { api } from '@/api';
 import type { Lesson } from '@/api/types';
+import { Confetti } from '@/components/confetti';
 import { CourseOutline } from '@/components/course-outline';
 import { Button } from '@/components/ui/button';
 import { ProgressBar } from '@/components/ui/progress-bar';
@@ -59,6 +60,7 @@ export default function LessonScreen() {
   const [step, setStep] = useState(0);
   const [playing, setPlaying] = useState<SparkyVideo | null>(null);
   const [outlineOpen, setOutlineOpen] = useState(false);
+  const [celebrate, setCelebrate] = useState<{ earned: number; workshop: boolean } | null>(null);
 
   // Reset to the intro whenever the lesson changes (e.g. picked from the outline).
   useEffect(() => setStep(0), [id]);
@@ -123,6 +125,10 @@ export default function LessonScreen() {
       : `Lesson ${lesson.position}`;
   const saved = isFav('lesson', lesson.id);
   const last = WORKSHOP_STEPS.length - 1;
+
+  if (celebrate) {
+    return <LessonComplete {...celebrate} onDone={() => router.back()} />;
+  }
 
   const pickLesson = (lessonId: string) => {
     router.replace(`/lesson/${lessonId}`);
@@ -228,8 +234,8 @@ export default function LessonScreen() {
             iconRight={step === last ? undefined : 'chevron-forward'}
             onPress={() => {
               if (step === last) {
-                markLessonComplete(lesson.id);
-                router.back();
+                const earned = markLessonComplete(lesson.id);
+                setCelebrate({ earned, workshop: isWorkshop });
               } else {
                 setStep((s) => s + 1);
               }
@@ -315,6 +321,52 @@ function TopBar({
   );
 }
 
+/** Reward screen shown when a lesson or workshop is completed — mirrors the
+ *  check-in / video celebration so finishing content always feels rewarding. */
+function LessonComplete({
+  earned,
+  workshop,
+  onDone,
+}: {
+  earned: number;
+  workshop: boolean;
+  onDone: () => void;
+}) {
+  return (
+    <View style={styles.ackRoot}>
+      <Confetti />
+      <SafeAreaView style={styles.ackSafe} edges={['top', 'bottom']}>
+        <View style={styles.ackCenter}>
+          <View style={styles.ackStar}>
+            <Ionicons name="ribbon" size={52} color={Colors.primaryDarker} />
+          </View>
+          <Txt variant="display" color={Colors.white} center style={{ marginTop: Spacing.xl }}>
+            {workshop ? 'Workshop complete!' : 'Lesson complete!'}
+          </Txt>
+          <Txt variant="body" color={Colors.textMutedOnDark} center style={{ marginTop: Spacing.sm }}>
+            {earned > 0
+              ? 'Every step forward counts. Keep the momentum going.'
+              : "You've already earned XP for this one — nice to revisit it."}
+          </Txt>
+          {earned > 0 ? (
+            <View style={styles.ackReward}>
+              <Txt variant="display" color={Colors.orange}>
+                +{earned}
+              </Txt>
+              <Txt variant="caption" color={Colors.textMutedOnDark}>
+                XP earned
+              </Txt>
+            </View>
+          ) : null}
+          <View style={styles.ackButtonWrap}>
+            <Button title="Continue" variant="white" onPress={onDone} />
+          </View>
+        </View>
+      </SafeAreaView>
+    </View>
+  );
+}
+
 function Intro({
   lesson,
   title,
@@ -367,6 +419,26 @@ const OUTLINE_W = 320;
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.white },
+  ackRoot: { flex: 1, backgroundColor: Colors.primaryDarker },
+  ackSafe: { flex: 1, paddingHorizontal: Spacing.lg },
+  ackCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  ackStar: {
+    width: 116,
+    height: 116,
+    borderRadius: 58,
+    backgroundColor: Colors.star,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ackReward: {
+    alignItems: 'center',
+    marginTop: Spacing.xl,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: Radius.lg,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.xxl,
+  },
+  ackButtonWrap: { marginTop: Spacing.xxl, width: '100%', maxWidth: 280, alignSelf: 'center' },
   typeBadge: {
     flexDirection: 'row',
     alignItems: 'center',

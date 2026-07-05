@@ -13,6 +13,7 @@ import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
 import { useAssessmentGate } from '@/lib/assessment-gate';
 import type { Instrument } from '@/lib/assessments';
+import { useStore } from '@/lib/store';
 
 const ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   intake: 'clipboard',
@@ -24,7 +25,29 @@ const ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
 export default function AssessmentsHub() {
   const router = useRouter();
   const gate = useAssessmentGate();
+  const { xp } = useStore();
   const responses = useAsync(() => api.assessments.list(), []).data ?? [];
+  const weekBoard = useAsync(() => api.insights.leaderboard('points', 'week'), []).data ?? [];
+
+  // XP still on the table today: every pending instrument, plus the one-time
+  // +50 for finishing the whole battery.
+  const remainingXp = useMemo(
+    () => gate.pending.reduce((sum, i) => sum + i.xp, 0) + (gate.pending.length > 0 ? 50 : 0),
+    [gate.pending],
+  );
+
+  // Where finishing today would land them on this week's board. Treats their app
+  // XP as their weekly score (the direction the leaderboard is heading) — framed
+  // as an estimate. Only meaningful when there's a board and XP left to earn.
+  const projected = useMemo(() => {
+    if (!weekBoard.length || remainingXp <= 0) return null;
+    const total = xp + remainingXp;
+    const ahead = weekBoard.filter((e) => e.points > total).length;
+    const rank = ahead + 1;
+    // If they'd sit beyond the loaded list, don't claim a precise number.
+    const beyond = rank > weekBoard.length && weekBoard.length >= 50;
+    return { rank, beyond };
+  }, [weekBoard, xp, remainingXp]);
 
   // Latest response per instrument (rows come newest-first).
   const latest = useMemo(() => {
@@ -68,6 +91,22 @@ export default function AssessmentsHub() {
               <Txt variant="bodySm" style={{ flex: 1 }} color={Colors.textMain}>
                 You&apos;re all caught up. We&apos;ll check in again monthly to track your progress.
               </Txt>
+            </View>
+          ) : null}
+
+          {/* Projected leaderboard rank — a concrete reason to finish today. */}
+          {!allDone && projected ? (
+            <View style={styles.rankCard}>
+              <View style={styles.rankTrophy}>
+                <Ionicons name="trophy" size={22} color={Colors.orange} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Txt variant="bodyMedium" color={Colors.textMain}>
+                  {projected.beyond
+                    ? `Finish today to earn +${remainingXp} XP and climb this week's leaderboard.`
+                    : `Finish today (+${remainingXp} XP) to reach ~#${projected.rank} on this week's leaderboard.`}
+                </Txt>
+              </View>
             </View>
           ) : null}
 
@@ -154,6 +193,24 @@ const styles = StyleSheet.create({
   bannerAlert: { backgroundColor: Colors.highlight, borderColor: Colors.highlightBorder },
   bannerOffer: { backgroundColor: 'rgba(22,104,144,0.06)', borderColor: 'rgba(22,104,144,0.25)' },
   bannerDone: { backgroundColor: 'rgba(56,199,147,0.08)', borderColor: 'rgba(56,199,147,0.3)' },
+  rankCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,157,75,0.35)',
+    backgroundColor: 'rgba(255,157,75,0.1)',
+    padding: Spacing.md,
+  },
+  rankTrophy: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,157,75,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   card: {
     flexDirection: 'row',
     alignItems: 'center',

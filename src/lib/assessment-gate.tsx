@@ -22,6 +22,7 @@ import {
 import { api } from '@/api';
 import { applicableBattery, type Instrument } from '@/lib/assessments';
 import { useAuth } from '@/lib/auth';
+import { useOnboarding } from '@/lib/onboarding';
 
 const todayKey = () => new Date().toISOString().slice(0, 10);
 
@@ -59,24 +60,22 @@ const GateContext = createContext<GateValue | null>(null);
 
 export function AssessmentGateProvider({ children }: { children: ReactNode }) {
   const { status: authStatus, user } = useAuth();
+  // Reuse the onboarding status the OnboardingProvider already fetched — no
+  // duplicate round-trip. Only onboarded NEW users can be gated.
+  const { isExistingUser, completedAt } = useOnboarding();
   const [data, setData] = useState<GateData>(EMPTY);
   const [loading, setLoading] = useState(true);
 
+  const enabled = authStatus === 'authed' && !isExistingUser && !!completedAt;
+
   const load = useCallback(async () => {
-    if (authStatus !== 'authed') {
+    if (!enabled || !completedAt) {
       setData(EMPTY);
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      const status = await api.onboarding.status();
-      // Only onboarded NEW users are gated. Existing users / not-yet-finished
-      // users are never blocked here.
-      if (status.isExistingUser || !status.completedAt) {
-        setData(EMPTY);
-        return;
-      }
       const [profile, problems, responses] = await Promise.all([
         api.onboarding.get(),
         api.onboarding.problems(),
@@ -96,7 +95,7 @@ export function AssessmentGateProvider({ children }: { children: ReactNode }) {
       const completedSet = new Set(completedIds);
       const pending = applicable.filter((i) => !completedSet.has(i.id));
 
-      const day1 = status.completedAt.slice(0, 10);
+      const day1 = completedAt.slice(0, 10);
       const today = todayKey();
       const completedToday = responses.some((r) => r.takenAt.slice(0, 10) === today);
       const offerDay1 = pending.length > 0 && today === day1;
@@ -108,7 +107,7 @@ export function AssessmentGateProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [authStatus]);
+  }, [enabled, completedAt]);
 
   useEffect(() => {
     let active = true;
