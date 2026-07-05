@@ -23,6 +23,7 @@ import {
   socials,
   type Challenge,
 } from '@/data/content';
+import { useAssessmentGate } from '@/lib/assessment-gate';
 import { useAuth } from '@/lib/auth';
 import { gradientFor } from '@/lib/gradient';
 import { deviceTz, formatOccurrence, joinOpen, nextOccurrence, parseMeetLengthMin, untilLabel } from '@/lib/groups';
@@ -48,6 +49,7 @@ function isInstalledOrNative(): boolean {
 
 export default function HomeScreen() {
   const router = useRouter();
+  const assessmentGate = useAssessmentGate();
   const {
     ready,
     isFav,
@@ -210,6 +212,35 @@ export default function HomeScreen() {
       </Pressable>
     </View>
   ) : null;
+
+  // Assessment nudge: surfaces the day-1 battery (offer / owed) so a compliant
+  // user discovers it from home, not only when they hit the content gate.
+  const assessmentBanner =
+    assessmentGate.pending.length > 0 ? (
+      <Pressable
+        style={[
+          styles.assessBanner,
+          assessmentGate.locked ? styles.assessBannerLocked : styles.assessBannerOffer,
+        ]}
+        onPress={() => router.push('/assessments')}
+        accessibilityRole="button">
+        <Ionicons
+          name={assessmentGate.locked ? 'lock-closed' : 'clipboard'}
+          size={18}
+          color={assessmentGate.locked ? Colors.orange : Colors.primary}
+        />
+        <Txt variant="bodySmMedium" color={Colors.textMain} style={{ flex: 1 }}>
+          {assessmentGate.locked
+            ? 'Finish one quick assessment to unlock videos & lessons today.'
+            : assessmentGate.offerDay1
+              ? 'Personalize your journey — complete your intro assessments for bonus XP.'
+              : `You have ${assessmentGate.pending.length} assessment${
+                  assessmentGate.pending.length > 1 ? 's' : ''
+                } to complete.`}
+        </Txt>
+        <Ionicons name="chevron-forward" size={18} color={Colors.strokeStrong} />
+      </Pressable>
+    ) : null;
 
   const quote = (
     <Pressable onPress={() => router.push('/quotes')}>
@@ -447,6 +478,7 @@ export default function HomeScreen() {
           <View style={styles.twoCol}>
             <View style={styles.mainCol}>
               {banner}
+              {assessmentBanner}
               {quote}
               {checklist}
               {tabsBlock}
@@ -460,6 +492,7 @@ export default function HomeScreen() {
         ) : (
           <>
             {banner}
+            {assessmentBanner}
             {quote}
             {checklist}
             {tabsBlock}
@@ -680,6 +713,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
   },
   bannerMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  assessBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+  },
+  assessBannerOffer: { backgroundColor: 'rgba(22,104,144,0.06)', borderColor: 'rgba(22,104,144,0.25)' },
+  assessBannerLocked: { backgroundColor: Colors.highlight, borderColor: Colors.highlightBorder },
   quote: {
     flexDirection: 'row',
     alignItems: 'center',

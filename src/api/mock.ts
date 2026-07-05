@@ -33,6 +33,8 @@ import type {
   Lesson,
   MeResult,
   FavoritesApi,
+  AssessmentResponseRecord,
+  AssessmentsApi,
   MeetingsApi,
   MessagesApi,
   Module,
@@ -206,6 +208,7 @@ export const mockOnboarding: OnboardingApi = {
       completed: !!mockOnboardingProfile?.completedAt,
       isExistingUser: false,
       needsOnboarding: false,
+      completedAt: mockOnboardingProfile?.completedAt ?? null,
     }),
   problems: () => delay(MOCK_PROBLEMS),
   get: () => delay(mockOnboardingProfile),
@@ -222,6 +225,19 @@ export const mockOnboarding: OnboardingApi = {
       completedAt: null,
     };
     mockOnboardingProfile = { ...base, ...input };
+    return delay(undefined);
+  },
+};
+
+// Assessments — offline/dev in-memory store.
+let mockAssessmentRows: AssessmentResponseRecord[] = [];
+export const mockAssessments: AssessmentsApi = {
+  list: () => delay([...mockAssessmentRows].sort((a, b) => (a.takenAt < b.takenAt ? 1 : -1))),
+  save: (input) => {
+    mockAssessmentRows = [
+      { ...input, takenAt: new Date().toISOString() },
+      ...mockAssessmentRows,
+    ];
     return delay(undefined);
   },
 };

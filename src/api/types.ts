@@ -454,6 +454,9 @@ export type OnboardingStatus = {
   completed: boolean;
   isExistingUser: boolean;
   needsOnboarding: boolean;
+  /** When onboarding was finished (ISO), or null. Used to anchor the day-1
+   *  assessment window. */
+  completedAt: string | null;
 };
 
 export type OnboardingApi = {
@@ -469,11 +472,38 @@ export type OnboardingApi = {
   save(input: Partial<OnboardingProfile>, appUserId: string | null): Promise<void>;
 };
 
+/** One completed assessment (app-owned mobile_assessment_responses row). */
+export type AssessmentResponseRecord = {
+  instrument: string; // AssessmentId ('gad7' | 'phq9' | …)
+  profileId: number | null;
+  score: number | null;
+  severity: string | null;
+  answers: Record<string, number>;
+  takenAt: string; // ISO
+};
+
+export type AssessmentsApi = {
+  /** The caller's assessment responses, newest first. */
+  list(): Promise<AssessmentResponseRecord[]>;
+  /** Record a completed instrument (append-only — each take is a new row). */
+  save(
+    input: {
+      instrument: string;
+      profileId: number | null;
+      score: number | null;
+      severity: string | null;
+      answers: Record<string, number>;
+    },
+    appUserId: string | null,
+  ): Promise<void>;
+};
+
 export type Api = {
   /** Which backend is serving requests — handy for debugging. */
   backend: 'mock' | 'supabase';
   auth: AuthApi;
   onboarding: OnboardingApi;
+  assessments: AssessmentsApi;
   content: ContentApi;
   insights: InsightsApi;
   meetings: MeetingsApi;

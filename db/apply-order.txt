@@ -20,6 +20,7 @@ chat.sql
 groups.sql
 video-watches.sql
 game-state.sql
+assessments.sql
 views.sql
 checkin-history.sql
 community-views.sql

@@ -19,6 +19,7 @@ import { BottomNav } from '@/components/nav/bottom-nav';
 import { DesktopSidebar } from '@/components/nav/desktop-sidebar';
 import { Colors } from '@/constants/theme';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
+import { AssessmentGateProvider, useAssessmentGate } from '@/lib/assessment-gate';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { OnboardingProvider, useOnboarding } from '@/lib/onboarding';
 import { AppStoreProvider, useStore } from '@/lib/store';
@@ -51,6 +52,7 @@ function Shell() {
   const { isDesktop } = useBreakpoint();
   const { status, user } = useAuth();
   const { status: onboarding } = useOnboarding();
+  const assessmentGate = useAssessmentGate();
   const { mergeRemoteCheckins, hydrateFavorites, hydrateWatched, hydrateGameState, gameState } =
     useStore();
   const segments = useSegments();
@@ -74,6 +76,16 @@ function Shell() {
     if (onboarding === 'needed' && !onOnboarding) router.replace('/onboarding');
     else if (onboarding === 'done' && onOnboarding) router.replace('/');
   }, [status, onboarding, onOnboarding, onLogin, router]);
+
+  // Assessment soft-gate: while a day-1 assessment is owed, opening CONTENT
+  // (a video / lesson / workshop) redirects to the assessment hub. Home,
+  // check-in, and community stay open. Only ever locks onboarded new users.
+  const onContentRoute =
+    segments[0] === 'videos' || segments[0] === 'lesson' || segments[0] === 'workshop';
+  useEffect(() => {
+    if (status !== 'authed' || onLogin || onOnboarding) return;
+    if (assessmentGate.locked && onContentRoute) router.replace('/assessments');
+  }, [status, assessmentGate.locked, onContentRoute, onLogin, onOnboarding, router]);
 
   // Hydrate server-side check-ins once signed in, so streaks/reports reflect
   // check-ins from any device (local entries still win for a shared date).
@@ -132,6 +144,7 @@ function Shell() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="login" options={{ animation: 'fade' }} />
       <Stack.Screen name="onboarding" options={{ animation: 'fade', gestureEnabled: false }} />
+      <Stack.Screen name="assessments" options={{ presentation: 'card' }} />
       <Stack.Screen name="workshop" options={{ presentation: 'card' }} />
       <Stack.Screen name="meetings" options={{ presentation: 'card' }} />
       <Stack.Screen name="videos" options={{ presentation: 'card' }} />
@@ -222,10 +235,12 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <AuthProvider>
           <OnboardingProvider>
-            <AppStoreProvider>
-              <StatusBar style="auto" />
-              <Shell />
-            </AppStoreProvider>
+            <AssessmentGateProvider>
+              <AppStoreProvider>
+                <StatusBar style="auto" />
+                <Shell />
+              </AppStoreProvider>
+            </AssessmentGateProvider>
           </OnboardingProvider>
         </AuthProvider>
       </SafeAreaProvider>

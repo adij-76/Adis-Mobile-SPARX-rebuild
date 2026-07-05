@@ -6,6 +6,7 @@
  * screen changes.
  */
 import {
+  mockAssessments,
   mockAuth,
   mockCheckins,
   mockCommunity,
@@ -20,6 +21,7 @@ import {
   mockPosts,
 } from '@/api/mock';
 import {
+  supabaseAssessments,
   supabaseAuth,
   supabaseCheckins,
   supabaseCommunity,
@@ -41,6 +43,7 @@ export const api: Api = {
   backend: useSupabase ? 'supabase' : 'mock',
   auth: useSupabase ? supabaseAuth : mockAuth,
   onboarding: useSupabase ? supabaseOnboarding : mockOnboarding,
+  assessments: useSupabase ? supabaseAssessments : mockAssessments,
   content: useSupabase ? supabaseContent : mockContent,
   insights: useSupabase ? supabaseInsights : mockInsights,
   meetings: useSupabase ? supabaseMeetings : mockMeetings,
@@ -57,6 +60,8 @@ export { setSupabaseToken, setOnUnauthorized } from '@/api/supabase';
 
 export type {
   Api,
+  AssessmentResponseRecord,
+  AssessmentsApi,
   AuthApi,
   AuthSession,
   AuthUser,

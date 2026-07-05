@@ -7,6 +7,7 @@
  * A logged-in user's JWT (once auth lands) replaces the anon key in Authorization.
  */
 import type {
+  AssessmentsApi,
   AuthApi,
   AuthSession,
   AuthUser,
@@ -1284,17 +1285,25 @@ export const supabaseOnboarding: OnboardingApi = {
     // onboarding so a backend hiccup never traps them behind the gate.
     try {
       const rows = await rest<
-        { completed: boolean; is_existing_user: boolean; needs_onboarding: boolean }[]
+        {
+          completed: boolean;
+          is_existing_user: boolean;
+          needs_onboarding: boolean;
+          completed_at: string | null;
+        }[]
       >('mobile_onboarding_status', { limit: '1' });
       const r = rows[0];
-      if (!r) return { completed: false, isExistingUser: false, needsOnboarding: false };
+      if (!r) {
+        return { completed: false, isExistingUser: false, needsOnboarding: false, completedAt: null };
+      }
       return {
         completed: !!r.completed,
         isExistingUser: !!r.is_existing_user,
         needsOnboarding: !!r.needs_onboarding,
+        completedAt: r.completed_at ?? null,
       };
     } catch {
-      return { completed: false, isExistingUser: false, needsOnboarding: false };
+      return { completed: false, isExistingUser: false, needsOnboarding: false, completedAt: null };
     }
   },
   async problems(): Promise<ProblemOption[]> {
@@ -1358,6 +1367,59 @@ export const supabaseOnboarding: OnboardingApi = {
       body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error(`Onboarding save failed (${res.status})`);
+  },
+};
+
+// --- Assessments (app-owned mobile_assessment_responses; RLS by auth.uid) ---
+
+export const supabaseAssessments: AssessmentsApi = {
+  async list() {
+    type Row = {
+      instrument: string;
+      profile_id: number | null;
+      score: number | null;
+      severity: string | null;
+      answers: Record<string, number> | null;
+      taken_at: string;
+    };
+    try {
+      const rows = await rest<Row[]>('mobile_assessment_responses', {
+        select: 'instrument,profile_id,score,severity,answers,taken_at',
+        order: 'taken_at.desc',
+        limit: '500',
+      });
+      return rows.map((r) => ({
+        instrument: r.instrument,
+        profileId: r.profile_id,
+        score: r.score,
+        severity: r.severity,
+        answers: r.answers ?? {},
+        takenAt: r.taken_at,
+      }));
+    } catch {
+      return [];
+    }
+  },
+  async save(input, appUserId) {
+    const idNum = Number(appUserId);
+    const res = await fetch(`${BASE}/rest/v1/mobile_assessment_responses`, {
+      method: 'POST',
+      headers: {
+        apikey: ANON,
+        Authorization: `Bearer ${authToken ?? ANON}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({
+        instrument: input.instrument,
+        profile_id: input.profileId,
+        score: input.score,
+        severity: input.severity,
+        answers: input.answers,
+        app_user_id: Number.isFinite(idNum) ? idNum : null,
+      }),
+    });
+    if (!res.ok) throw new Error(`Assessment save failed (${res.status})`);
   },
 };
 
