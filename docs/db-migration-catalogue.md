@@ -148,6 +148,7 @@ are dropped. Document the executed job + date in `db/README.md` at cutover.
 | `.github/workflows/audit-db.yml` | Runs the audit daily / on `db/**` merges / on demand | ✅ |
 | `scripts/check-migration-catalogue.mjs` | **Keeps THIS doc current** — fails if any `db/*.sql` file or `mobile_*` object isn't documented here | ✅ |
 | `.github/workflows/check-catalogue.yml` | Runs the catalogue check daily + on every `db/**` / catalogue change (PR + merge) | ✅ |
+| `db/apply-order.txt` + `.github/workflows/apply-migrations.yml` | **Auto-applies the SQL** to Supabase: on merge to `main` (db changes) it runs the recreatable layer in `db/apply-order.txt` order; `workflow_dispatch` applies one named file (seeds/imports). Needs repo secret `SUPABASE_DB_URL` (direct connection URI); skips gracefully until set. Never runs on PRs. | ✅ |
 | Repo secrets `AUDIT_USER_EMAIL` / `AUDIT_USER_PASSWORD` | Enable per-user audit checks | 🔒 |
 | **Community audit checks** | Extend the audit for `mobile_posts`/`mobile_channels` (no dupes, active-only, author resolves) | ⚠️ add when feed ships |
 
