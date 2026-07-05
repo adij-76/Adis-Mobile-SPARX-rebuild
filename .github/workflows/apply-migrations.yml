@@ -84,19 +84,43 @@ jobs:
             exit 0
           fi
 
-          apply() {
-            echo "== applying db/$1 =="
-            psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -q -f "db/$1"
-          }
-
+          # Build the ordered file list (single file, or the manifest).
+          files=()
           if [ -n "${INPUT_FILE:-}" ]; then
             if [ ! -f "db/$INPUT_FILE" ]; then echo "::error::db/$INPUT_FILE not found"; exit 1; fi
-            apply "$INPUT_FILE"
+            files+=("$INPUT_FILE")
           else
             while IFS= read -r line; do
               f="$(echo "$line" | sed 's/#.*//' | xargs || true)"   # strip comments/whitespace
               [ -z "$f" ] && continue
-              apply "$f"
+              if [ ! -f "db/$f" ]; then echo "::error::db/$f not found"; exit 1; fi
+              files+=("$f")
             done < db/apply-order.txt
           fi
+
+          # Emit one psql script that applies every file over a SINGLE connection
+          # (\i includes), so we log in once instead of once-per-file. This avoids
+          # the transient "password authentication failed" that Supabase's pooler
+          # (Supavisor) can return on some connections in the minutes after a DB
+          # password reset, while its backend nodes converge on the new credential.
+          stream() {
+            for f in "${files[@]}"; do
+              printf '\\echo == applying db/%s ==\n\\i db/%s\n' "$f" "$f"
+            done
+          }
+
+          # Retry the whole apply a few times with backoff — covers any residual
+          # pooler propagation lag right after a password change.
+          attempt=1; max=5
+          until stream | psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -q; do
+            code=$?
+            if [ "$attempt" -ge "$max" ]; then
+              echo "::error::psql failed after $max attempts (exit $code)."
+              exit "$code"
+            fi
+            wait=$((attempt * 10))
+            echo "::warning::apply attempt $attempt failed (exit $code); retrying in ${wait}s…"
+            sleep "$wait"
+            attempt=$((attempt + 1))
+          done
           echo "✓ Migrations applied."
