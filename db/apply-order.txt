@@ -1,0 +1,26 @@
+# Ordered manifest of the RECREATABLE structural layer, applied automatically by
+# .github/workflows/apply-migrations.yml on merge to main (idempotent — every
+# file is CREATE OR REPLACE / IF NOT EXISTS, so re-applying always lands in the
+# same place). Order respects dependencies (functions/tables before the views
+# that call them). Lines starting with # are comments.
+#
+# Deliberately EXCLUDED (run explicitly via the workflow's manual "file" input):
+#   auth-and-storage.sql  — one-shot auth import
+#   problems-seed.sql     — production DATA seed (adds rows to addictions)
+#   promote-tester.sql    — admin helper, installed/used on demand
+#   introspect.sql        — a read-only schema dump, never "applied"
+
+testing-access.sql
+onboarding.sql
+mobile-checkins.sql
+mobile-wheel-entries.sql
+mobile-favorites.sql
+community.sql
+chat.sql
+groups.sql
+video-watches.sql
+game-state.sql
+views.sql
+checkin-history.sql
+community-views.sql
+leaderboard.sql
