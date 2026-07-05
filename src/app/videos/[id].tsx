@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { api } from '@/api';
 import { Confetti } from '@/components/confetti';
+import { RankMovement } from '@/components/ui/rank-movement';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { VideoPlayerModal } from '@/components/video-player-modal';
@@ -15,6 +16,7 @@ import { useCurrentAuthor } from '@/lib/auth';
 import { DEMO_VIDEO_URL } from '@/data/content';
 import { useAsync } from '@/hooks/use-async';
 import { useStore } from '@/lib/store';
+import { useXpAward, type XpMovement } from '@/lib/xp-award';
 
 export default function VideoDetail() {
   const router = useRouter();
@@ -28,17 +30,23 @@ export default function VideoDetail() {
 
   const { isFav, toggleFav, markVideoWatched, isVideoWatched, awardVideoProgress } = useStore();
   const { appUserId } = useCurrentAuthor();
+  const award = useXpAward();
   const [liked, setLiked] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [celebrate, setCelebrate] = useState(false);
   const [earned, setEarned] = useState(0); // points banked this video
+  const [movement, setMovement] = useState<XpMovement | null>(null);
+  const earnedRef = useRef(0); // synchronous running total for this video
 
   // Advance the video's furthest-watched to `percent`: bank streak-scaled points
   // for any new tier crossed (local) and persist the percent (server, best-effort).
   const progressTo = (percent: number) => {
     if (!video) return;
     const pts = awardVideoProgress(video.id, percent);
-    if (pts > 0) setEarned((e) => e + pts);
+    if (pts > 0) {
+      setEarned((e) => e + pts);
+      earnedRef.current += pts;
+    }
     api.content.markVideoWatched(video.id, appUserId, percent).catch(() => {});
   };
 
@@ -49,7 +57,13 @@ export default function VideoDetail() {
     const firstTime = !isVideoWatched(video.id);
     markVideoWatched(video.id);
     progressTo(100);
-    if (firstTime) setCelebrate(true);
+    if (firstTime) {
+      setCelebrate(true);
+      // Log the video's total points to the shared ledger + fetch rank movement.
+      if (earnedRef.current > 0) {
+        award({ source: 'video', refId: video.id, points: earnedRef.current }).then(setMovement);
+      }
+    }
   };
 
   // The player reached the end (web): record completion AND close the player so
@@ -211,6 +225,7 @@ export default function VideoDetail() {
                   </Txt>
                 </View>
               )}
+              {earned > 0 ? <RankMovement movement={movement} tone="light" /> : null}
               <Txt variant="bodySm" color={Colors.textSub} style={{ textAlign: 'center' }}>
                 Nice work — this is checked off your program. Keep your streak up to
                 earn more per video.

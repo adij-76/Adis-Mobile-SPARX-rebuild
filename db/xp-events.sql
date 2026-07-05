@@ -45,6 +45,7 @@ create or replace function public.mobile_xp_window_start(p_period text)
   select case p_period
            when 'today' then date_trunc('day', now())
            when 'week'  then now() - interval '7 days'
+           when 'month' then now() - interval '30 days'
            else '-infinity'::timestamptz
          end
 $$;

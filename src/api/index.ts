@@ -19,6 +19,7 @@ import {
   mockMessages,
   mockOnboarding,
   mockPosts,
+  mockXp,
 } from '@/api/mock';
 import {
   supabaseAssessments,
@@ -34,6 +35,7 @@ import {
   supabaseMessages,
   supabaseOnboarding,
   supabasePosts,
+  supabaseXp,
 } from '@/api/supabase';
 import type { Api } from '@/api/types';
 
@@ -44,6 +46,7 @@ export const api: Api = {
   auth: useSupabase ? supabaseAuth : mockAuth,
   onboarding: useSupabase ? supabaseOnboarding : mockOnboarding,
   assessments: useSupabase ? supabaseAssessments : mockAssessments,
+  xp: useSupabase ? supabaseXp : mockXp,
   content: useSupabase ? supabaseContent : mockContent,
   insights: useSupabase ? supabaseInsights : mockInsights,
   meetings: useSupabase ? supabaseMeetings : mockMeetings,
@@ -85,6 +88,10 @@ export type {
   ProblemOption,
   Program,
   Snippet,
+  XpApi,
+  XpAwardInput,
+  XpPeriod,
+  XpProjection,
   Thread,
   WheelPoint,
   Workshop,

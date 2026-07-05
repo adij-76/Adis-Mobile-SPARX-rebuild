@@ -14,6 +14,7 @@ import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
 import { useCurrentAuthor } from '@/lib/auth';
 import { useStore } from '@/lib/store';
+import { useXpAward } from '@/lib/xp-award';
 
 // Sample images used by "Add photo" until a real image picker is wired in.
 const SAMPLE_PHOTOS = [
@@ -32,6 +33,7 @@ const RULES = [
 export default function NewPost() {
   const router = useRouter();
   const { addPost, awardCommunityXp, awardBonus } = useStore();
+  const award = useXpAward();
   const author = useCurrentAuthor();
   const { text: prefill, channel, intro } = useLocalSearchParams<{
     text?: string;
@@ -57,9 +59,12 @@ export default function NewPost() {
     // the backend so it shows for everyone; the feed refetches on focus.
     addPost({ community: name, text: body, image: photo ?? undefined, author });
     if (body) {
-      awardCommunityXp('community_post');
+      const earned = awardCommunityXp('community_post');
       // One-time onboarding activation bonus for actually introducing yourself.
-      if (isIntro) awardBonus(50);
+      const bonus = isIntro ? awardBonus(50) : 0;
+      const total = earned + bonus;
+      // Log to the shared XP ledger so posting counts toward the leaderboard.
+      if (total > 0) award({ source: isIntro ? 'intro' : 'community_post', points: total });
     }
     api.posts
       .createPost({

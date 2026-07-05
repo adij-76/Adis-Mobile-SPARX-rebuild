@@ -27,8 +27,10 @@ import {
   type VideoItem,
 } from '@/data/content';
 import { api } from '@/api';
+import { RankMovement } from '@/components/ui/rank-movement';
 import { recordCheckin, type CheckinResult } from '@/lib/checkin';
 import { type StreakMilestone } from '@/lib/streaks';
+import { useXpAward, type XpMovement } from '@/lib/xp-award';
 import { useAsync } from '@/hooks/use-async';
 import { useAuth, useFirstName } from '@/lib/auth';
 import { addictionStruggle } from '@/lib/addiction';
@@ -40,10 +42,12 @@ export default function CheckinScreen() {
   const router = useRouter();
   const { addCheckin, checkins, creditStreak } = useStore();
   const { user: authUser } = useAuth();
+  const award = useXpAward();
   const struggle = addictionStruggle(authUser?.addictionLabel);
   const [step, setStep] = useState(0);
   const [result, setResult] = useState<CheckinResult | null>(null);
   const [milestone, setMilestone] = useState<ReturnType<typeof creditStreak> | null>(null);
+  const [movement, setMovement] = useState<XpMovement | null>(null);
   const [showSummary, setShowSummary] = useState(false);
 
   // answers
@@ -72,8 +76,13 @@ export default function CheckinScreen() {
     // Streak from the real history (today + all hydrated check-in dates).
     const r = await recordCheckin(checkins.map((c) => c.date));
     // Credit any streak milestones newly reached today (badge + chunky bonus).
-    setMilestone(creditStreak());
+    const ms = creditStreak();
+    setMilestone(ms);
     setResult(r);
+    // Log check-in points (+ any milestone bonus) to the shared ledger and pull
+    // the rank movement to celebrate.
+    const total = r.pointsEarned + (ms?.bonus ?? 0);
+    if (total > 0) award({ source: 'checkin', points: total }).then(setMovement);
   };
 
   const behaviorAnswered =
@@ -100,7 +109,12 @@ export default function CheckinScreen() {
 
   if (result) {
     return (
-      <Acknowledgement result={result} milestone={milestone} onDone={() => setShowSummary(true)} />
+      <Acknowledgement
+        result={result}
+        milestone={milestone}
+        movement={movement}
+        onDone={() => setShowSummary(true)}
+      />
     );
   }
 
@@ -357,10 +371,12 @@ function EmotionPicker({
 function Acknowledgement({
   result,
   milestone,
+  movement,
   onDone,
 }: {
   result: CheckinResult;
   milestone: { milestones: StreakMilestone[]; bonus: number } | null;
+  movement: XpMovement | null;
   onDone: () => void;
 }) {
   const badge = milestone?.milestones.at(-1) ?? null; // the highest reached today
@@ -397,6 +413,10 @@ function Acknowledgement({
                 day streak
               </Txt>
             </View>
+          </View>
+
+          <View style={{ marginTop: Spacing.lg }}>
+            <RankMovement movement={movement} />
           </View>
 
           {badge ? (

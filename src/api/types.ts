@@ -498,12 +498,37 @@ export type AssessmentsApi = {
   ): Promise<void>;
 };
 
+/** Leaderboard window for the XP boards. */
+export type XpPeriod = 'today' | 'week' | 'month' | 'all';
+
+/** One XP award to append to the ledger (mobile_xp_events). */
+export type XpAwardInput = { source: string; refId?: string | null; points: number };
+
+/** Where the caller sits on an XP board, and where +added points would put them. */
+export type XpProjection = {
+  myPoints: number;
+  currentRank: number;
+  projectedRank: number;
+  totalPlayers: number;
+};
+
+export type XpApi = {
+  /** Append an XP award to the ledger (the shared gamification source). */
+  record(input: XpAwardInput, appUserId: string | null): Promise<void>;
+  /** Rank the caller now vs. with `added` more points, for the movement feedback.
+   *  Call BEFORE recording the award so current=pre and projected=post. */
+  project(added: number, period?: XpPeriod): Promise<XpProjection | null>;
+  /** The XP leaderboard for a window (today / this week / all-time). */
+  leaderboard(period?: XpPeriod): Promise<LeaderboardEntry[]>;
+};
+
 export type Api = {
   /** Which backend is serving requests — handy for debugging. */
   backend: 'mock' | 'supabase';
   auth: AuthApi;
   onboarding: OnboardingApi;
   assessments: AssessmentsApi;
+  xp: XpApi;
   content: ContentApi;
   insights: InsightsApi;
   meetings: MeetingsApi;

@@ -12,6 +12,10 @@ import type {
   AuthSession,
   AuthUser,
   CheckinRecord,
+  LeaderboardEntry,
+  XpApi,
+  XpPeriod,
+  XpProjection,
   CheckinsApi,
   Community,
   ChatMessage,
@@ -1420,6 +1424,77 @@ export const supabaseAssessments: AssessmentsApi = {
       }),
     });
     if (!res.ok) throw new Error(`Assessment save failed (${res.status})`);
+  },
+};
+
+// --- XP ledger (app-owned mobile_xp_events; RLS by auth.uid) -----------------
+
+export const supabaseXp: XpApi = {
+  async record(input, appUserId) {
+    if (!input.points) return;
+    const idNum = Number(appUserId);
+    const res = await fetch(`${BASE}/rest/v1/mobile_xp_events`, {
+      method: 'POST',
+      headers: {
+        apikey: ANON,
+        Authorization: `Bearer ${authToken ?? ANON}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({
+        source: input.source,
+        ref_id: input.refId ?? null,
+        points: Math.round(input.points),
+        app_user_id: Number.isFinite(idNum) ? idNum : null,
+      }),
+    });
+    if (!res.ok) throw new Error(`XP record failed (${res.status})`);
+  },
+  async project(added, period = 'week'): Promise<XpProjection | null> {
+    type Row = {
+      my_points: number;
+      current_rank: number;
+      projected_rank: number;
+      total_players: number;
+    };
+    try {
+      const rows = await rpc<Row[]>('mobile_xp_project', {
+        p_added: Math.round(added),
+        p_period: period,
+      });
+      const r = rows[0];
+      if (!r) return null;
+      return {
+        myPoints: r.my_points ?? 0,
+        currentRank: r.current_rank ?? 0,
+        projectedRank: r.projected_rank ?? 0,
+        totalPlayers: r.total_players ?? 0,
+      };
+    } catch {
+      return null;
+    }
+  },
+  async leaderboard(period: XpPeriod = 'week'): Promise<LeaderboardEntry[]> {
+    type Row = {
+      user_id: number | string;
+      name: string | null;
+      avatar: string | null;
+      points: number;
+      you: boolean;
+    };
+    try {
+      const rows = await rpc<Row[]>('mobile_xp_leaderboard', { p_period: period });
+      return rows.map((r, i) => ({
+        id: String(r.user_id),
+        rank: i + 1,
+        name: r.name || 'Member',
+        avatar: r.avatar || '',
+        points: r.points ?? 0,
+        you: !!r.you,
+      }));
+    } catch {
+      return [];
+    }
   },
 };
 
