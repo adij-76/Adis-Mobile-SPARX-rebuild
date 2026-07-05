@@ -29,8 +29,12 @@ import type {
   MeetingsApi,
   MessagesApi,
   Module,
+  OnboardingApi,
+  OnboardingProfile,
+  OnboardingStatus,
   Post,
   PostsApi,
+  ProblemOption,
   Program,
   Quote,
   Snippet,
@@ -1256,6 +1260,105 @@ type GameStateRow = {
   streak_credited_days: number;
   streak_run_start: string | null;
   streak_badges: Record<string, number> | null;
+};
+
+// --- Onboarding (app-owned mobile_onboarding_profile; RLS-scoped by auth.uid) ---
+// New users collect demographics + primary/secondary problems here; existing
+// production users skip it. The status view drives the routing gate.
+
+type OnboardingRow = {
+  birth_date: string | null;
+  gender: string | null;
+  gender_self: string | null;
+  orientation: string | null;
+  race: string | null;
+  primary_problem: string | null;
+  secondary_problems: string[] | null;
+  accepted_terms_at: string | null;
+  completed_at: string | null;
+};
+
+export const supabaseOnboarding: OnboardingApi = {
+  async status(): Promise<OnboardingStatus> {
+    // Fail OPEN: if the view is missing/errors, treat the user as not needing
+    // onboarding so a backend hiccup never traps them behind the gate.
+    try {
+      const rows = await rest<
+        { completed: boolean; is_existing_user: boolean; needs_onboarding: boolean }[]
+      >('mobile_onboarding_status', { limit: '1' });
+      const r = rows[0];
+      if (!r) return { completed: false, isExistingUser: false, needsOnboarding: false };
+      return {
+        completed: !!r.completed,
+        isExistingUser: !!r.is_existing_user,
+        needsOnboarding: !!r.needs_onboarding,
+      };
+    } catch {
+      return { completed: false, isExistingUser: false, needsOnboarding: false };
+    }
+  },
+  async problems(): Promise<ProblemOption[]> {
+    type Row = { id: number | string; enum_id: number | null; title: string; category: string };
+    try {
+      const rows = await rest<Row[]>('mobile_problems', {});
+      return rows.map((r) => ({
+        id: String(r.id),
+        enumId: r.enum_id,
+        title: r.title,
+        category: r.category,
+      }));
+    } catch {
+      return [];
+    }
+  },
+  async get(): Promise<OnboardingProfile | null> {
+    try {
+      const rows = await rest<OnboardingRow[]>('mobile_onboarding_profile', { limit: '1' });
+      const r = rows[0];
+      if (!r) return null;
+      return {
+        birthDate: r.birth_date,
+        gender: (r.gender as OnboardingProfile['gender']) ?? null,
+        genderSelf: r.gender_self,
+        orientation: r.orientation,
+        race: r.race,
+        primaryProblem: r.primary_problem,
+        secondaryProblems: r.secondary_problems ?? [],
+        acceptedTermsAt: r.accepted_terms_at,
+        completedAt: r.completed_at,
+      };
+    } catch {
+      return null;
+    }
+  },
+  async save(input, appUserId) {
+    const idNum = Number(appUserId);
+    // Only send fields the caller actually set, so a partial save (e.g. just the
+    // birth date on one screen) never clobbers already-stored answers with null.
+    const body: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (Number.isFinite(idNum)) body.app_user_id = idNum;
+    if ('birthDate' in input) body.birth_date = input.birthDate;
+    if ('gender' in input) body.gender = input.gender;
+    if ('genderSelf' in input) body.gender_self = input.genderSelf;
+    if ('orientation' in input) body.orientation = input.orientation;
+    if ('race' in input) body.race = input.race;
+    if ('primaryProblem' in input) body.primary_problem = input.primaryProblem;
+    if ('secondaryProblems' in input) body.secondary_problems = input.secondaryProblems;
+    if ('acceptedTermsAt' in input) body.accepted_terms_at = input.acceptedTermsAt;
+    if ('completedAt' in input) body.completed_at = input.completedAt;
+    // Upsert on auth_uid (the PK, defaulted to auth.uid()): one profile per user.
+    const res = await fetch(`${BASE}/rest/v1/mobile_onboarding_profile?on_conflict=auth_uid`, {
+      method: 'POST',
+      headers: {
+        apikey: ANON,
+        Authorization: `Bearer ${authToken ?? ANON}`,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates,return=minimal',
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`Onboarding save failed (${res.status})`);
+  },
 };
 
 export const supabaseGame: GameApi = {

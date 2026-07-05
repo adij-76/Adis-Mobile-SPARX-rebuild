@@ -36,7 +36,10 @@ import type {
   MeetingsApi,
   MessagesApi,
   Module,
+  OnboardingApi,
+  OnboardingProfile,
   PostsApi,
+  ProblemOption,
   Program,
   Snippet,
   Thread,
@@ -174,6 +177,53 @@ export const mockAuth: AuthApi = {
   sessionFromTokens: (accessToken, refreshToken) =>
     Promise.resolve({ ...mockSession('okeijoseph@sparx.app'), accessToken, refreshToken }),
   updateAvatar: (dataUrl) => delay(dataUrl),
+};
+
+// Onboarding — offline/dev. Mirrors the DB-driven problem taxonomy so the flow
+// is testable on the mock; status never forces onboarding (no real gate offline).
+const MOCK_PROBLEMS: ProblemOption[] = [
+  { id: '45', enumId: 0, title: 'Alcohol', category: 'substance' },
+  { id: '46', enumId: 1, title: 'Cannabis', category: 'substance' },
+  { id: '47', enumId: 2, title: 'Methamphetamine', category: 'substance' },
+  { id: '48', enumId: 3, title: 'Cocaine', category: 'substance' },
+  { id: '49', enumId: 4, title: 'Opiates', category: 'substance' },
+  { id: '54', enumId: 9, title: 'Nicotine', category: 'substance' },
+  { id: '50', enumId: 5, title: 'Sex & pornography', category: 'behavioral' },
+  { id: '51', enumId: 6, title: 'Food', category: 'behavioral' },
+  { id: '52', enumId: 7, title: 'Gambling', category: 'behavioral' },
+  { id: '60', enumId: 10, title: 'Anger management', category: 'behavioral' },
+  { id: '61', enumId: 11, title: 'Impulsivity', category: 'behavioral' },
+  { id: '62', enumId: 12, title: 'Depression', category: 'mental_health' },
+  { id: '63', enumId: 13, title: 'Anxiety', category: 'mental_health' },
+  { id: '64', enumId: 14, title: 'Stress & burnout', category: 'mental_health' },
+];
+
+let mockOnboardingProfile: OnboardingProfile | null = null;
+
+export const mockOnboarding: OnboardingApi = {
+  status: () =>
+    delay({
+      completed: !!mockOnboardingProfile?.completedAt,
+      isExistingUser: false,
+      needsOnboarding: false,
+    }),
+  problems: () => delay(MOCK_PROBLEMS),
+  get: () => delay(mockOnboardingProfile),
+  save: (input) => {
+    const base: OnboardingProfile = mockOnboardingProfile ?? {
+      birthDate: null,
+      gender: null,
+      genderSelf: null,
+      orientation: null,
+      race: null,
+      primaryProblem: null,
+      secondaryProblems: [],
+      acceptedTermsAt: null,
+      completedAt: null,
+    };
+    mockOnboardingProfile = { ...base, ...input };
+    return delay(undefined);
+  },
 };
 
 // A few months of daily entries for offline/dev — mostly clean days with the

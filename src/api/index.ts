@@ -16,6 +16,7 @@ import {
   mockInsights,
   mockMeetings,
   mockMessages,
+  mockOnboarding,
   mockPosts,
 } from '@/api/mock';
 import {
@@ -29,6 +30,7 @@ import {
   supabaseInsights,
   supabaseMeetings,
   supabaseMessages,
+  supabaseOnboarding,
   supabasePosts,
 } from '@/api/supabase';
 import type { Api } from '@/api/types';
@@ -38,6 +40,7 @@ const useSupabase = !!process.env.EXPO_PUBLIC_SUPABASE_URL;
 export const api: Api = {
   backend: useSupabase ? 'supabase' : 'mock',
   auth: useSupabase ? supabaseAuth : mockAuth,
+  onboarding: useSupabase ? supabaseOnboarding : mockOnboarding,
   content: useSupabase ? supabaseContent : mockContent,
   insights: useSupabase ? supabaseInsights : mockInsights,
   meetings: useSupabase ? supabaseMeetings : mockMeetings,
@@ -71,6 +74,10 @@ export type {
   MeetingsApi,
   MessagesApi,
   Module,
+  OnboardingApi,
+  OnboardingProfile,
+  OnboardingStatus,
+  ProblemOption,
   Program,
   Snippet,
   Thread,

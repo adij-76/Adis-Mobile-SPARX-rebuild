@@ -118,6 +118,33 @@ end
 $$;
 grant execute on function public.mobile_group_audience_ok(bigint) to authenticated;
 
+-- --- onboarding gate status (one row for the caller) ------------------------
+-- The app calls this right after sign-in to decide whether to route a user into
+-- the onboarding flow. Existing production users (a real `users` row) never
+-- onboard — they keep their historical demographics/role. New users onboard
+-- until they finish (completed_at set). Self-scoped: joins the caller's profile
+-- by auth.uid() and checks their own `users` row by the JWT email, so it only
+-- ever exposes the caller's own status (same pattern as mobile_me).
+create or replace view mobile_onboarding_status as
+  select
+    coalesce(p.completed_at is not null, false)                       as completed,
+    exists (
+      select 1 from public.users u
+      where lower(u.email) = lower(auth.jwt() ->> 'email')
+    )                                                                 as is_existing_user,
+    (
+      not coalesce(p.completed_at is not null, false)
+      and not exists (
+        select 1 from public.users u
+        where lower(u.email) = lower(auth.jwt() ->> 'email')
+      )
+    )                                                                 as needs_onboarding,
+    p.primary_problem,
+    p.completed_at
+  from (select 1) d
+  left join public.mobile_onboarding_profile p on p.auth_uid = auth.uid();
+grant select on mobile_onboarding_status to anon, authenticated;
+
 -- --- problem taxonomy (DB-driven picker) ------------------------------------
 -- The single source of truth for the "primary problem" + "what else" pickers is
 -- the production `addictions` table (the intake writes users.addiction_id → it).

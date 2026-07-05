@@ -424,10 +424,56 @@ export type GameApi = {
   save(state: GameState, appUserId: string | null): Promise<void>;
 };
 
+/** A selectable problem from the DB-driven taxonomy (mobile_problems = the
+ *  production `addictions` table). `id` is the addictions.id the profile stores,
+ *  so it reconciles 1:1 to users.addiction_id at cutover. `category` groups the
+ *  picker (substance / mental_health / behavioral). */
+export type ProblemOption = { id: string; enumId: number | null; title: string; category: string };
+
+/** Gender identity captured at onboarding. Maps to users.gender at cutover;
+ *  'male'/'female' also drive gendered community/group gating. */
+export type OnboardingGender = 'male' | 'female' | 'nonbinary' | 'self' | 'undisclosed';
+
+/** The onboarding profile the app collects for a new user (mirrors the
+ *  production intake → users columns). All optional until the user fills them. */
+export type OnboardingProfile = {
+  birthDate: string | null; // YYYY-MM-DD → users.birth_date
+  gender: OnboardingGender | null; // → users.gender
+  genderSelf: string | null; // free text when gender === 'self'
+  orientation: string | null; // → users.identify
+  race: string | null; // → users.race
+  primaryProblem: string | null; // addictions.id → users.addiction(_id)
+  secondaryProblems: string[]; // addictions.ids → users.secondary_addictions
+  acceptedTermsAt: string | null;
+  completedAt: string | null;
+};
+
+/** Whether the caller should be routed through onboarding. `needsOnboarding` is
+ *  true only for a new user (no production row) who hasn't finished yet. */
+export type OnboardingStatus = {
+  completed: boolean;
+  isExistingUser: boolean;
+  needsOnboarding: boolean;
+};
+
+export type OnboardingApi = {
+  /** Should this user go through onboarding? Fails open (needsOnboarding=false)
+   *  so a backend hiccup never traps anyone in the flow. */
+  status(): Promise<OnboardingStatus>;
+  /** The DB-driven problem taxonomy for the primary + "what else" pickers. */
+  problems(): Promise<ProblemOption[]>;
+  /** The caller's saved onboarding profile, or null if none yet. */
+  get(): Promise<OnboardingProfile | null>;
+  /** Upsert the caller's onboarding profile (one row per user). Pass
+   *  `completedAt` on the final step to close the gate. */
+  save(input: Partial<OnboardingProfile>, appUserId: string | null): Promise<void>;
+};
+
 export type Api = {
   /** Which backend is serving requests — handy for debugging. */
   backend: 'mock' | 'supabase';
   auth: AuthApi;
+  onboarding: OnboardingApi;
   content: ContentApi;
   insights: InsightsApi;
   meetings: MeetingsApi;
