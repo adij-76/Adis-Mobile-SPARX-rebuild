@@ -21,6 +21,7 @@ Two groups: **(i) app-owned tables** (create first), then **(ii) views + functio
 | # | File | Creates | Status |
 |---|------|---------|--------|
 | 0 | `db/testing-access.sql` | **Run FIRST** (before `groups.sql` + `views.sql`, which reference it). A "Mobile Tester" role modelled in the read layer: `mobile_testing_open()` (window, through July 2026), `mobile_tester_role_id()` (sentinel `-100`), `mobile_effective_role_id()` (caller's real `users.subscription_role_id`, or the tester role for a new July enrollee, else NULL), `mobile_is_tester()`. Existing users always resolve to their real role (never a tester); new enrollees hold the tester role = all-access. | ✅ |
+| 0a | `db/onboarding.sql` | **Run before `groups.sql`** (`mobile_groups` calls it). App-owned `mobile_onboarding_profile` (RLS — mirrors the prod intake → `users` demographics: birth_date, gender, orientation, race, primary/secondary problem) + `mobile_group_audience` (admin map: gender/age each group is for) + helpers `mobile_my_age`/`mobile_my_is_adult`/`mobile_my_gender`/`mobile_onboarded`/`mobile_group_audience_ok`. Gender/age gates communities+groups for onboarded new users; existing users bypass (keep role-based access). | ✅ |
 | 1 | `db/mobile-checkins.sql` | App-owned `mobile_checkins` table (RLS) | ✅ |
 | 2 | `db/mobile-wheel-entries.sql` | App-owned `mobile_wheel_entries` table (RLS) | ✅ |
 | 3 | `db/mobile-favorites.sql` | App-owned `mobile_favorites` table — bookmark toggles (kind/item_id, `active` tombstone) (RLS) | ✅ |
@@ -76,6 +77,7 @@ production tables leaves them untouched.
 - `mobile_conversations` / `mobile_conversation_members` / `mobile_messages` — chat (DMs + groups)
 - `mobile_blocks` — one-directional block list ("X can't DM me")
 - `mobile_group_signups` — who signed up for which `sds_groups` coaching group
+- `mobile_onboarding_profile` — new-user intake: demographics + primary/secondary problem + consent (mirrors prod intake → `users`)
 - `mobile_video_watches` — video watch progress (one row per user/video, furthest `percent`; drives checklist completion + progress rewards)
 - `mobile_game_state` — durable app-side gamification totals (video points, streak bonus points, streak badges) — one row per user, MAX-merged
 - `mobile_favorites` — bookmark toggles (kind/item_id, `active` tombstones un-saves)
@@ -98,6 +100,7 @@ and retires the app-owned tables. Each carries keys back to the real FKs.
 | `mobile_messages` | `community_messages` | `sender_id`, `conversation_id`→prod conversation, `content`, `created_at`; `last_read_at` (on members) → prod read state |
 | `mobile_blocks` | *(prod block table TBD)* | `blocker_id`, `blocked_id`, `active` — map to the production block/mute mechanism at cutover |
 | `mobile_group_signups` | *(prod: `sds_group_subscribers`?)* | `app_user_id`→`user_id`, `sds_group_id`; reconcile to the prod group-membership/attendance mechanism |
+| `mobile_onboarding_profile` | `users` (+ intake `answer_headers`) | 1:1 to the prod intake destinations: `birth_date`, `gender`, `identify`←orientation, `race`, `addiction(_id)`←primary_problem, `secondary_addictions`←secondary_problems, consent←`agree_to_terms`/`accepted_guidelines`. Gender/race/orientation text keys → prod integer code_sets at cutover (map: Gender/Race/Identify code sets). `mobile_group_audience` is app-config, no prod target. |
 | `mobile_video_watches` | `user_rewards` + `user_points` | `app_user_id`→`user_id`, `video_id`→`Snippet`; award points per non-linear tier reached (`src/lib/video-points.ts`: started/50%/finished = 1/2/3 base × streak multiplier ×1/×1.5/×2), `percent≥95` also emits a `watched_video` reward. Dedupe on (user, video). Pre-cutover these points live app-side (store `videoPoints`); at cutover materialize into `user_points` |
 | `mobile_game_state` | `user_points` (+ optional `user_rewards`) | One row per user. `app_user_id`→`user_id`; `video_points` now holds the **unified activity XP** (videos + lessons + community + …, streak-multiplied) and `streak_bonus_points` the milestone bonuses. **App-side XP is superseded at cutover** — the real ledger already tracks each activity as its own reward type, so recompute `user_points` from it rather than trusting the app total; `streak_badges` → optional milestone `user_rewards`. Rules/values: `src/lib/xp.ts`, `src/lib/video-points.ts`, `src/lib/streaks.ts`, `docs/gamification.md` |
 | `mobile_favorites` | `favorites` | `app_user_id`→`user_id`, `kind`+`item_id`→polymorphic `favoritable_type`/`favoritable_id` (`lesson`→`Lesson`, `video`→`Snippet`); `active=false` removes the prod favorite |

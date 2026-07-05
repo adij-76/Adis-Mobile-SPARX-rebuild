@@ -84,5 +84,8 @@ create or replace view mobile_groups as
       -- new July tester (no prod row) → all active groups unlocked for testing
       or public.mobile_is_tester()
     )
+    -- Gender/age audience match (existing users bypass; onboarded new users are
+    -- matched to their profile; unmapped groups are open to all).
+    and public.mobile_group_audience_ok(g.id)
   order by g.sort_order, g.id;
 grant select on mobile_groups to authenticated;
