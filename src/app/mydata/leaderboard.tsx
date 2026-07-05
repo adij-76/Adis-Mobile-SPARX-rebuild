@@ -17,8 +17,13 @@ import type { LeaderboardEntry } from '@/data/content';
 const MEDAL = ['#F5C542', '#C7CDD6', '#CD8B52']; // gold · silver · bronze
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
+/** The XP board is served by the app-owned ledger (mobile_xp_events) rather than
+ *  the production points RPC, so it reflects the same XP the app awards + the
+ *  celebrations reference. */
+type BoardKey = LeaderboardBoard | 'xp';
+
 type Board = {
-  key: LeaderboardBoard;
+  key: BoardKey;
   label: string;
   unit: string;
   streak?: boolean;
@@ -27,6 +32,7 @@ type Board = {
 };
 
 const BOARDS: Board[] = [
+  { key: 'xp', label: 'XP', unit: 'XP', icon: 'sparkles', colors: ['#FF9D4B', '#F0453B'] },
   { key: 'points', label: 'Points', unit: 'pts', icon: 'star', colors: ['#FFB84D', '#FF8A3D'] },
   { key: 'streak', label: 'Streak', unit: 'days', streak: true, icon: 'flame', colors: ['#FF7A59', '#F0453B'] },
   { key: 'lessons', label: 'Lessons', unit: 'lessons', icon: 'school', colors: ['#2E8BB0', '#166890'] },
@@ -55,11 +61,17 @@ function formatValue(value: number, board: Board): string {
 }
 
 export default function Leaderboard() {
-  const [boardKey, setBoardKey] = useState<LeaderboardBoard>('points');
-  const [period, setPeriod] = useState<LeaderboardPeriod>('all');
+  const [boardKey, setBoardKey] = useState<BoardKey>('xp');
+  const [period, setPeriod] = useState<LeaderboardPeriod>('week');
   const board = BOARDS.find((b) => b.key === boardKey)!;
 
-  const { data, loading } = useAsync(() => api.insights.leaderboard(boardKey, period), [boardKey, period]);
+  const { data, loading } = useAsync(
+    () =>
+      boardKey === 'xp'
+        ? api.xp.leaderboard(period)
+        : api.insights.leaderboard(boardKey as LeaderboardBoard, period),
+    [boardKey, period],
+  );
   const rows = data ?? [];
   const me = rows.find((e) => e.you);
   const top3 = rows.slice(0, 3);

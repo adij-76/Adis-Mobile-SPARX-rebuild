@@ -8,9 +8,11 @@ import { api } from '@/api';
 import { Button } from '@/components/ui/button';
 import { Confetti } from '@/components/confetti';
 import { ProgressBar } from '@/components/ui/progress-bar';
+import { RankMovement } from '@/components/ui/rank-movement';
 import { Screen } from '@/components/layout/screen';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
+import { useXpAward, type XpMovement } from '@/lib/xp-award';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/lib/auth';
 import { useAssessmentGate } from '@/lib/assessment-gate';
@@ -37,6 +39,7 @@ type Result = {
   earned: number;
   completesBattery: boolean;
   crisis: boolean;
+  movement: XpMovement | null;
 };
 
 export default function AssessmentRunner() {
@@ -44,6 +47,7 @@ export default function AssessmentRunner() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const { awardBonus } = useStore();
+  const award = useXpAward();
   const gate = useAssessmentGate();
 
   const instrument = id && id in INSTRUMENTS ? INSTRUMENTS[id as AssessmentId] : null;
@@ -97,9 +101,10 @@ export default function AssessmentRunner() {
     let earned = 0;
     if (wasPending) earned += awardBonus(instrument.xp);
     if (completesBattery) earned += awardBonus(50);
+    const movement = earned > 0 ? await award({ source: 'assessment', refId: instrument.id, points: earned }) : null;
     gate.refresh();
     setBusy(false);
-    setResult({ score, band, earned, completesBattery, crisis });
+    setResult({ score, band, earned, completesBattery, crisis, movement });
   };
 
   if (result) {
@@ -238,6 +243,8 @@ function ResultView({
               </Txt>
             </View>
           ) : null}
+
+          {result.earned > 0 ? <RankMovement movement={result.movement} tone="light" /> : null}
 
           {result.completesBattery ? (
             <Txt variant="bodySm" color={Colors.textSub} center>

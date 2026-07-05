@@ -46,6 +46,8 @@ import type {
   Snippet,
   Thread,
   Workshop,
+  XpApi,
+  XpPeriod,
 } from '@/api/types';
 
 const HERO: Program = { id: 'hero-code', name: 'The Hero Code', active: true };
@@ -239,6 +241,34 @@ export const mockAssessments: AssessmentsApi = {
       ...mockAssessmentRows,
     ];
     return delay(undefined);
+  },
+};
+
+// XP ledger — offline/dev. A handful of rival totals so the board + movement
+// feel real; `mine` accumulates as the mock records events.
+let mockXpMine = 0;
+const MOCK_RIVALS = [320, 210, 140, 90, 55];
+export const mockXp: XpApi = {
+  record: (input) => {
+    mockXpMine += Math.round(input.points || 0);
+    return delay(undefined);
+  },
+  project: (added) => {
+    const total = mockXpMine + Math.round(added || 0);
+    const currentRank = MOCK_RIVALS.filter((r) => r > mockXpMine).length + 1;
+    const projectedRank = MOCK_RIVALS.filter((r) => r > total).length + 1;
+    return delay({
+      myPoints: mockXpMine,
+      currentRank,
+      projectedRank,
+      totalPlayers: MOCK_RIVALS.length + 1,
+    });
+  },
+  leaderboard: (_period: XpPeriod = 'week') => {
+    const rows = [...MOCK_RIVALS.map((p, i) => ({ p, name: `Member ${i + 1}`, you: false })), { p: mockXpMine, name: 'You', you: true }]
+      .sort((a, b) => b.p - a.p)
+      .map((r, i) => ({ id: String(i), rank: i + 1, name: r.name, avatar: '', points: r.p, you: r.you }));
+    return delay(rows);
   },
 };
 

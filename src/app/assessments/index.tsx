@@ -13,7 +13,6 @@ import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
 import { useAssessmentGate } from '@/lib/assessment-gate';
 import type { Instrument } from '@/lib/assessments';
-import { useStore } from '@/lib/store';
 
 const ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   intake: 'clipboard',
@@ -25,9 +24,7 @@ const ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
 export default function AssessmentsHub() {
   const router = useRouter();
   const gate = useAssessmentGate();
-  const { xp } = useStore();
   const responses = useAsync(() => api.assessments.list(), []).data ?? [];
-  const weekBoard = useAsync(() => api.insights.leaderboard('points', 'week'), []).data ?? [];
 
   // XP still on the table today: every pending instrument, plus the one-time
   // +50 for finishing the whole battery.
@@ -36,18 +33,16 @@ export default function AssessmentsHub() {
     [gate.pending],
   );
 
-  // Where finishing today would land them on this week's board. Treats their app
-  // XP as their weekly score (the direction the leaderboard is heading) — framed
-  // as an estimate. Only meaningful when there's a board and XP left to earn.
-  const projected = useMemo(() => {
-    if (!weekBoard.length || remainingXp <= 0) return null;
-    const total = xp + remainingXp;
-    const ahead = weekBoard.filter((e) => e.points > total).length;
-    const rank = ahead + 1;
-    // If they'd sit beyond the loaded list, don't claim a precise number.
-    const beyond = rank > weekBoard.length && weekBoard.length >= 50;
-    return { rank, beyond };
-  }, [weekBoard, xp, remainingXp]);
+  // Precise projection from the shared XP ledger: where finishing today's battery
+  // would put them on this week's board.
+  const proj = useAsync(
+    () => (remainingXp > 0 ? api.xp.project(remainingXp, 'week') : Promise.resolve(null)),
+    [remainingXp],
+  ).data;
+  const projected =
+    proj && proj.projectedRank
+      ? { rank: proj.projectedRank, moved: Math.max(0, proj.currentRank - proj.projectedRank) }
+      : null;
 
   // Latest response per instrument (rows come newest-first).
   const latest = useMemo(() => {
@@ -102,9 +97,11 @@ export default function AssessmentsHub() {
               </View>
               <View style={{ flex: 1 }}>
                 <Txt variant="bodyMedium" color={Colors.textMain}>
-                  {projected.beyond
-                    ? `Finish today to earn +${remainingXp} XP and climb this week's leaderboard.`
-                    : `Finish today (+${remainingXp} XP) to reach ~#${projected.rank} on this week's leaderboard.`}
+                  {projected.moved > 0
+                    ? `Finish today (+${remainingXp} XP) to climb ${projected.moved} spot${
+                        projected.moved > 1 ? 's' : ''
+                      } to #${projected.rank} on this week's leaderboard.`
+                    : `Finish today (+${remainingXp} XP) to reach #${projected.rank} on this week's leaderboard.`}
                 </Txt>
               </View>
             </View>

@@ -10,6 +10,8 @@ import type { Lesson } from '@/api/types';
 import { Confetti } from '@/components/confetti';
 import { CourseOutline } from '@/components/course-outline';
 import { Button } from '@/components/ui/button';
+import { RankMovement } from '@/components/ui/rank-movement';
+import { useXpAward, type XpMovement } from '@/lib/xp-award';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { Stepper } from '@/components/ui/stepper';
 import { Txt } from '@/components/ui/text';
@@ -57,10 +59,15 @@ export default function LessonScreen() {
   const courseModule = moduleQ.data;
 
   const { isFav, toggleFav, markLessonComplete } = useStore();
+  const award = useXpAward();
   const [step, setStep] = useState(0);
   const [playing, setPlaying] = useState<SparkyVideo | null>(null);
   const [outlineOpen, setOutlineOpen] = useState(false);
-  const [celebrate, setCelebrate] = useState<{ earned: number; workshop: boolean } | null>(null);
+  const [celebrate, setCelebrate] = useState<{
+    earned: number;
+    workshop: boolean;
+    movement: XpMovement | null;
+  } | null>(null);
 
   // Reset to the intro whenever the lesson changes (e.g. picked from the outline).
   useEffect(() => setStep(0), [id]);
@@ -127,7 +134,14 @@ export default function LessonScreen() {
   const last = WORKSHOP_STEPS.length - 1;
 
   if (celebrate) {
-    return <LessonComplete {...celebrate} onDone={() => router.back()} />;
+    return (
+      <LessonComplete
+        earned={celebrate.earned}
+        workshop={celebrate.workshop}
+        movement={celebrate.movement}
+        onDone={() => router.back()}
+      />
+    );
   }
 
   const pickLesson = (lessonId: string) => {
@@ -235,7 +249,12 @@ export default function LessonScreen() {
             onPress={() => {
               if (step === last) {
                 const earned = markLessonComplete(lesson.id);
-                setCelebrate({ earned, workshop: isWorkshop });
+                setCelebrate({ earned, workshop: isWorkshop, movement: null });
+                if (earned > 0) {
+                  award({ source: 'lesson', refId: lesson.id, points: earned }).then((m) =>
+                    setCelebrate((c) => (c ? { ...c, movement: m } : c)),
+                  );
+                }
               } else {
                 setStep((s) => s + 1);
               }
@@ -326,10 +345,12 @@ function TopBar({
 function LessonComplete({
   earned,
   workshop,
+  movement,
   onDone,
 }: {
   earned: number;
   workshop: boolean;
+  movement: XpMovement | null;
   onDone: () => void;
 }) {
   return (
@@ -356,6 +377,11 @@ function LessonComplete({
               <Txt variant="caption" color={Colors.textMutedOnDark}>
                 XP earned
               </Txt>
+            </View>
+          ) : null}
+          {earned > 0 ? (
+            <View style={{ marginTop: Spacing.lg }}>
+              <RankMovement movement={movement} />
             </View>
           ) : null}
           <View style={styles.ackButtonWrap}>
