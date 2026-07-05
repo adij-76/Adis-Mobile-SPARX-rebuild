@@ -9,9 +9,17 @@ name: Apply DB migrations
 #     auth import) by naming it in the `file` input.
 #
 # Requires one repo secret: SUPABASE_DB_URL — a Postgres connection string for
-# your project (Supabase → Settings → Database → Connection string → URI, the
-# DIRECT connection, not the transaction pooler). Until it's set, this workflow
-# skips gracefully. It never runs on pull requests (only merged code applies).
+# your project. Use the SESSION POOLER string, NOT the direct connection:
+#   Supabase → Settings → Database → Connection string → "Session pooler".
+#   It looks like:
+#     postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres
+# Why not the direct connection (db.<ref>.supabase.co:5432)? It's IPv6-only, and
+# GitHub Actions runners are IPv4-only — the direct host is simply unreachable
+# from a runner ("Network is unreachable"). The session pooler is IPv4 and runs
+# in SESSION mode (port 5432), so multi-statement DDL / functions apply cleanly
+# (the transaction pooler on 6543 does NOT — avoid it for migrations).
+# Until the secret is set, this workflow skips gracefully. It never runs on pull
+# requests (only merged code applies).
 
 on:
   push:
