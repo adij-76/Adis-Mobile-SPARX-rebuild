@@ -117,3 +117,22 @@ begin
 end
 $$;
 grant execute on function public.mobile_group_audience_ok(bigint) to authenticated;
+
+-- --- problem taxonomy (DB-driven picker) ------------------------------------
+-- The single source of truth for the "primary problem" + "what else" pickers is
+-- the production `addictions` table (the intake writes users.addiction_id → it).
+-- This view exposes it with a derived category so the app can group/theme, and
+-- picks up any new problem the moment it's inserted (db/problems-seed.sql). The
+-- app stores `id` (→ addiction_id) so it reconciles 1:1 at cutover.
+create or replace view mobile_problems as
+  select a.id,
+         a.enum_id,
+         a.title,
+         case
+           when a.enum_id in (0,1,2,3,4,9) then 'substance'      -- alcohol/cannabis/meth/cocaine/opiates/nicotine
+           when a.enum_id in (12,13,14)    then 'mental_health'  -- depression/anxiety/stress
+           else 'behavioral'                                     -- sex/food/gambling/anger/impulsivity/… + other
+         end as category
+  from public.addictions a
+  order by a.enum_id;
+grant select on mobile_problems to anon, authenticated;
