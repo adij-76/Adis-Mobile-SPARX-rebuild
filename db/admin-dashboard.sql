@@ -101,6 +101,7 @@ begin
     select a.auth_uid,
            coalesce((select count(*) from public.mobile_checkins x where x.auth_uid = a.auth_uid), 0) as checkins,
            coalesce((select count(*) from public.mobile_xp_events x where x.auth_uid = a.auth_uid), 0) as xp_events,
+           coalesce((select sum(points) from public.mobile_xp_events x where x.auth_uid = a.auth_uid), 0) as xp_total,
            coalesce((select count(*) from public.mobile_assessment_responses x where x.auth_uid = a.auth_uid), 0) as assessments,
            coalesce((select count(*) from public.mobile_feed_posts x where x.auth_uid = a.auth_uid), 0) as posts,
            greatest(
@@ -116,7 +117,7 @@ begin
     select au.email,
            ob.completed_at as onboarded_at,
            (exists (select 1 from public.users u where lower(u.email) = lower(au.email))) as is_existing,
-           act.checkins, act.xp_events, act.assessments, act.posts, act.last_activity
+           act.checkins, act.xp_events, act.xp_total, act.assessments, act.posts, act.last_activity
       from active act
       join auth.users au on au.id = act.auth_uid
       left join public.mobile_onboarding_profile ob on ob.auth_uid = act.auth_uid

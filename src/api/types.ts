@@ -557,7 +557,10 @@ export type AdminActiveTester = {
   onboarded_at: string | null;
   is_existing: boolean;
   checkins: number;
+  /** Number of XP ledger events (activity volume). */
   xp_events: number;
+  /** Sum of XP points earned (what the user actually sees as their score). */
+  xp_total: number;
   assessments: number;
   posts: number;
   last_activity: string | null;

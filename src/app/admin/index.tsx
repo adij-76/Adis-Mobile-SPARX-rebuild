@@ -125,8 +125,8 @@ function TesterRow({ r }: { r: AdminActiveTester }) {
         </View>
       </View>
       <View style={styles.counts}>
+        <Count n={r.xp_total} unit="XP" />
         <Count n={r.checkins} unit="chk" />
-        <Count n={r.xp_events} unit="xp" />
         <Count n={r.assessments} unit="asmt" />
         <Count n={r.posts} unit="post" />
       </View>
