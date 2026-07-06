@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { forwardRef, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -117,6 +117,10 @@ export default function OnboardingScreen() {
   const [month, setMonth] = useState('');
   const [day, setDay] = useState('');
   const [year, setYear] = useState('');
+  // Auto-advance MM → DD → YYYY as each fills (and backspace jumps back).
+  const monthRef = useRef<TextInput>(null);
+  const dayRef = useRef<TextInput>(null);
+  const yearRef = useRef<TextInput>(null);
   const [primary, setPrimary] = useState<string | null>(null);
   const [gender, setGender] = useState<OnboardingGender | null>(null);
   const [genderSelf, setGenderSelf] = useState('');
@@ -271,9 +275,35 @@ export default function OnboardingScreen() {
                   subtitle="Your age helps us place you in the right groups. We never show it to others."
                 />
                 <View style={styles.dobRow}>
-                  <DobField label="Month" value={month} onChange={setMonth} max={2} placeholder="MM" />
-                  <DobField label="Day" value={day} onChange={setDay} max={2} placeholder="DD" />
-                  <DobField label="Year" value={year} onChange={setYear} max={4} placeholder="YYYY" wide />
+                  <DobField
+                    ref={monthRef}
+                    label="Month"
+                    value={month}
+                    onChange={setMonth}
+                    max={2}
+                    placeholder="MM"
+                    nextRef={dayRef}
+                  />
+                  <DobField
+                    ref={dayRef}
+                    label="Day"
+                    value={day}
+                    onChange={setDay}
+                    max={2}
+                    placeholder="DD"
+                    nextRef={yearRef}
+                    prevRef={monthRef}
+                  />
+                  <DobField
+                    ref={yearRef}
+                    label="Year"
+                    value={year}
+                    onChange={setYear}
+                    max={4}
+                    placeholder="YYYY"
+                    prevRef={dayRef}
+                    wide
+                  />
                 </View>
                 {age != null && dobValid && (
                   <Txt variant="bodySm" color={Colors.textSub}>
@@ -468,37 +498,49 @@ function StepTitle({ title, subtitle }: { title: string; subtitle: string }) {
   );
 }
 
-function DobField({
-  label,
-  value,
-  onChange,
-  max,
-  placeholder,
-  wide,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  max: number;
-  placeholder: string;
-  wide?: boolean;
-}) {
+const DobField = forwardRef<
+  TextInput,
+  {
+    label: string;
+    value: string;
+    onChange: (v: string) => void;
+    max: number;
+    placeholder: string;
+    wide?: boolean;
+    /** Focus this field once the current one fills (MM→DD→YYYY). */
+    nextRef?: React.RefObject<TextInput | null>;
+    /** Focus this field when backspacing out of an empty current field. */
+    prevRef?: React.RefObject<TextInput | null>;
+  }
+>(function DobField({ label, value, onChange, max, placeholder, wide, nextRef, prevRef }, ref) {
   return (
     <View style={[styles.dobField, wide && { flex: 1.4 }]}>
       <Txt variant="caption" color={Colors.textSub}>
         {label}
       </Txt>
       <TextInput
+        ref={ref}
         value={value}
-        onChangeText={(t) => onChange(t.replace(/[^0-9]/g, '').slice(0, max))}
+        onChangeText={(t) => {
+          const cleaned = t.replace(/[^0-9]/g, '').slice(0, max);
+          onChange(cleaned);
+          // Advance only while growing to `max`, so editing a full field
+          // doesn't keep bouncing focus forward.
+          if (cleaned.length === max && cleaned.length > value.length) nextRef?.current?.focus();
+        }}
+        onKeyPress={(e) => {
+          if (e.nativeEvent.key === 'Backspace' && value.length === 0) prevRef?.current?.focus();
+        }}
         placeholder={placeholder}
         placeholderTextColor={Colors.strokeStrong}
         keyboardType="number-pad"
+        returnKeyType={nextRef ? 'next' : 'done'}
+        onSubmitEditing={() => nextRef?.current?.focus()}
         style={styles.dobInput}
       />
     </View>
   );
-}
+});
 
 function OptionalPicker({
   label,
