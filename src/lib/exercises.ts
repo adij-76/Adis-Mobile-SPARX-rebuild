@@ -50,12 +50,16 @@ export function responsesByQuestion(rows: ExerciseResponse[]): Map<string, Exerc
   return map;
 }
 
+/** Legacy titles are sometimes bare outline numbers ("1", "2b") — real content
+ *  in Module 1's "Exploring Your Beliefs". Those make ugly headings. */
+const OUTLINE_TITLE = /^\d+[a-z]?[.)]?$/i;
+
 /** The question's heading: the short plain title, else the prompt HTML as
  *  clean text (never raw HTML — see the spec's sanitize note). */
 export function questionHeading(q: ExerciseQuestion): string {
   const t = q.title?.trim();
-  if (t) return t;
-  return htmlToText(q.promptHtml ?? '').split('\n')[0] ?? '';
+  if (t && !OUTLINE_TITLE.test(t)) return t;
+  return htmlToText(q.promptHtml ?? '').split('\n')[0] ?? t ?? '';
 }
 
 /** Scale labels for the endpoints (legacy stores Likert labels as options). */
@@ -76,6 +80,63 @@ export function answerText(q: ExerciseQuestion, r: ExerciseResponse | undefined)
     return label ? `${r.valueJson} — ${label}` : String(r.valueJson);
   }
   return String(r.valueJson);
+}
+
+// ---------------------------------------------------------------------------
+// Statement sheets — fill-in-the-blank worksheets (e.g. Module 1's "Hero
+// Personal Power Statement", "Hero Code") whose answers compose into one
+// personal statement the member can read in full, print, and share.
+// ---------------------------------------------------------------------------
+
+/** A worksheet reads as a fill-in statement when every answerable question is
+ *  a SHORT text blank (the mad-libs shape) — reflections/quizzes don't apply. */
+export function isStatementSheet(ws: ExerciseWorksheet): boolean {
+  const answerable = ws.questions.filter(isAnswerable);
+  return answerable.length >= 2 && answerable.every((q) => q.inputKind === 'text');
+}
+
+/** The legacy "Post to Community" content block, when the sheet carries one —
+ *  the data signal that this statement should offer sharing to the community. */
+export function communityCtaQuestion(ws: ExerciseWorksheet): ExerciseQuestion | null {
+  return ws.questions.find((q) => /post .*communit/i.test(q.title ?? '')) ?? null;
+}
+
+/** One line of a composed statement: the worksheet's lead text plus, for
+ *  blanks, the member's own words. */
+export type StatementSegment = { lead: string; answer: string | null };
+
+/**
+ * Stitch a statement sheet's prompts + the member's answers into the full
+ * statement, in worksheet order. Content interludes (e.g. "Never give up")
+ * become lead-only lines; the community-CTA block is excluded (it's a button,
+ * not statement text). Unanswered blanks are skipped.
+ */
+export function composeStatement(
+  ws: ExerciseWorksheet,
+  byQuestion: Map<string, ExerciseResponse>,
+): StatementSegment[] {
+  const cta = communityCtaQuestion(ws);
+  const out: StatementSegment[] = [];
+  for (const q of ws.questions) {
+    if (q.inputKind === 'display' || q.questionId === cta?.questionId) continue;
+    const lead = htmlToText(q.promptHtml ?? '').trim() || q.title?.trim() || '';
+    if (!lead) continue;
+    if (!isAnswerable(q)) {
+      out.push({ lead, answer: null });
+      continue;
+    }
+    const a = answerText(q, byQuestion.get(q.questionId));
+    if (a) out.push({ lead, answer: a });
+  }
+  return out;
+}
+
+/** The composed statement as plain text — used to prefill a community post. */
+export function statementText(segments: StatementSegment[]): string {
+  return segments
+    .map((s) => (s.answer ? `${s.lead}\n${s.answer}` : s.lead))
+    .join('\n\n')
+    .trim();
 }
 
 /**
