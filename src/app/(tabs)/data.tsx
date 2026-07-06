@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppHeader } from '@/components/app-header';
@@ -10,6 +11,7 @@ import { Txt } from '@/components/ui/text';
 import { api } from '@/api';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
+import { INSTRUMENTS, type AssessmentId } from '@/lib/assessments';
 import { useStore } from '@/lib/store';
 import { buildTrendSeries } from '@/lib/trend';
 
@@ -33,6 +35,30 @@ export default function DataScreen() {
     { aggregate: 'avg', includeRecent: false },
   );
   const assessments = useAsync(() => api.insights.assessments(), []).data ?? [];
+
+  // App-owned assessment history → a score trend per scored instrument (GAD-7,
+  // PHQ-9, AUDIT-C, PCL-5). Lower is better for all of these, so a drop reads
+  // green. Oldest→newest is handled by buildTrendSeries.
+  const myAssessments = useAsync(() => api.assessments.list(), []).data ?? [];
+  const assessmentTrends = useMemo(() => {
+    const byInst = new Map<string, { at: string; value: number }[]>();
+    for (const r of myAssessments) {
+      if (r.score == null) continue;
+      const inst = INSTRUMENTS[r.instrument as AssessmentId];
+      if (!inst || !inst.scored) continue;
+      const arr = byInst.get(r.instrument) ?? [];
+      arr.push({ at: r.takenAt, value: r.score });
+      byInst.set(r.instrument, arr);
+    }
+    return [...byInst.entries()]
+      .map(([id, pts]) => ({
+        id,
+        name: INSTRUMENTS[id as AssessmentId].name,
+        series: buildTrendSeries(pts),
+      }))
+      .filter((t) => t.series.length > 0);
+  }, [myAssessments]);
+
   // Weekly points rank for the leaderboard banner teaser (most "contest"-like).
   const weeklyBoard = useAsync(() => api.insights.leaderboard('points', 'week'), []).data ?? [];
   const myRank = weeklyBoard.find((e) => e.you)?.rank ?? null;
@@ -140,6 +166,19 @@ export default function DataScreen() {
           </Txt>
           {!checkedInToday && <Ionicons name="chevron-forward" size={18} color={Colors.textSub} />}
         </Pressable>
+
+        {/* Assessment trends (app-owned battery history) */}
+        {assessmentTrends.length > 0 && (
+          <View style={{ gap: Spacing.lg }}>
+            <Txt variant="titleSm">Assessment trends</Txt>
+            {assessmentTrends.map((t) => (
+              <View key={t.id} style={{ gap: Spacing.sm }}>
+                <Txt variant="bodyMedium">{t.name}</Txt>
+                <MetricTrend series={t.series} higherIsBetter={false} accent={Colors.primary} />
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* Assessments taken */}
         {assessments.length > 0 && (

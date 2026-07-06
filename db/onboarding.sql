@@ -105,9 +105,32 @@ begin
   if exists (select 1 from public.users u where lower(u.email) = lower(auth.jwt() ->> 'email')) then
     return true;
   end if;
+
+  -- 1) explicit admin tag wins
   select audience_gender, audience_age into a_gender, a_age
   from public.mobile_group_audience where sds_group_id = p_group_id;
-  if a_gender is null then return true; end if;   -- unmapped → open to all
+
+  -- 2) no explicit tag → INFER the audience from the group's title, so gating
+  --    works out of the box for conventionally-named groups (Men's / Women's /
+  --    Teen) with no manual tagging. Check "women" before "men" (women contains
+  --    "men"); \y…\y matches "men" only as a whole word (not inside "women").
+  if a_gender is null then
+    select case
+             when g.title ilike '%women%' or g.title ilike '%woman%'
+               or g.title ilike '%ladies%' or g.title ilike '%female%' then 'women'
+             when g.title ~* '\ymen\y' or g.title ilike '%male%'
+               or g.title ilike '%brotherhood%' or g.title ilike '%guys%' then 'men'
+             else 'any'
+           end,
+           case
+             when g.title ~* '\y(teen|teens|youth|adolescent|adolescents)\y' then 'teen'
+             when g.title ilike '%adult%' then 'adult'
+             else 'any'
+           end
+    into a_gender, a_age
+    from public.sds_groups g where g.id = p_group_id;
+    if a_gender is null then return true; end if;   -- group not found → open
+  end if;
 
   ok_gender := a_gender = 'any' or a_gender = public.mobile_my_gender();
   ok_age := a_age = 'any'

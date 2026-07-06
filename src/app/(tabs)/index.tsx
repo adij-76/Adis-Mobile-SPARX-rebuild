@@ -215,8 +215,10 @@ export default function HomeScreen() {
 
   // Assessment nudge: surfaces the day-1 battery (offer / owed) so a compliant
   // user discovers it from home, not only when they hit the content gate.
+  const hasPending = assessmentGate.pending.length > 0;
+  const hasMonthly = assessmentGate.monthlyDue.length > 0;
   const assessmentBanner =
-    assessmentGate.pending.length > 0 ? (
+    hasPending || hasMonthly ? (
       <Pressable
         style={[
           styles.assessBanner,
@@ -225,7 +227,7 @@ export default function HomeScreen() {
         onPress={() => router.push('/assessments')}
         accessibilityRole="button">
         <Ionicons
-          name={assessmentGate.locked ? 'lock-closed' : 'clipboard'}
+          name={assessmentGate.locked ? 'lock-closed' : hasPending ? 'clipboard' : 'refresh'}
           size={18}
           color={assessmentGate.locked ? Colors.orange : Colors.primary}
         />
@@ -234,9 +236,11 @@ export default function HomeScreen() {
             ? 'Finish one quick assessment to unlock videos & lessons today.'
             : assessmentGate.offerDay1
               ? 'Personalize your journey — complete your intro assessments for bonus XP.'
-              : `You have ${assessmentGate.pending.length} assessment${
-                  assessmentGate.pending.length > 1 ? 's' : ''
-                } to complete.`}
+              : hasPending
+                ? `You have ${assessmentGate.pending.length} assessment${
+                    assessmentGate.pending.length > 1 ? 's' : ''
+                  } to complete.`
+                : 'Time for your monthly check-in — track your progress and earn XP.'}
         </Txt>
         <Ionicons name="chevron-forward" size={18} color={Colors.strokeStrong} />
       </Pressable>

@@ -20,7 +20,12 @@ import {
 } from 'react';
 
 import { api } from '@/api';
-import { applicableBattery, type Instrument } from '@/lib/assessments';
+import {
+  applicableBattery,
+  monthlyDue as computeMonthlyDue,
+  recurringInstruments,
+  type Instrument,
+} from '@/lib/assessments';
 import { useAuth } from '@/lib/auth';
 import { useOnboarding } from '@/lib/onboarding';
 
@@ -40,6 +45,9 @@ type GateData = {
   offerDay1: boolean;
   /** Content is locked until one instrument is completed today. */
   locked: boolean;
+  /** Recurring instruments due for a monthly retake (never gates content — a
+   *  gentle prompt only). Excludes any still owed by the day-1 battery. */
+  monthlyDue: Instrument[];
 };
 
 type GateValue = GateData & {
@@ -54,6 +62,7 @@ const EMPTY: GateData = {
   owed: null,
   offerDay1: false,
   locked: false,
+  monthlyDue: [],
 };
 
 const GateContext = createContext<GateValue | null>(null);
@@ -101,7 +110,26 @@ export function AssessmentGateProvider({ children }: { children: ReactNode }) {
       const offerDay1 = pending.length > 0 && today === day1;
       const locked = pending.length > 0 && today > day1 && !completedToday;
 
-      setData({ applicable, completedIds, pending, owed: pending[0] ?? null, offerDay1, locked });
+      // Monthly re-administration: recurring instruments whose last take is ≥30d
+      // old (or never), excluding any still owed by the blocking day-1 battery.
+      const lastTakenAt: Record<string, string | undefined> = {};
+      for (const r of responses) if (!lastTakenAt[r.instrument]) lastTakenAt[r.instrument] = r.takenAt;
+      const pendingIds = new Set(pending.map((p) => p.id));
+      const monthlyDue = computeMonthlyDue(
+        recurringInstruments(hasSubstance),
+        lastTakenAt,
+        new Date(),
+      ).filter((i) => !pendingIds.has(i.id));
+
+      setData({
+        applicable,
+        completedIds,
+        pending,
+        owed: pending[0] ?? null,
+        offerDay1,
+        locked,
+        monthlyDue,
+      });
     } catch {
       setData(EMPTY); // fail open
     } finally {

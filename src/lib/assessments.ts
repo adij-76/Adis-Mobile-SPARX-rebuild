@@ -13,7 +13,7 @@
  * Scoring bands and item wording follow the published instruments.
  */
 
-export type AssessmentId = 'intake' | 'gad7' | 'phq9' | 'audit_c';
+export type AssessmentId = 'intake' | 'gad7' | 'phq9' | 'audit_c' | 'pcl5';
 
 /** When an instrument applies: to everyone, or only when substance use is a
  *  stated concern (primary/secondary problem in the 'substance' category). */
@@ -29,9 +29,15 @@ export type Instrument = {
   name: string;
   shortName: string;
   description: string;
-  /** Production profiles.id this reconciles to. */
-  profileId: number;
+  /** Production profiles.id this reconciles to (null when there's no prod
+   *  instrument yet, e.g. PCL-5). */
+  profileId: number | null;
   applicability: Applicability;
+  /** Part of the day-1 onboarding battery (drives the soft content gate). */
+  day1: boolean;
+  /** Re-administered monthly for progress tracking (drives the Data-page trends
+   *  and the "due for a check-in" prompts). */
+  recurring: boolean;
   /** XP awarded for completing it. */
   xp: number;
   estMinutes: number;
@@ -43,12 +49,24 @@ export type Instrument = {
   elevatedNote?: string;
 };
 
+/** Days between monthly re-administrations. */
+export const MONTHLY_DAYS = 30;
+
 // The standard GAD-7 / PHQ-9 frequency scale.
 const FREQ: AnswerOption[] = [
   { label: 'Not at all', value: 0 },
   { label: 'Several days', value: 1 },
   { label: 'More than half the days', value: 2 },
   { label: 'Nearly every day', value: 3 },
+];
+
+// PCL-5 uses a 5-point (0–4) frequency/severity scale.
+const FREQ5: AnswerOption[] = [
+  { label: 'Not at all', value: 0 },
+  { label: 'A little bit', value: 1 },
+  { label: 'Moderately', value: 2 },
+  { label: 'Quite a bit', value: 3 },
+  { label: 'Extremely', value: 4 },
 ];
 
 const q = (key: string, prompt: string, options: AnswerOption[] = FREQ): Question => ({
@@ -65,6 +83,8 @@ export const INSTRUMENTS: Record<AssessmentId, Instrument> = {
     description: 'A few quick questions to understand where you are and what you want.',
     profileId: 163,
     applicability: 'always',
+    day1: true,
+    recurring: false,
     xp: 15,
     estMinutes: 1,
     scored: false,
@@ -99,6 +119,8 @@ export const INSTRUMENTS: Record<AssessmentId, Instrument> = {
     description: 'Over the last 2 weeks, how often have you been bothered by the following?',
     profileId: 268,
     applicability: 'always',
+    day1: true,
+    recurring: true,
     xp: 15,
     estMinutes: 2,
     scored: true,
@@ -127,6 +149,8 @@ export const INSTRUMENTS: Record<AssessmentId, Instrument> = {
     description: 'Over the last 2 weeks, how often have you been bothered by the following?',
     profileId: 269,
     applicability: 'always',
+    day1: true,
+    recurring: true,
     xp: 15,
     estMinutes: 2,
     scored: true,
@@ -158,6 +182,8 @@ export const INSTRUMENTS: Record<AssessmentId, Instrument> = {
     description: 'Three quick questions about your alcohol use.',
     profileId: 49,
     applicability: 'substance',
+    day1: true,
+    recurring: true,
     xp: 15,
     estMinutes: 1,
     scored: true,
@@ -193,16 +219,84 @@ export const INSTRUMENTS: Record<AssessmentId, Instrument> = {
     elevatedNote:
       'Your answers suggest your drinking may be putting your health at risk. This is exactly what SPARx is here to help with — a coach can help you build a plan that fits your life.',
   },
+  pcl5: {
+    id: 'pcl5',
+    name: 'Trauma check (PCL-5)',
+    shortName: 'PCL-5',
+    description:
+      'In the past month, how much were you bothered by the following, in response to a stressful experience?',
+    profileId: null, // no prod instrument yet — reconciles to a new profile at cutover
+    applicability: 'always',
+    day1: false, // NOT part of the day-1 gate — a monthly tracking instrument
+    recurring: true,
+    xp: 20,
+    estMinutes: 4,
+    scored: true,
+    questions: [
+      q('c1', 'Repeated, disturbing, and unwanted memories of the stressful experience', FREQ5),
+      q('c2', 'Repeated, disturbing dreams of the stressful experience', FREQ5),
+      q('c3', 'Suddenly feeling or acting as if the stressful experience were happening again', FREQ5),
+      q('c4', 'Feeling very upset when something reminded you of the stressful experience', FREQ5),
+      q('c5', 'Strong physical reactions when reminded (heart pounding, trouble breathing, sweating)', FREQ5),
+      q('c6', 'Avoiding memories, thoughts, or feelings related to the experience', FREQ5),
+      q('c7', 'Avoiding external reminders (people, places, conversations, activities, objects)', FREQ5),
+      q('c8', 'Trouble remembering important parts of the stressful experience', FREQ5),
+      q('c9', 'Strong negative beliefs about yourself, other people, or the world', FREQ5),
+      q('c10', 'Blaming yourself or someone else for the experience or what happened after', FREQ5),
+      q('c11', 'Strong negative feelings such as fear, horror, anger, guilt, or shame', FREQ5),
+      q('c12', 'Loss of interest in activities you used to enjoy', FREQ5),
+      q('c13', 'Feeling distant or cut off from other people', FREQ5),
+      q('c14', 'Trouble experiencing positive feelings', FREQ5),
+      q('c15', 'Irritable behavior, angry outbursts, or acting aggressively', FREQ5),
+      q('c16', 'Taking too many risks or doing things that could cause you harm', FREQ5),
+      q('c17', 'Being “superalert,” watchful, or on guard', FREQ5),
+      q('c18', 'Feeling jumpy or easily startled', FREQ5),
+      q('c19', 'Having difficulty concentrating', FREQ5),
+      q('c20', 'Trouble falling or staying asleep', FREQ5),
+    ],
+    bands: [
+      { max: 20, label: 'Minimal symptoms', tone: 'good' },
+      { max: 31, label: 'Some symptoms', tone: 'mild' },
+      { max: 45, label: 'Probable PTSD', tone: 'warn' },
+      { max: 80, label: 'Severe symptoms', tone: 'alert' },
+    ],
+    elevatedNote:
+      'Your answers point to trauma-related distress. Trauma is treatable, and you don’t have to carry it alone — a coach or clinician can help you find the right support. If you’re in crisis, call or text 988 (US) any time.',
+  },
 };
 
 /** Battery order (intake first to warm up, screening after). */
-export const BATTERY_ORDER: AssessmentId[] = ['intake', 'gad7', 'phq9', 'audit_c'];
+export const BATTERY_ORDER: AssessmentId[] = ['intake', 'gad7', 'phq9', 'audit_c', 'pcl5'];
 
-/** The instruments that apply to a user, honoring the substance-only ones. */
+/** The DAY-1 battery — the instruments that gate content until completed. Honors
+ *  the substance-only ones; excludes non-day1 (monthly-only) instruments. */
 export function applicableBattery(hasSubstanceConcern: boolean): Instrument[] {
   return BATTERY_ORDER.map((id) => INSTRUMENTS[id]).filter(
-    (i) => i.applicability === 'always' || hasSubstanceConcern,
+    (i) => i.day1 && (i.applicability === 'always' || hasSubstanceConcern),
   );
+}
+
+/** Recurring instruments applicable to a user (for monthly re-administration). */
+export function recurringInstruments(hasSubstanceConcern: boolean): Instrument[] {
+  return BATTERY_ORDER.map((id) => INSTRUMENTS[id]).filter(
+    (i) => i.recurring && (i.applicability === 'always' || hasSubstanceConcern),
+  );
+}
+
+/** Which recurring instruments are due for a monthly retake: never taken, or the
+ *  last take was ≥ MONTHLY_DAYS ago. `lastTakenAt` maps instrument id → ISO. */
+export function monthlyDue(
+  instruments: Instrument[],
+  lastTakenAt: Record<string, string | undefined>,
+  now: Date,
+): Instrument[] {
+  const cutoff = now.getTime() - MONTHLY_DAYS * 86400000;
+  return instruments.filter((i) => {
+    const last = lastTakenAt[i.id];
+    if (!last) return true;
+    const t = new Date(last).getTime();
+    return isNaN(t) || t <= cutoff;
+  });
 }
 
 /** Sum the answered values (only meaningful for scored instruments). */
