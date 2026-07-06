@@ -100,8 +100,11 @@ Two files create real tables the app **writes user data to**, unlike the
 - `db/mobile-checkins.sql` → **`public.mobile_checkins`** (daily check-ins).
 - `db/mobile-wheel-entries.sql` → **`public.mobile_wheel_entries`** (Wheel of
   Life retakes — one row per area, score 0-100).
+- `db/lesson-exercises.sql` → **`public.mobile_exercise_responses`** (lesson
+  exercise answers — one latest row per user/question; reconciles to
+  `answer_headers`/`answers`, see `db/reconcile.sql` §3b).
 
-Both carry the same two consequences for a production re-import:
+All carry the same two consequences for a production re-import:
 
 1. **Do not drop them.** If a re-import recreates the `public` schema, back up and
    restore both tables (they hold real user data). A data-only import of the

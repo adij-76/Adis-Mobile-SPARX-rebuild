@@ -102,6 +102,59 @@ where r.app_user_id is not null and r.profile_id is not null
   );
 -- TODO: insert per-question `answers` rows from r.answers (map answer key → questions.id).
 
+-- 3b) mobile_exercise_responses → answer_headers + answers  (lesson exercises)
+--     The app stores ONE latest answer per (user, question) — upsert on
+--     (auth_uid, question_id) — so a user has at most one "take" per worksheet
+--     profile. Materialize: one answer_headers row per (user, profile) stamped
+--     with the take's last answered_at, then one answers row per response,
+--     keyed by the REAL legacy questions.id the view exposed (no key mapping
+--     needed, unlike the assessment battery).  ⚠ CONFIRM answers columns —
+--     `answer` (json) vs `text_answer` (varchar) match prod; add user_id if
+--     your answers table carries it.
+-- [exercise-reconcile:begin]
+do $$
+declare n int;
+begin
+  with takes as (
+    select r.app_user_id, r.profile_id, max(r.answered_at) as taken_at
+    from public.mobile_exercise_responses r
+    where r.app_user_id is not null
+    group by r.app_user_id, r.profile_id
+  )
+  insert into public.answer_headers (user_id, profile_id, complete, complete_date, updated_at)
+  select t.app_user_id, t.profile_id, true, t.taken_at, now()
+  from takes t
+  where not exists (
+    select 1 from public.answer_headers ah
+    where ah.user_id = t.app_user_id and ah.profile_id = t.profile_id
+      and ah.complete_date = t.taken_at
+  );
+  get diagnostics n = row_count;
+  raise notice '3b) exercise answer_headers created: %', n;
+
+  with takes as (
+    select r.app_user_id, r.profile_id, max(r.answered_at) as taken_at
+    from public.mobile_exercise_responses r
+    where r.app_user_id is not null
+    group by r.app_user_id, r.profile_id
+  )
+  insert into public.answers (header_id, question_id, answer, text_answer, created_at, updated_at)
+  select ah.id, r.question_id, r.value_json, r.value_text, r.answered_at, r.answered_at
+  from public.mobile_exercise_responses r
+  join takes t on t.app_user_id = r.app_user_id and t.profile_id = r.profile_id
+  join public.answer_headers ah
+    on ah.user_id = t.app_user_id and ah.profile_id = t.profile_id
+   and ah.complete_date = t.taken_at
+  where r.app_user_id is not null
+    and not exists (
+      select 1 from public.answers a
+      where a.header_id = ah.id and a.question_id = r.question_id
+    );
+  get diagnostics n = row_count;
+  raise notice '3b) exercise answers created: %', n;
+end $$;
+-- [exercise-reconcile:end]
+
 -- 4) mobile_xp_events → user_points  (itemized, dated — authoritative XP)  ⚠ CONFIRM
 --    Replays each event as points dated by created_at. `source` should map to a
 --    prod reward type in user_rewards; here we write the point value + keep the

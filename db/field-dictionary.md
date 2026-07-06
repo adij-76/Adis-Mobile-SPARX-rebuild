@@ -77,6 +77,27 @@ Do **NOT** use `answer_headers.usage_score` here — that's a computed *weekly i
 The app sums `amount` per period for the "how much" trend and averages `used` for
 the "% days used" trend (both: lower = better).
 
+## Lesson exercises — `mobile_lesson_exercises` → `ExerciseWorksheet` / `ExerciseQuestion`
+
+| Production column | View column (`mobile_lesson_exercises`) | App field |
+|---|---|---|
+| `profiles.lesson_id` | `lesson_id` | `lessonId` |
+| `profiles.id` | `profile_id` | `profileId` |
+| `profiles.title` | `profile_title` | worksheet `title` |
+| `profiles.sort_order` | `profile_order` | worksheet `order` |
+| `questions.id` | `question_id` | `questionId` |
+| `questions.sort_order` | `question_order` | question `order` |
+| `questions.widget_type` (int) | `widget_type` + mapped `input_kind` | `inputKind` |
+| `questions.question_label` *(TinyMCE HTML — sanitize!)* | `prompt_html` | `promptHtml` |
+| `questions.title` *(plain, safe heading)* | `prompt_title` | `title` |
+| `questions.min_value` / `max_value` | `min_value` / `max_value` | `minValue` / `maxValue` |
+| `questions.required` | `required` | `required` |
+| `question_options.value` (agg by `sort_order`) | `options` (jsonb array) | `options` |
+
+Responses live app-side in `mobile_exercise_responses`
+(`lesson_id, profile_id, question_id, value_text, value_json, answered_at`;
+one latest row per user/question) → `ExerciseResponse`.
+
 ## Conventions for new fields
 
 - **Booleans:** affirmative (`accessible`, `subscribed`), not negated.
