@@ -76,6 +76,7 @@ export default function AssessmentRunner() {
   const complete = answeredCount === instrument.questions.length;
 
   const wasPending = gate.pending.some((p) => p.id === instrument.id);
+  const isDue = wasPending || gate.monthlyDue.some((m) => m.id === instrument.id);
   const completesBattery = wasPending && gate.pending.length === 1;
 
   const submit = async () => {
@@ -99,7 +100,7 @@ export default function AssessmentRunner() {
     // Award XP only on first completion (not on retakes), plus a one-time bonus
     // for finishing the whole battery.
     let earned = 0;
-    if (wasPending) earned += awardBonus(instrument.xp);
+    if (isDue) earned += awardBonus(instrument.xp);
     if (completesBattery) earned += awardBonus(50);
     const movement = earned > 0 ? await award({ source: 'assessment', refId: instrument.id, points: earned }) : null;
     gate.refresh();

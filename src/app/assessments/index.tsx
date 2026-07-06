@@ -19,6 +19,7 @@ const ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   gad7: 'pulse',
   phq9: 'partly-sunny',
   audit_c: 'wine',
+  pcl5: 'shield-half',
 };
 
 export default function AssessmentsHub() {
@@ -56,6 +57,11 @@ export default function AssessmentsHub() {
   const start = (i: Instrument) => router.push(`/assessments/${i.id}`);
 
   const allDone = gate.pending.length === 0;
+  // Monthly instruments that aren't in the day-1 battery (e.g. PCL-5) — shown in
+  // their own optional section.
+  const extraMonthly = gate.monthlyDue.filter(
+    (m) => !gate.applicable.some((a) => a.id === m.id),
+  );
 
   return (
     <Screen variant="modal" style={styles.gutter}>
@@ -116,21 +122,26 @@ export default function AssessmentsHub() {
             {gate.applicable.map((i) => {
               const done = gate.completedIds.includes(i.id);
               const result = latest.get(i.id);
+              const due = done && gate.monthlyDue.some((m) => m.id === i.id);
               return (
                 <Pressable
                   key={i.id}
                   onPress={() => start(i)}
-                  style={[styles.card, done && styles.cardDone]}>
-                  <View style={[styles.cardIcon, done && styles.cardIconDone]}>
+                  style={[styles.card, done && !due && styles.cardDone]}>
+                  <View style={[styles.cardIcon, done && !due && styles.cardIconDone]}>
                     <Ionicons
-                      name={done ? 'checkmark' : (ICONS[i.id] ?? 'document-text')}
+                      name={due ? 'refresh' : done ? 'checkmark' : (ICONS[i.id] ?? 'document-text')}
                       size={22}
-                      color={done ? Colors.white : Colors.primary}
+                      color={done && !due ? Colors.white : Colors.primary}
                     />
                   </View>
                   <View style={{ flex: 1, gap: 2 }}>
                     <Txt variant="bodyMedium">{i.name}</Txt>
-                    {done && result ? (
+                    {due ? (
+                      <Txt variant="bodySm" color={Colors.orange}>
+                        Due for your monthly check-in · +{i.xp} XP
+                      </Txt>
+                    ) : done && result ? (
                       <Txt variant="bodySm" color={Colors.textSub}>
                         {result.severity ?? 'Completed'}
                         {result.score != null ? ` · score ${result.score}` : ''} · tap to retake
@@ -141,15 +152,40 @@ export default function AssessmentsHub() {
                       </Txt>
                     )}
                   </View>
-                  <Ionicons
-                    name={done ? 'refresh' : 'chevron-forward'}
-                    size={20}
-                    color={Colors.strokeStrong}
-                  />
+                  <Ionicons name="chevron-forward" size={20} color={Colors.strokeStrong} />
                 </Pressable>
               );
             })}
           </View>
+
+          {/* Monthly tracking instruments that aren't part of the day-1 battery
+              (e.g. PCL-5). Optional, XP-rewarded, never gate content. */}
+          {extraMonthly.length > 0 ? (
+            <View style={{ gap: Spacing.md }}>
+              <Txt variant="titleSm">Track your progress</Txt>
+              <Txt variant="bodySm" color={Colors.textSub}>
+                Optional monthly check-ins that help us see what&apos;s improving — and earn you XP.
+              </Txt>
+              {extraMonthly.map((i) => {
+                const result = latest.get(i.id);
+                return (
+                  <Pressable key={i.id} onPress={() => start(i)} style={styles.card}>
+                    <View style={styles.cardIcon}>
+                      <Ionicons name={ICONS[i.id] ?? 'document-text'} size={22} color={Colors.primary} />
+                    </View>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Txt variant="bodyMedium">{i.name}</Txt>
+                      <Txt variant="bodySm" color={Colors.textSub}>
+                        {result?.severity ? `${result.severity} · retake · ` : `~${i.estMinutes} min · `}
+                        +{i.xp} XP
+                      </Txt>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color={Colors.strokeStrong} />
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
         </ScrollView>
 
         <View style={styles.footer}>
