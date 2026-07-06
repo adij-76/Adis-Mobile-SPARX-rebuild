@@ -5,6 +5,8 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { api } from '@/api';
+import { useAsync } from '@/hooks/use-async';
 import { AppHeader } from '@/components/app-header';
 import { Screen } from '@/components/layout/screen';
 import { Button } from '@/components/ui/button';
@@ -27,6 +29,9 @@ export default function ProfileScreen() {
   const [confirm, setConfirm] = useState<null | 'logout' | 'delete'>(null);
   const [uploading, setUploading] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
+  // Admin allowlist is enforced server-side; this just decides whether to show
+  // the hidden entry point (the /admin screen re-checks and denies non-admins).
+  const { data: isAdmin } = useAsync(() => api.admin.isAdmin(), [authUser?.email]);
 
   const displayName = authUser?.name?.trim() || authUser?.email?.split('@')[0] || 'there';
   const avatarUri = authUser?.avatarUrl ?? user.avatar;
@@ -188,6 +193,17 @@ export default function ProfileScreen() {
           <ListRow icon="shield-checkmark-outline" label="Privacy Policy" onPress={() => router.push('/settings/privacy')} />
           <ListRow icon="reader-outline" label="Terms & Conditions" onPress={() => router.push('/settings/terms')} divider={false} />
         </Card>
+
+        {isAdmin ? (
+          <Card padded={false} style={styles.list}>
+            <ListRow
+              icon="shield-half-outline"
+              label="Admin dashboard"
+              onPress={() => router.push('/admin')}
+              divider={false}
+            />
+          </Card>
+        ) : null}
 
         <Card padded={false} style={styles.list}>
           <ListRow icon="log-out-outline" label="Log out" danger showChevron={false} onPress={() => setConfirm('logout')} />

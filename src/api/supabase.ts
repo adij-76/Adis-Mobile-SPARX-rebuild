@@ -7,6 +7,8 @@
  * A logged-in user's JWT (once auth lands) replaces the anon key in Authorization.
  */
 import type {
+  AdminApi,
+  AdminOverview,
   AssessmentsApi,
   AuthApi,
   AuthSession,
@@ -1538,5 +1540,18 @@ export const supabaseGame: GameApi = {
       }),
     });
     if (!res.ok) throw new Error(`Game state save failed (${res.status})`);
+  },
+};
+
+export const supabaseAdmin: AdminApi = {
+  async isAdmin(): Promise<boolean> {
+    try {
+      return (await rpc<boolean>('mobile_is_admin', {})) === true;
+    } catch {
+      return false;
+    }
+  },
+  async overview(days = 30): Promise<AdminOverview> {
+    return rpc<AdminOverview>('mobile_admin_overview', { p_days: days });
   },
 };
