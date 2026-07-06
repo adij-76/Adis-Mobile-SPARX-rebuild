@@ -8,6 +8,7 @@
 #   auth-and-storage.sql  — one-shot auth import
 #   problems-seed.sql     — production DATA seed (adds rows to addictions)
 #   promote-tester.sql    — admin helper, installed/used on demand
+#   reconcile.sql         — ONE-TIME cutover write-back (mobile_* → prod); manual, reviewed
 #   introspect.sql        — a read-only schema dump, never "applied"
 
 testing-access.sql
@@ -27,6 +28,7 @@ checkin-history.sql
 community-views.sql
 leaderboard.sql
 ai-context.sql
+admin-dashboard.sql
 
 # Base-table hardening — MUST run LAST, after every view/table/function above
 # exists and has been granted. Revokes anon/authenticated from the production
