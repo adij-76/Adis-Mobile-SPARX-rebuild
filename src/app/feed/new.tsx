@@ -51,30 +51,45 @@ export default function NewPost() {
   const selectedCommunity = community ?? communities[0]?.id ?? null;
   const [text, setText] = useState(prefill ?? '');
   const [photo, setPhoto] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const submit = () => {
-    const name = communities.find((c) => c.id === selectedCommunity)?.name ?? 'Community';
+  const submit = async () => {
+    if (busy) return;
     const body = text.trim();
-    // Optimistic local insert (keeps the seed/offline path working) + persist to
-    // the backend so it shows for everyone; the feed refetches on focus.
-    addPost({ community: name, text: body, image: photo ?? undefined, author });
-    if (body) {
-      const earned = awardCommunityXp('community_post');
-      // One-time onboarding activation bonus for actually introducing yourself.
-      const bonus = isIntro ? awardBonus(50) : 0;
-      const total = earned + bonus;
-      // Log to the shared XP ledger so posting counts toward the leaderboard.
-      if (total > 0) award({ source: isIntro ? 'intro' : 'community_post', points: total });
-    }
-    api.posts
-      .createPost({
+    if (!body) return;
+    setBusy(true);
+    setError(null);
+    // Persist FIRST and wait for it. The room reads server data and refetches on
+    // focus, so if we navigated before the write landed the post could be missing
+    // until a manual refresh — the friction the user hit. Awaiting guarantees the
+    // row exists before we return to the feed.
+    try {
+      await api.posts.createPost({
         channelId: selectedCommunity,
         text: body,
         image: photo ?? null,
         appUserId: author.appUserId,
-      })
-      .catch(() => {});
-    router.back();
+      });
+    } catch {
+      setBusy(false);
+      setError("Couldn't post — check your connection and try again.");
+      return;
+    }
+    // Reflect locally (instant in the store-backed feed) + award XP now that the
+    // post is real.
+    const name = communities.find((c) => c.id === selectedCommunity)?.name ?? 'Community';
+    addPost({ community: name, text: body, image: photo ?? undefined, author });
+    const earned = awardCommunityXp('community_post');
+    const bonus = isIntro ? awardBonus(50) : 0;
+    const total = earned + bonus;
+    if (total > 0) award({ source: isIntro ? 'intro' : 'community_post', points: total });
+    setBusy(false);
+    // Intro flow came in via replace() (no back stack) — send them to their
+    // community feed to SEE the post they just made and stay in the activation
+    // loop; otherwise return to the room they composed from.
+    if (isIntro) router.replace('/(tabs)/community');
+    else router.back();
   };
 
   const addPhoto = () => {
@@ -175,7 +190,17 @@ export default function NewPost() {
         </View>
       </ScrollView>
       <View style={styles.footer}>
-        <Button title="Post" variant="primary" disabled={!text.trim()} onPress={submit} />
+        {error && (
+          <Txt variant="bodySm" color={Colors.danger} style={{ marginBottom: Spacing.sm }}>
+            {error}
+          </Txt>
+        )}
+        <Button
+          title={busy ? 'Posting…' : 'Post'}
+          variant="primary"
+          disabled={!text.trim() || busy}
+          onPress={submit}
+        />
       </View>
     </SafeAreaView>
   );

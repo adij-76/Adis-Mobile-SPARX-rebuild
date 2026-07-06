@@ -36,8 +36,13 @@ type OnboardingValue = {
   /** Re-check the gate (e.g. after finishing the flow). */
   refresh: () => void;
   /** Optimistically mark onboarding done (called on the final step) so the Shell
-   *  lets the user into the app immediately without waiting for a re-fetch. */
-  markComplete: () => void;
+   *  lets the user into the app immediately without waiting for a re-fetch.
+   *  Pass a destination to control where the Shell drops the user (the
+   *  activation target, e.g. the community composer) — this avoids a race where
+   *  a manual navigation competes with the gate's own redirect. */
+  markComplete: (destination?: string) => void;
+  /** Where the completion redirect should land (set by markComplete). */
+  completeDestination: string | null;
 };
 
 const OnboardingContext = createContext<OnboardingValue | null>(null);
@@ -81,14 +86,16 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   // Optimistic: flip to done and stamp completedAt = now, so the Shell lets them
   // in AND the day-1 assessment window anchors immediately — without a refetch
   // (which could bounce them back if the profile write hadn't landed yet).
-  const markComplete = useCallback(() => {
+  const [completeDestination, setCompleteDestination] = useState<string | null>(null);
+  const markComplete = useCallback((destination?: string) => {
+    if (destination) setCompleteDestination(destination);
     setState('done');
     setCompletedAt((prev) => prev ?? new Date().toISOString());
   }, []);
 
   const value = useMemo<OnboardingValue>(
-    () => ({ status: state, isExistingUser, completedAt, refresh, markComplete }),
-    [state, isExistingUser, completedAt, refresh, markComplete],
+    () => ({ status: state, isExistingUser, completedAt, refresh, markComplete, completeDestination }),
+    [state, isExistingUser, completedAt, refresh, markComplete, completeDestination],
   );
 
   return <OnboardingContext.Provider value={value}>{children}</OnboardingContext.Provider>;

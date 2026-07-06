@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import { forwardRef, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -29,7 +28,7 @@ import { useStore } from '@/lib/store';
  *  a brand-new user has no streak, so it lands as a flat +25). */
 const ONBOARD_XP = 25;
 
-const STEPS = ['welcome', 'dob', 'primary', 'gender', 'details', 'secondary'] as const;
+const STEPS = ['welcome', 'dob', 'primary', 'secondary', 'gender', 'details'] as const;
 type Step = (typeof STEPS)[number];
 
 const GENDERS: { key: OnboardingGender; label: string }[] = [
@@ -101,7 +100,6 @@ function matchLabel(gender: OnboardingGender | null, age: number | null): string
 }
 
 export default function OnboardingScreen() {
-  const router = useRouter();
   const firstName = useFirstName();
   const { user: authUser } = useAuth();
   const { markComplete } = useOnboarding();
@@ -192,15 +190,16 @@ export default function OnboardingScreen() {
         reward={reward}
         community={matchLabel(gender, age)}
         onIntroduce={() => {
-          // Flip the gate to done, then drop them straight into composing an
-          // intro post — the +50 activation bonus is awarded when they post.
-          markComplete();
-          router.replace('/feed/new?intro=1');
+          // Activation: flip the gate to done AND tell it to land the user in the
+          // intro composer. The Shell performs the single redirect (no race), so
+          // the "+50 introduce yourself" chain is never dropped.
+          markComplete('/feed/new?intro=1');
         }}
         onEnter={() => {
-          // Flip the gate to done; the Shell redirects into the app.
-          markComplete();
-          router.replace('/');
+          // Even when they skip the intro post, take them to their matched
+          // community first (activation-first) rather than straight to the
+          // dashboard — they can reach the dashboard from the tab bar.
+          markComplete('/(tabs)/community');
         }}
       />
     );

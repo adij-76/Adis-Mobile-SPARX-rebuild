@@ -51,7 +51,7 @@ function Splash() {
 function Shell() {
   const { isDesktop } = useBreakpoint();
   const { status, user } = useAuth();
-  const { status: onboarding } = useOnboarding();
+  const { status: onboarding, completeDestination } = useOnboarding();
   const assessmentGate = useAssessmentGate();
   const { mergeRemoteCheckins, hydrateFavorites, hydrateWatched, hydrateGameState, gameState } =
     useStore();
@@ -74,8 +74,11 @@ function Shell() {
   useEffect(() => {
     if (status !== 'authed' || onLogin) return;
     if (onboarding === 'needed' && !onOnboarding) router.replace('/onboarding');
-    else if (onboarding === 'done' && onOnboarding) router.replace('/');
-  }, [status, onboarding, onOnboarding, onLogin, router]);
+    // On completion, land the user at the activation target (community composer
+    // / community feed) rather than always the dashboard — set by markComplete.
+    // Doing it HERE (one redirect) avoids racing a manual navigation.
+    else if (onboarding === 'done' && onOnboarding) router.replace(completeDestination ?? '/');
+  }, [status, onboarding, onOnboarding, onLogin, completeDestination, router]);
 
   // Assessment soft-gate: while a day-1 assessment is owed, opening CONTENT
   // (a video / lesson / workshop) redirects to the assessment hub. Home,
