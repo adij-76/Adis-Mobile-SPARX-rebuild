@@ -180,6 +180,138 @@ order by tpi.updated_at desc
 
 ---
 
+## Patch C — `chatbot`: wire the `mobile_ai_context` RPC (app profile, assessments, safety flags)
+
+**Prerequisite:** the app now sends `authUid` in the Sparxy webhook payload
+(shipped to `main` in commit `4d0bf41`), and `mobile_ai_context(uuid)` is live
+in the database.
+
+### C0. Permission check (do this first — 1 minute)
+
+The RPC's EXECUTE is granted to `service_role` only. Your n8n Postgres
+credential connects as its own database role, which may or may not be covered.
+Check: create a temporary Postgres node in any workflow, run
+`select current_user;`, note the role name, then run this **in the SQL
+editor**:
+
+```sql
+-- replace n8n_role with whatever current_user returned (skip if it returned
+-- 'postgres' — superuser already has access)
+grant execute on function public.mobile_ai_context(uuid) to n8n_role;
+```
+
+Then verify from n8n itself: `select public.mobile_ai_context(null);` should
+return a JSON object (mostly nulls), not a permissions error.
+
+### C1. Pass `authUid` through `Consolidate Data`
+
+Open the `Consolidate Data` node → *Add assignment*:
+- Name: `body.authUid` · Type: String · Value: `{{ $json.body.authUid }}`
+
+(Optional, for canvas testing: in `Set Fields to Match` add the same field
+with a real test user's auth id so the chat-trigger path works too.)
+
+### C2. Add the `App_Context` node
+
+Paste onto the canvas (Ctrl+V), pick your Postgres credential, then rewire the
+context chain to `… wol_data → Session_Notes → App_Context → Code in
+JavaScript`:
+
+```json
+{
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select public.mobile_ai_context(nullif('{{ $('Consolidate Data').item.json.body.authUid }}','')::uuid) as app_ctx",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [3260, -784],
+      "id": "a1000000-0000-4000-8000-000000000003",
+      "name": "App_Context",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {}
+}
+```
+
+`alwaysOutputData` + `onError: continue` = **fail-open**: if the RPC errors or
+`authUid` is missing (old app builds still in the field), chat continues with
+the existing context. Nothing breaks mid-transition.
+
+### C3. Extend `Code in JavaScript`
+
+Add after the `notes` const from Patch B:
+
+```js
+let appCtx = {};
+try {
+  const raw = $('App_Context').first()?.json?.app_ctx;
+  appCtx = (typeof raw === 'string' ? JSON.parse(raw) : raw) || {};
+} catch (e) { appCtx = {}; }
+```
+
+Add before `// --- Assemble ---`:
+
+```js
+// --- App profile, assessments, activity, safety flags (from mobile_ai_context) ---
+let appBlock = "App profile: not available";
+if (appCtx.identity || appCtx.assessments_latest) {
+  const idn = appCtx.identity || {};
+  const focus = appCtx.focus || {};
+  const latest = appCtx.assessments_latest || {};
+  const hist = Array.isArray(appCtx.assessment_history) ? appCtx.assessment_history : [];
+  const assessLines = Object.entries(latest).map(([inst, v]) => {
+    const seq = hist.filter(h => h.instrument === inst);
+    const prev = seq.length >= 2 ? seq[seq.length - 2] : null;
+    const trend = !prev || v.score == null ? "first take"
+      : v.score < prev.score ? `improving (was ${prev.score})`
+      : v.score > prev.score ? `worsening (was ${prev.score})` : "stable";
+    return `  ${inst.toUpperCase()}: ${v.score} → ${v.severity} (${trend})`;
+  });
+  const act = Object.entries(appCtx.activity_7d || {}).map(([k, v]) => `${v} ${k}`).join(", ");
+  const posts = (appCtx.recent_posts || []).slice(0, 3)
+    .map(p => `"${String(p.text || "").slice(0, 120)}"`).join(" · ");
+  appBlock = [
+    `Identity: ${idn.first_name || "?"}${idn.age ? ", " + idn.age : ""}${idn.gender ? ", " + idn.gender : ""}; sobriety days: ${idn.sobriety_days ?? "n/a"}`,
+    `Focus: ${focus.primary_problem || "n/a"}${(focus.secondary_problems || []).length ? "; also " + focus.secondary_problems.join(", ") : ""}`,
+    assessLines.length ? `Assessments (latest → severity, trend):\n${assessLines.join("\n")}` : "",
+    act ? `Activity last 7 days: ${act}` : "",
+    appCtx.gamification?.streak_days != null ? `Streak: ${appCtx.gamification.streak_days} days` : "",
+    posts ? `Recent community posts (themes only — never quote): ${posts}` : "",
+  ].filter(Boolean).join("\n");
+}
+
+const sf = appCtx.safety_flags || {};
+const activeFlags = Object.entries(sf).filter(([, v]) => v).map(([k]) => k);
+const safetyBlock = activeFlags.length
+  ? `⚠ ACTIVE SAFETY FLAGS: ${activeFlags.join(", ")} — follow the crisis/support protocol FIRST; lead with care, encourage coach contact, keep suggestions gentle and stabilising.`
+  : "Safety flags: none";
+```
+
+Add both to the assembled `contextBlock`:
+
+```js
+### App Profile & Assessments (INTERNAL — reference trends warmly, never raw scores or instrument names)
+${appBlock}
+
+### Safety
+${safetyBlock}
+```
+
+### C4. One line for the main-agent prompt (`ai_prompts`, category 254436, role 247167)
+
+> If the User Context lists ACTIVE SAFETY FLAGS, prioritise emotional support
+> and the crisis protocol over any other goal for this conversation. Reference
+> assessment *trends* in plain language ("it sounds like the anxiety has been
+> heavier lately") — never instrument names, scores, or the word "flag".
+
+---
+
 ## A warning about notes + vector tools
 
 Do **not** attach a shared vector store of session notes as a

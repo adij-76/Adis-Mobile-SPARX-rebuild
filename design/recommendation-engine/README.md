@@ -71,6 +71,21 @@ Derived from `db/views.sql` and `src/api/supabase.ts`:
 
 ## Design decisions worth knowing
 
+- **App-side context comes from `mobile_ai_context(auth_uid)` — and fails
+  open.** The RPC (shipped from the app branch) returns identity, focus,
+  validated assessments + history, 7-day activity, gamification, and
+  `safety_flags` in one call. It runs in its own node with
+  continue-on-error: if it ever fails (permissions, old app build without
+  `authUid`), the engine still ranks on the clinical signals. Safety flags
+  (PHQ-9 item 9, elevated PHQ-9/GAD-7/PCL-5/AUDIT-C) feed the acute-state
+  override directly.
+- **Watched videos are excluded from candidates** (`mobile_video_watches`,
+  ≥85% progress) — the engine recommends what they *haven't seen*, not just
+  what it hasn't recommended lately. App wheel retakes
+  (`mobile_wheel_entries`) union with production wheel scores.
+- **Identity resolution accepts either key.** Callers can send
+  `app_user_id`, `ai_note_id`, or `auth_uid`; batch runs resolve `auth_uid`
+  per user via the app tables that carry both keys.
 - **Notes come straight from `ai_notes`.** No separate ingestion pipeline:
   the SOAP workflow already produces structured, QA'd notes. The engine reads
   the assessment/plan narratives + `summary_tags` + `a_risk` (never raw

@@ -35,9 +35,13 @@ from (values
   ('subscription_role_lessons'),('subscription_role_workshops'),
   ('wheel_of_life_scores'),('life_areas'),
   ('daily_assessments'),('daily_assessment_emotions'),('emotions'),
-  ('mobile_checkins'),
+  ('mobile_checkins'),('mobile_wheel_entries'),('mobile_video_watches'),
+  ('mobile_xp_events'),('mobile_assessment_responses'),
   ('ai_notes'),('ai_treatment_plan_items'),('sds_codes')
 ) as t(name);
+
+-- and the app-context RPC (shipped from the app branch):
+select public.mobile_ai_context(null) is not null as rpc_ok;
 ```
 
 **Expected:** everything ✅. If `mobile_checkins` is ❌, that's OK — it just
@@ -147,6 +151,65 @@ Run through this list; everything should pass before you call it live:
 | 5 | Isolation | Chat as a *different* user | Zero trace of the first user's themes |
 | 6 | Idempotency | Run the engine twice for the same user | Second run inserts no duplicate videos |
 | 7 | Fallback | (Optional) disable the engine workflow | App rail still renders (falls back to newest videos) |
+
+## Part 8 — Wire the app-context RPC into the chatbot (10 min)
+
+*(The engine already calls `mobile_ai_context` out of the box — this part is
+for Sparky chat.)*
+
+1. **Permission check first:** `live-workflow-patches.md` → Patch C0. One
+   `select current_user;` from an n8n node, one `grant execute` in the SQL
+   editor if the role isn't `postgres`, one verification call. Do not skip —
+   this is the single most likely thing to silently no-op.
+2. Apply Patch C1–C4 from `live-workflow-patches.md`: pass `authUid` through
+   `Consolidate Data`, paste the `App_Context` node, extend the context
+   builder, add the safety-flag line to the main prompt.
+3. Note the design: the RPC node is **fail-open** (`alwaysOutputData` +
+   continue-on-error). Older app builds that don't send `authUid` yet, or an
+   RPC hiccup, degrade gracefully to exactly today's behavior — chat never
+   breaks.
+
+## The transition safety net (how you can't break things)
+
+Read this once before you start; it's why each part is safe to attempt.
+
+1. **Everything new fails open.** The engine is a separate workflow — toggle
+   it off and the app instantly behaves exactly as today (the rail falls back
+   to newest videos). Inside both the engine and the chatbot patches, every
+   new node is set to continue-on-error: a dead RPC, a missing table, a
+   permissions miss — the run degrades to the previous behavior instead of
+   erroring out.
+2. **Blue-green the chatbot (recommended for Part 6/8).** Don't edit the live
+   chatbot directly:
+   - In n8n: open `chatbot` → ⋯ menu → **Duplicate**. Rename the copy
+     `chatbot v2`.
+   - Apply Patches B and C to **the copy**. The copy gets its own webhook URL
+     (open its Webhook node → Production URL).
+   - Test the copy thoroughly (chat via its URL with test users).
+   - Cut over by changing ONE thing: the GitHub repo variable
+     **`SPARKY_WEBHOOK`** (repo → Settings → Secrets and variables → Actions →
+     Variables) to the copy's URL, then re-run the Pages deploy (or push any
+     commit to main). The live workflow is untouched.
+   - **Instant rollback** = set the variable back and redeploy. Two minutes,
+     zero data loss, and the original workflow never changed.
+3. **Version history everywhere.** n8n keeps per-workflow version history
+   (⋯ → Version history) — restore any prior save in one click. The repo keeps
+   exports in `design/n8n-live/` — re-export *before* you start editing so the
+   pre-change state is committed.
+4. **The database changes are one new table and one already-shipped function.**
+   `schema.sql` creates `mobile_recommended_content` (brand new, app-invisible)
+   and touches nothing else. The RPC shipped from the app branch with execute
+   revoked from clients. There is no destructive migration anywhere in this
+   deployment.
+5. **Writes are append-only and fenced.** The engine only ever INSERTs — into
+   `user_snippets` (idempotent, 60-day fence) and the ledger. No UPDATE, no
+   DELETE, no schema change at runtime. Worst case is "a few odd video picks,"
+   which age out of the rail on their own.
+6. **Test-user-first rule.** After each part, run the relevant check from
+   Part 7 with a test account before assuming real users see it. Keep one
+   test user with rich data (notes + assessments + check-ins) and one brand-new
+   empty test user — the pair catches both overweighting and missing-data
+   regressions.
 
 ## Rollback (if anything looks wrong)
 
