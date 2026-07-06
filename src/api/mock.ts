@@ -567,6 +567,7 @@ export const mockAdmin: AdminApi = {
           is_existing: false,
           checkins: 3,
           xp_events: 4,
+          xp_total: 45,
           assessments: 1,
           posts: 0,
           last_activity: new Date().toISOString(),
