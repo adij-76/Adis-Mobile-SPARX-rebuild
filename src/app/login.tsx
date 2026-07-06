@@ -11,11 +11,24 @@ import { useAuth } from '@/lib/auth';
 
 type Mode = 'signin' | 'signup';
 
-const PROVIDERS: { key: 'google' | 'apple' | 'facebook'; label: string; icon: 'logo-google' | 'logo-apple' | 'logo-facebook' }[] = [
+const ALL_PROVIDERS: { key: 'google' | 'apple' | 'facebook'; label: string; icon: 'logo-google' | 'logo-apple' | 'logo-facebook' }[] = [
   { key: 'google', label: 'Google', icon: 'logo-google' },
   { key: 'apple', label: 'Apple', icon: 'logo-apple' },
   { key: 'facebook', label: 'Facebook', icon: 'logo-facebook' },
 ];
+
+// Only show providers actually configured in Supabase. Defaults to Google while
+// the others are still being set up; flip on more by setting e.g.
+// EXPO_PUBLIC_OAUTH_PROVIDERS="google,apple,facebook" (no redeploy of code
+// logic needed — just the env at build time). A tapped-but-unconfigured
+// provider would bounce to a Supabase error, so we simply don't render it.
+const ENABLED_PROVIDERS = new Set(
+  (process.env.EXPO_PUBLIC_OAUTH_PROVIDERS ?? 'google')
+    .split(',')
+    .map((s: string) => s.trim().toLowerCase())
+    .filter(Boolean),
+);
+const PROVIDERS = ALL_PROVIDERS.filter((p) => ENABLED_PROVIDERS.has(p.key));
 
 export default function LoginScreen() {
   const { signIn, signUp, signInWithProvider } = useAuth();
@@ -127,26 +140,44 @@ export default function LoginScreen() {
               onPress={submit}
             />
 
-            <View style={styles.divider}>
-              <View style={styles.line} />
-              <Txt variant="caption" color={Colors.textSub}>
-                or continue with
-              </Txt>
-              <View style={styles.line} />
-            </View>
+            {PROVIDERS.length > 0 ? (
+              <>
+                <View style={styles.divider}>
+                  <View style={styles.line} />
+                  <Txt variant="caption" color={Colors.textSub}>
+                    or continue with
+                  </Txt>
+                  <View style={styles.line} />
+                </View>
 
-            <View style={styles.providers}>
-              {PROVIDERS.map((p) => (
-                <Pressable
-                  key={p.key}
-                  style={({ pressed }) => [styles.provider, pressed && { opacity: 0.7 }]}
-                  onPress={() => onProvider(p.key)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Continue with ${p.label}`}>
-                  <Ionicons name={p.icon} size={22} color={Colors.textMain} />
-                </Pressable>
-              ))}
-            </View>
+                {PROVIDERS.length === 1 ? (
+                  // A lone icon reads as ambiguous — label the single provider.
+                  <Pressable
+                    style={({ pressed }) => [styles.providerWide, pressed && { opacity: 0.7 }]}
+                    onPress={() => onProvider(PROVIDERS[0].key)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Continue with ${PROVIDERS[0].label}`}>
+                    <Ionicons name={PROVIDERS[0].icon} size={22} color={Colors.textMain} />
+                    <Txt variant="bodyMedium" color={Colors.textMain}>
+                      Continue with {PROVIDERS[0].label}
+                    </Txt>
+                  </Pressable>
+                ) : (
+                  <View style={styles.providers}>
+                    {PROVIDERS.map((p) => (
+                      <Pressable
+                        key={p.key}
+                        style={({ pressed }) => [styles.provider, pressed && { opacity: 0.7 }]}
+                        onPress={() => onProvider(p.key)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Continue with ${p.label}`}>
+                        <Ionicons name={p.icon} size={22} color={Colors.textMain} />
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
+              </>
+            ) : null}
 
             <Pressable
               onPress={() => {
@@ -208,6 +239,17 @@ const styles = StyleSheet.create({
   providers: { flexDirection: 'row', justifyContent: 'center', gap: Spacing.md },
   provider: {
     width: 56,
+    height: 48,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.stroke,
+    backgroundColor: Colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  providerWide: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
     height: 48,
     borderRadius: Radius.md,
     borderWidth: 1,
