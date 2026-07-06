@@ -515,6 +515,15 @@ export type XpProjection = {
 export type XpApi = {
   /** Append an XP award to the ledger (the shared gamification source). */
   record(input: XpAwardInput, appUserId: string | null): Promise<void>;
+  /** Award the day's check-in XP idempotently — at most once per calendar day,
+   *  enforced server-side (so retries / a new device / cleared storage can't
+   *  double-award or skip). `day` is the YYYY-MM-DD key. Returns whether it
+   *  actually awarded (so the client knows whether to celebrate). */
+  awardCheckin(
+    points: number,
+    day: string,
+    appUserId: string | null,
+  ): Promise<{ awarded: boolean; points: number }>;
   /** Rank the caller now vs. with `added` more points, for the movement feedback.
    *  Call BEFORE recording the award so current=pre and projected=post. */
   project(added: number, period?: XpPeriod): Promise<XpProjection | null>;

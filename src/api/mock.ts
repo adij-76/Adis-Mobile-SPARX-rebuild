@@ -249,10 +249,19 @@ export const mockAssessments: AssessmentsApi = {
 // feel real; `mine` accumulates as the mock records events.
 let mockXpMine = 0;
 const MOCK_RIVALS = [320, 210, 140, 90, 55];
+const mockCheckinDays = new Set<string>();
+
 export const mockXp: XpApi = {
   record: (input) => {
     mockXpMine += Math.round(input.points || 0);
     return delay(undefined);
+  },
+  awardCheckin: (points, day) => {
+    const pts = Math.round(points || 0);
+    if (pts <= 0 || mockCheckinDays.has(day)) return delay({ awarded: false, points: 0 });
+    mockCheckinDays.add(day);
+    mockXpMine += pts;
+    return delay({ awarded: true, points: pts });
   },
   project: (added) => {
     const total = mockXpMine + Math.round(added || 0);

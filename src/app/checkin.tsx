@@ -28,9 +28,9 @@ import {
 } from '@/data/content';
 import { api } from '@/api';
 import { RankMovement } from '@/components/ui/rank-movement';
-import { recordCheckin, type CheckinResult } from '@/lib/checkin';
+import { recordCheckin, pointsForStreak, type CheckinResult } from '@/lib/checkin';
 import { type StreakMilestone } from '@/lib/streaks';
-import { useXpAward, type XpMovement } from '@/lib/xp-award';
+import { useCheckinXpAward, type XpMovement } from '@/lib/xp-award';
 import { useAsync } from '@/hooks/use-async';
 import { useAuth, useFirstName } from '@/lib/auth';
 import { addictionStruggle } from '@/lib/addiction';
@@ -42,7 +42,7 @@ export default function CheckinScreen() {
   const router = useRouter();
   const { addCheckin, checkins, creditStreak } = useStore();
   const { user: authUser } = useAuth();
-  const award = useXpAward();
+  const checkinAward = useCheckinXpAward();
   const struggle = addictionStruggle(authUser?.addictionLabel);
   const [step, setStep] = useState(0);
   const [result, setResult] = useState<CheckinResult | null>(null);
@@ -79,10 +79,14 @@ export default function CheckinScreen() {
     const ms = creditStreak();
     setMilestone(ms);
     setResult(r);
-    // Log check-in points (+ any milestone bonus) to the shared ledger and pull
-    // the rank movement to celebrate.
-    const total = r.pointsEarned + (ms?.bonus ?? 0);
-    if (total > 0) award({ source: 'checkin', points: total }).then(setMovement);
+    // Award the day's check-in XP (+ any milestone bonus) to the shared ledger,
+    // ONCE per day — the server (mobile_award_checkin_xp) enforces the once-a-day
+    // rule and returns the rank movement to celebrate. We pass the day's full
+    // point value rather than r.pointsEarned (which the local "already checked
+    // in" flag zeroes out): the server is now the arbiter, so a cleared cache or
+    // a second device can neither double-award nor silently skip the XP.
+    const dailyPoints = pointsForStreak(r.streak) + (ms?.bonus ?? 0);
+    checkinAward(dailyPoints, entry.date).then(setMovement);
   };
 
   const behaviorAnswered =

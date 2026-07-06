@@ -1452,6 +1452,14 @@ export const supabaseXp: XpApi = {
     });
     if (!res.ok) throw new Error(`XP record failed (${res.status})`);
   },
+  async awardCheckin(points, day, appUserId) {
+    const idNum = Number(appUserId);
+    return rpc<{ awarded: boolean; points: number }>('mobile_award_checkin_xp', {
+      p_points: Math.round(points),
+      p_day: day,
+      p_app_user_id: Number.isFinite(idNum) ? idNum : null,
+    });
+  },
   async project(added, period = 'week'): Promise<XpProjection | null> {
     type Row = {
       my_points: number;
