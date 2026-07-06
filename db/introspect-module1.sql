@@ -59,6 +59,17 @@ where p."order" = 1
 order by l.position, pr.sort_order, q.sort_order;
 \echo === MODULE1-QUESTIONS-END ===
 
+\echo === MODULE1-COLUMNS-BEGIN ===
+-- Full column lists of the definition tables — looking for a per-addiction /
+-- conditional-display filter the view might need to honor.
+select jsonb_build_object(
+  'table', table_name,
+  'columns', jsonb_agg(column_name || ':' || data_type order by ordinal_position))
+from information_schema.columns
+where table_schema = 'public' and table_name in ('questions', 'profiles', 'question_options')
+group by table_name;
+\echo === MODULE1-COLUMNS-END ===
+
 \echo === MODULE1-VIEW-CHECK-BEGIN ===
 -- Sanity: what the live view actually serves (rollout gate included).
 select jsonb_build_object(
