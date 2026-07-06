@@ -22,6 +22,7 @@ groups.sql
 video-watches.sql
 game-state.sql
 assessments.sql
+lesson-exercises.sql
 xp-events.sql
 views.sql
 checkin-history.sql

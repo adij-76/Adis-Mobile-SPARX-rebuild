@@ -24,6 +24,10 @@ import type {
   CommunityApi,
   ContentApi,
   DirectoryUser,
+  ExerciseInputKind,
+  ExerciseResponse,
+  ExercisesApi,
+  ExerciseWorksheet,
   FavoritesApi,
   GameApi,
   GameState,
@@ -1426,6 +1430,112 @@ export const supabaseAssessments: AssessmentsApi = {
       }),
     });
     if (!res.ok) throw new Error(`Assessment save failed (${res.status})`);
+  },
+};
+
+// --- Lesson exercises (mobile_lesson_exercises view + app-owned responses) ---
+
+type ExerciseDefRow = {
+  lesson_id: number | string;
+  profile_id: number | string;
+  profile_title: string | null;
+  profile_order: number | null;
+  question_id: number | string;
+  question_order: number | null;
+  input_kind: ExerciseInputKind;
+  prompt_html: string | null;
+  prompt_title: string | null;
+  min_value: number | null;
+  max_value: number | null;
+  required: boolean;
+  options: unknown;
+};
+
+export const supabaseExercises: ExercisesApi = {
+  async forLesson(lessonId) {
+    const rows = await rest<ExerciseDefRow[]>('mobile_lesson_exercises', {
+      lesson_id: `eq.${lessonId}`,
+      order: 'profile_order.asc,question_order.asc',
+    });
+    // Group the flat rows into worksheets, preserving the server order.
+    const sheets = new Map<string, ExerciseWorksheet>();
+    for (const r of rows) {
+      const profileId = String(r.profile_id);
+      let ws = sheets.get(profileId);
+      if (!ws) {
+        ws = {
+          lessonId: String(r.lesson_id),
+          profileId,
+          title: r.profile_title?.trim() || 'Worksheet',
+          order: r.profile_order ?? 0,
+          questions: [],
+        };
+        sheets.set(profileId, ws);
+      }
+      ws.questions.push({
+        questionId: String(r.question_id),
+        order: r.question_order ?? 0,
+        inputKind: r.input_kind,
+        title: r.prompt_title,
+        promptHtml: r.prompt_html,
+        minValue: r.min_value,
+        maxValue: r.max_value,
+        required: r.required,
+        options: Array.isArray(r.options) ? r.options.map(String) : [],
+      });
+    }
+    return [...sheets.values()];
+  },
+  async responses(lessonId) {
+    type Row = {
+      lesson_id: number | string;
+      profile_id: number | string;
+      question_id: number | string;
+      value_text: string | null;
+      value_json: unknown;
+      answered_at: string;
+    };
+    const rows = await rest<Row[]>('mobile_exercise_responses', {
+      select: 'lesson_id,profile_id,question_id,value_text,value_json,answered_at',
+      lesson_id: `eq.${lessonId}`,
+    });
+    return rows.map(
+      (r): ExerciseResponse => ({
+        lessonId: String(r.lesson_id),
+        profileId: String(r.profile_id),
+        questionId: String(r.question_id),
+        valueText: r.value_text,
+        valueJson: r.value_json,
+        answeredAt: r.answered_at,
+      }),
+    );
+  },
+  async save(input, appUserId) {
+    const idNum = Number(appUserId);
+    // Upsert on (auth_uid, question_id): the latest answer wins, so saving on
+    // every step-advance/blur is safe to repeat and resumes anywhere.
+    const res = await fetch(
+      `${BASE}/rest/v1/mobile_exercise_responses?on_conflict=auth_uid,question_id`,
+      {
+        method: 'POST',
+        headers: {
+          apikey: ANON,
+          Authorization: `Bearer ${authToken ?? ANON}`,
+          'Content-Type': 'application/json',
+          Prefer: 'resolution=merge-duplicates,return=minimal',
+        },
+        body: JSON.stringify({
+          lesson_id: Number(input.lessonId),
+          profile_id: Number(input.profileId),
+          question_id: Number(input.questionId),
+          value_text: input.valueText ?? null,
+          value_json: input.valueJson ?? null,
+          answered_at: new Date().toISOString(),
+          app_user_id: Number.isFinite(idNum) ? idNum : null,
+        }),
+      },
+    );
+    if (!res.ok) throw new Error(`Exercise save failed (${res.status})`);
   },
 };
 

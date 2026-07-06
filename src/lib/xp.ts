@@ -33,13 +33,14 @@ export function streakMultiplier(streak: number): number {
  * Base XP per earning activity, BEFORE the streak/bonus multiplier. Videos use
  * their own progress-tiered points (src/lib/video-points.ts, 1/2/3 by tier).
  *
- * `assessment_complete` and `module_complete` are wired ahead of the features
- * that will fire them (assessments + lesson/module exercises are not built yet).
+ * `module_complete` is wired ahead of the feature that will fire it (module
+ * completion isn't tracked yet).
  */
 export type XpActivity =
   | 'lesson_complete'
   | 'module_complete'
   | 'assessment_complete'
+  | 'worksheet_complete'
   | 'community_post'
   | 'community_reply';
 
@@ -47,6 +48,7 @@ export const XP_BASE: Record<XpActivity, number> = {
   lesson_complete: 10,
   module_complete: 25,
   assessment_complete: 15,
+  worksheet_complete: 15, // finishing one lesson exercise worksheet (a `profile`)
   community_post: 5,
   community_reply: 3,
 };
