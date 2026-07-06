@@ -120,7 +120,7 @@ export default function Sparky() {
     if (sparkyConfigured) {
       setBusy(true);
       try {
-        answer = await askSparky(content, sessionId, history, user?.appUserId ?? null);
+        answer = await askSparky(content, sessionId, history, user?.appUserId ?? null, user?.id ?? null);
       } catch {
         answer = {
           text: "I couldn't reach my brain just now — please check your connection and try again in a moment.",

@@ -26,6 +26,7 @@ views.sql
 checkin-history.sql
 community-views.sql
 leaderboard.sql
+ai-context.sql
 
 # Base-table hardening — MUST run LAST, after every view/table/function above
 # exists and has been granted. Revokes anon/authenticated from the production
