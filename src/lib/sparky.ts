@@ -32,20 +32,26 @@ export async function askSparky(
   sessionId: string,
   history: SparkyTurn[],
   userId: string | null,
+  authUid: string | null,
 ): Promise<SparkyReply> {
   const res = await fetch(WEBHOOK, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     // n8n's Chat Trigger node expects `chatInput` + `sessionId` (and an
     // `action`). We also send `message`/`history` so a plain Webhook node
-    // still works — harmless extra fields either way. `userId`/`timestamp`
-    // drive the flow's personalization + crisis-alert nodes. userId is the
-    // signed-in user's production id (mobile_me.app_user_id), never a constant.
+    // still works — harmless extra fields either way. `userId`/`authUid`/
+    // `timestamp` drive the flow's personalization + crisis-alert nodes.
+    //   • userId  = production id (mobile_me.app_user_id); null for new testers.
+    //   • authUid = Supabase auth user id — the key for every app-owned table,
+    //     so the flow can load the user's full context (assessments, check-ins,
+    //     activity, posts) reliably, testers included. Feed it to
+    //     mobile_ai_context(authUid).
     body: JSON.stringify({
       action: 'sendMessage',
       chatInput: message,
       sessionId,
       userId: userId ?? '',
+      authUid: authUid ?? '',
       timestamp: new Date().toISOString(),
       message,
       history,
