@@ -28,7 +28,7 @@ import { useStore } from '@/lib/store';
  *  a brand-new user has no streak, so it lands as a flat +25). */
 const ONBOARD_XP = 25;
 
-const STEPS = ['welcome', 'dob', 'primary', 'secondary', 'gender', 'details'] as const;
+const STEPS = ['welcome', 'dob', 'gender', 'primary', 'secondary', 'details'] as const;
 type Step = (typeof STEPS)[number];
 
 const GENDERS: { key: OnboardingGender; label: string }[] = [
