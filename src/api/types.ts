@@ -539,4 +539,38 @@ export type Api = {
   messages: MessagesApi;
   groups: GroupsApi;
   game: GameApi;
+  admin: AdminApi;
+};
+
+// -- Admin backend (hidden /admin screen) ------------------------------------
+export type AdminActiveTester = {
+  email: string;
+  onboarded_at: string | null;
+  is_existing: boolean;
+  checkins: number;
+  xp_events: number;
+  assessments: number;
+  posts: number;
+  last_activity: string | null;
+};
+
+export type AdminOverview = {
+  generated_for: string;
+  window_days: number;
+  totals: {
+    auth_users: number;
+    prod_users: number;
+    mobile_first: number;
+    onboarded: number;
+    active_testers: number;
+  };
+  signups_by_day: { day: string; count: number }[];
+  active_testers: AdminActiveTester[];
+};
+
+export type AdminApi = {
+  /** True if the signed-in user is on the server-side admin allowlist. */
+  isAdmin(): Promise<boolean>;
+  /** The full admin overview payload. Throws for non-admins. */
+  overview(days?: number): Promise<AdminOverview>;
 };

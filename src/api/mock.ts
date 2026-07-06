@@ -18,6 +18,7 @@ import {
   type WorkshopSummary,
 } from '@/data/content';
 import type {
+  AdminApi,
   AuthApi,
   AuthSession,
   ChatMessage,
@@ -540,4 +541,27 @@ export const mockGame: GameApi = {
     };
     return delay(undefined);
   },
+};
+
+export const mockAdmin: AdminApi = {
+  isAdmin: () => delay(true),
+  overview: (days = 30) =>
+    delay({
+      generated_for: 'demo@admin.local',
+      window_days: days,
+      totals: { auth_users: 3, prod_users: 2, mobile_first: 1, onboarded: 1, active_testers: 2 },
+      signups_by_day: [{ day: new Date().toISOString().slice(0, 10), count: 1 }],
+      active_testers: [
+        {
+          email: 'tester@example.com',
+          onboarded_at: new Date().toISOString(),
+          is_existing: false,
+          checkins: 3,
+          xp_events: 4,
+          assessments: 1,
+          posts: 0,
+          last_activity: new Date().toISOString(),
+        },
+      ],
+    }),
 };

@@ -6,6 +6,7 @@
  * screen changes.
  */
 import {
+  mockAdmin,
   mockAssessments,
   mockAuth,
   mockCheckins,
@@ -22,6 +23,7 @@ import {
   mockXp,
 } from '@/api/mock';
 import {
+  supabaseAdmin,
   supabaseAssessments,
   supabaseAuth,
   supabaseCheckins,
@@ -57,11 +59,15 @@ export const api: Api = {
   messages: useSupabase ? supabaseMessages : mockMessages,
   groups: useSupabase ? supabaseGroups : mockGroups,
   game: useSupabase ? supabaseGame : mockGame,
+  admin: useSupabase ? supabaseAdmin : mockAdmin,
 };
 
 export { setSupabaseToken, setOnUnauthorized } from '@/api/supabase';
 
 export type {
+  AdminApi,
+  AdminOverview,
+  AdminActiveTester,
   Api,
   AssessmentResponseRecord,
   AssessmentsApi,
