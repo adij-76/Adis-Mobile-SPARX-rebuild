@@ -498,6 +498,79 @@ export type AssessmentsApi = {
   ): Promise<void>;
 };
 
+// -- Lesson exercises (interactive worksheets) --------------------------------
+// Definitions come from mobile_lesson_exercises (legacy profiles → questions →
+// question_options); answers live in mobile_exercise_responses (latest per
+// user/question — resumable). Spec: docs/lesson-exercises-spec.md.
+
+/** How a question is answered, mapped server-side from questions.widget_type.
+ *  `content`/`display` are read-only blocks (display is hidden for MVP). */
+export type ExerciseInputKind =
+  | 'text'
+  | 'longtext'
+  | 'scale'
+  | 'select'
+  | 'multiselect'
+  | 'date'
+  | 'content'
+  | 'display';
+
+export type ExerciseQuestion = {
+  questionId: string;
+  order: number;
+  inputKind: ExerciseInputKind;
+  /** Short plain heading (questions.title) — safe to render directly. */
+  title: string | null;
+  /** Rich TinyMCE HTML (questions.question_label) — MUST go through RichText/
+   *  sanitize, never rendered raw. */
+  promptHtml: string | null;
+  /** Scale bounds (inclusive), when inputKind === 'scale'. */
+  minValue: number | null;
+  maxValue: number | null;
+  required: boolean;
+  /** Option labels in display order (scale endpoint labels / choice rows). */
+  options: string[];
+};
+
+/** One worksheet (a legacy `profile` attached to a lesson) with its questions
+ *  in order. */
+export type ExerciseWorksheet = {
+  lessonId: string;
+  profileId: string;
+  title: string;
+  order: number;
+  questions: ExerciseQuestion[];
+};
+
+/** The user's saved answer to one question (latest wins). Text-like inputs use
+ *  `valueText`; scale (number) and multiselect (string[]) use `valueJson`. */
+export type ExerciseResponse = {
+  lessonId: string;
+  profileId: string;
+  questionId: string;
+  valueText: string | null;
+  valueJson: unknown;
+  answeredAt: string; // ISO
+};
+
+export type ExerciseAnswerInput = {
+  lessonId: string;
+  profileId: string;
+  questionId: string;
+  valueText?: string | null;
+  valueJson?: unknown;
+};
+
+export type ExercisesApi = {
+  /** The lesson's worksheets with their questions, in display order. */
+  forLesson(lessonId: string): Promise<ExerciseWorksheet[]>;
+  /** The caller's saved answers for a lesson (resume/progress). */
+  responses(lessonId: string): Promise<ExerciseResponse[]>;
+  /** Persist one answer (upsert on user+question — latest wins). Called on
+   *  step-advance/blur, so it must be cheap and safe to repeat. */
+  save(input: ExerciseAnswerInput, appUserId: string | null): Promise<void>;
+};
+
 /** Leaderboard window for the XP boards. */
 export type XpPeriod = 'today' | 'week' | 'month' | 'all';
 
@@ -537,6 +610,7 @@ export type Api = {
   auth: AuthApi;
   onboarding: OnboardingApi;
   assessments: AssessmentsApi;
+  exercises: ExercisesApi;
   xp: XpApi;
   content: ContentApi;
   insights: InsightsApi;

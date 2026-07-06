@@ -135,6 +135,24 @@ begin
       'legacy_points', (select coalesce(sum(up.points), 0) from public.user_points up where u_id is not null and up.user_id = u_id),
       'streak_days', (select streak_credited_days from public.mobile_game_state where auth_uid = p_auth_uid)),
 
+    -- lesson-exercise reflections (their own words — the journal): latest 10
+    -- free-text answers, clipped so one long reflection can't blow up the
+    -- payload. Powers the personalised lesson summary + deeper coaching.
+    'exercise_reflections', coalesce((
+      select jsonb_agg(jsonb_build_object(
+               'lesson_id', r.lesson_id,
+               'question', coalesce(e.prompt_title, ''),
+               'answer', left(r.value_text, 400),
+               'answered_at', r.answered_at) order by r.answered_at desc)
+      from (
+        select er.lesson_id, er.question_id, er.value_text, er.answered_at
+        from public.mobile_exercise_responses er
+        where er.auth_uid = p_auth_uid and nullif(trim(er.value_text), '') is not null
+        order by er.answered_at desc
+        limit 10
+      ) r
+      left join public.mobile_lesson_exercises e on e.question_id = r.question_id), '[]'::jsonb),
+
     -- posts: mobile ∪ legacy comm_posts (their own words), last 5
     'recent_posts', coalesce((
       select jsonb_agg(jsonb_build_object('text', content, 'created_at', created_at, 'source', src) order by created_at desc)

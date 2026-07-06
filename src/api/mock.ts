@@ -26,6 +26,9 @@ import type {
   CommunityApi,
   ContentApi,
   DirectoryUser,
+  ExerciseResponse,
+  ExercisesApi,
+  ExerciseWorksheet,
   GameApi,
   GameState,
   Group,
@@ -241,6 +244,116 @@ export const mockAssessments: AssessmentsApi = {
       { ...input, takenAt: new Date().toISOString() },
       ...mockAssessmentRows,
     ];
+    return delay(undefined);
+  },
+};
+
+// Lesson exercises — offline/dev. Every lesson gets the same two worksheets
+// (mirroring the legacy shapes: reflection-heavy + one mixed-input sheet) so
+// the runner is fully testable without a backend; answers persist in memory.
+function mockWorksheets(lessonId: string): ExerciseWorksheet[] {
+  return [
+    {
+      lessonId,
+      profileId: `${lessonId}-w1`,
+      title: 'Hero Manifesto',
+      order: 1,
+      questions: [
+        {
+          questionId: `${lessonId}-w1-q0`,
+          order: 0,
+          inputKind: 'content',
+          title: 'Welcome',
+          promptHtml:
+            '<p>This worksheet is about <strong>your</strong> story. There are no wrong answers — write what feels true today.</p>',
+          minValue: null,
+          maxValue: null,
+          required: false,
+          options: [],
+        },
+        {
+          questionId: `${lessonId}-w1-q1`,
+          order: 1,
+          inputKind: 'longtext',
+          title: 'Why are you here?',
+          promptHtml: '<p>What brought you to this work, in your own words?</p>',
+          minValue: null,
+          maxValue: null,
+          required: true,
+          options: [],
+        },
+        {
+          questionId: `${lessonId}-w1-q2`,
+          order: 2,
+          inputKind: 'text',
+          title: 'One word for today',
+          promptHtml: '<p>If today had a single word, what would it be?</p>',
+          minValue: null,
+          maxValue: null,
+          required: false,
+          options: [],
+        },
+      ],
+    },
+    {
+      lessonId,
+      profileId: `${lessonId}-w2`,
+      title: 'Personal Power Check',
+      order: 2,
+      questions: [
+        {
+          questionId: `${lessonId}-w2-q1`,
+          order: 1,
+          inputKind: 'scale',
+          title: 'I am in control of my choices',
+          promptHtml: '<p>How much do you agree right now?</p>',
+          minValue: 0,
+          maxValue: 4,
+          required: true,
+          options: ['Strongly disagree', 'Strongly agree'],
+        },
+        {
+          questionId: `${lessonId}-w2-q2`,
+          order: 2,
+          inputKind: 'multiselect',
+          title: 'Who supports you?',
+          promptHtml: '<p>Pick everyone in your corner.</p>',
+          minValue: null,
+          maxValue: null,
+          required: false,
+          options: ['Family', 'Friends', 'Coach', 'Community', 'Therapist'],
+        },
+        {
+          questionId: `${lessonId}-w2-q3`,
+          order: 3,
+          inputKind: 'select',
+          title: 'Biggest focus this week',
+          promptHtml: '<p>Choose one to commit to.</p>',
+          minValue: null,
+          maxValue: null,
+          required: false,
+          options: ['Sleep', 'Movement', 'Connection', 'Craving skills'],
+        },
+      ],
+    },
+  ];
+}
+
+const mockExerciseRows = new Map<string, ExerciseResponse>(); // key: questionId
+
+export const mockExercises: ExercisesApi = {
+  forLesson: (lessonId) => delay(mockWorksheets(lessonId)),
+  responses: (lessonId) =>
+    delay([...mockExerciseRows.values()].filter((r) => r.lessonId === lessonId)),
+  save: (input) => {
+    mockExerciseRows.set(input.questionId, {
+      lessonId: input.lessonId,
+      profileId: input.profileId,
+      questionId: input.questionId,
+      valueText: input.valueText ?? null,
+      valueJson: input.valueJson ?? null,
+      answeredAt: new Date().toISOString(),
+    });
     return delay(undefined);
   },
 };

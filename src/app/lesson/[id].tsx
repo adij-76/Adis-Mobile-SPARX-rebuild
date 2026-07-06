@@ -9,6 +9,8 @@ import { api } from '@/api';
 import type { Lesson } from '@/api/types';
 import { Confetti } from '@/components/confetti';
 import { CourseOutline } from '@/components/course-outline';
+import { ExercisesSection, useLessonExercises } from '@/components/exercise-runner';
+import { SparxySummary } from '@/components/sparxy-summary';
 import { Button } from '@/components/ui/button';
 import { RankMovement } from '@/components/ui/rank-movement';
 import { useXpAward, type XpMovement } from '@/lib/xp-award';
@@ -60,6 +62,9 @@ export default function LessonScreen() {
 
   const { isFav, toggleFav, markLessonComplete } = useStore();
   const award = useXpAward();
+  // Exercises + answers are shared by the Worksheet step (interactive runner)
+  // and the Summary step (Sparxy reads the answers).
+  const exercises = useLessonExercises(id ? String(id) : null);
   const [step, setStep] = useState(0);
   const [playing, setPlaying] = useState<SparkyVideo | null>(null);
   const [outlineOpen, setOutlineOpen] = useState(false);
@@ -198,13 +203,7 @@ export default function LessonScreen() {
               }
             />
             <Txt variant="title">Exercises</Txt>
-            <View style={styles.soon}>
-              <Ionicons name="construct-outline" size={20} color={Colors.textSub} />
-              <Txt variant="bodySm" color={Colors.textSub} style={{ flex: 1 }}>
-                Interactive exercises for this lesson are coming soon. For now, follow along with the
-                walkthrough above.
-              </Txt>
-            </View>
+            <ExercisesSection ex={exercises} />
           </>
         )}
 
@@ -216,12 +215,7 @@ export default function LessonScreen() {
             <Txt variant="title" center>
               Lesson summary
             </Txt>
-            <View style={styles.summaryCard}>
-              <Txt variant="body" color={Colors.textMain}>
-                A personalised, inspiring summary of this lesson and your exercise — plus your next
-                steps — will appear here.
-              </Txt>
-            </View>
+            <SparxySummary lesson={lesson} ex={exercises} />
             {lesson.description ? (
               <Txt variant="bodySm" color={Colors.textSub}>
                 {lesson.description}
@@ -543,14 +537,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
   },
-  soon: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-    alignItems: 'center',
-    backgroundColor: Colors.screen,
-    borderRadius: Radius.md,
-    padding: Spacing.lg,
-  },
   summaryIcon: {
     alignSelf: 'center',
     width: 60,
@@ -561,7 +547,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: Spacing.md,
   },
-  summaryCard: { backgroundColor: Colors.screen, borderRadius: Radius.md, padding: Spacing.lg },
   backdrop: { flex: 1, backgroundColor: Colors.overlay },
   drawer: {
     position: 'absolute',
