@@ -150,6 +150,8 @@ are dropped. Document the executed job + date in `db/README.md` at cutover.
 | **Enum maps** | `addictions.enum_id` (0=Alcohol…), `lesson_type` (1=workshop), `commentable_type`/`reactionable_type`/`notifiable_type` polymorphic values | ⚠️ consolidate into field-dictionary |
 | **Emoji map** | `reactions.emoji_id` → `emojis.e_character` (glyph) for per-emoji reaction display | ⚠️ document when reactions show emojis |
 | `db/introspect.sql` | One-shot schema dump (paste-back substitute for direct DB access) | ✅ |
+| `db/introspect-module1.sql` | READ-ONLY Module 1 exercise-content dump for the QA loop (`.claude/skills/exercise-content-qa`) — run via apply-migrations **dispatch** (`file=` input), results in the run log; ⚠️ repo+logs are PUBLIC → delete run logs after extracting; NOT in apply-order | ✅ |
+| `db/fix-module1-content.sql` | One-off guarded content fix (applied 2026-07-06): moved the Alcohol tips block (`questions.id=6`) from the Hero Manifesto sheet to the top of First Day Quickstart (tips order Alcohol→Marijuana→Drugs→Sex→Gambling→Food). Idempotent; dispatched manually; NOT in apply-order | ✅ applied |
 | `docs/gamification.md` | The points/streak/badge/bonus economy + research-backed roadmap and recovery-population guardrails; the "why" behind the reward reconciliation | ✅ |
 | `docs/native-build-notes.md` | Native (iOS/Android) requirements the web build fakes — incl. the WebView bridge needed for real video completion/percent tracking | ✅ |
 
