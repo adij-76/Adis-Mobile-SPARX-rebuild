@@ -191,7 +191,9 @@ export function ExercisesSection({ ex }: { ex: LessonExercisesState }) {
         <Txt variant="bodySm" color={Colors.textSub} style={{ flex: 1 }}>
           {ex.error
             ? "Couldn't load the exercises right now — they'll be here when you're back online."
-            : 'This lesson has no written exercises — follow along with the walkthrough above.'}
+            : // Exercises roll out module by module (mobile_exercise_rollout),
+              // so an empty result usually means "not yet", not "never".
+              'Interactive exercises for this lesson are coming soon — for now, follow along with the walkthrough above.'}
         </Txt>
       </View>
     );

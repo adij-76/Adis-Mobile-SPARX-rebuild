@@ -102,7 +102,10 @@ Two files create real tables the app **writes user data to**, unlike the
   Life retakes — one row per area, score 0-100).
 - `db/lesson-exercises.sql` → **`public.mobile_exercise_responses`** (lesson
   exercise answers — one latest row per user/question; reconciles to
-  `answer_headers`/`answers`, see `db/reconcile.sql` §3b).
+  `answer_headers`/`answers`, see `db/reconcile.sql` §3b) and
+  **`public.mobile_exercise_rollout`** (which modules have exercises live —
+  config data; module 1 is re-seeded on apply, but manually enabled modules
+  must be preserved).
 
 All carry the same two consequences for a production re-import:
 

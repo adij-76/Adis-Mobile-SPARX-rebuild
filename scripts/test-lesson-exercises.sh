@@ -46,7 +46,8 @@ create function auth.uid() returns uuid language sql stable as
 grant usage on schema public to anon, authenticated;
 
 -- ---- Legacy Rails engine stubs (shape per docs/lesson-exercises-spec.md) ----
-create table public.lessons (id serial primary key, title varchar);
+create table public.portions (id serial primary key, program_id integer, title varchar, "order" integer);
+create table public.lessons (id serial primary key, portion_id integer, title varchar);
 create table public.profiles (
   id serial primary key, lesson_id integer, title varchar,
   sort_order integer, active boolean default true
@@ -71,12 +72,18 @@ create table public.answers (
 );
 
 -- ---- Seed ------------------------------------------------------------------
-insert into public.lessons (id, title) values (5, 'IGNTD Hero Manifesto');
+insert into public.portions (id, program_id, title, "order") values
+  (10, 1, 'Module 1', 1),
+  (20, 1, 'Module 2', 2);
+insert into public.lessons (id, portion_id, title) values
+  (5, 10, 'IGNTD Hero Manifesto'),   -- module 1 → rolled out
+  (6, 20, 'Module-2 Lesson');        -- module 2 → NOT rolled out initially
 insert into public.profiles (id, lesson_id, title, sort_order, active) values
   (100, 5,    'Hero Manifesto',        2, true),
   (101, 5,    'Personal Power',        1, true),
   (102, 5,    'Old Inactive Sheet',    3, false),   -- excluded: inactive
-  (103, null, 'Standalone Assessment', 1, true);    -- excluded: not lesson-attached
+  (103, null, 'Standalone Assessment', 1, true),    -- excluded: not lesson-attached
+  (104, 6,    'Module-2 Sheet',        1, true);    -- excluded until module 2 rolls out
 insert into public.questions
   (id, profile_id, title, question_label, widget_type, sort_order, active, min_value, max_value, required) values
   (1, 100, 'Your why',   '<p style="color:red">Why are <b>you</b> here?</p>', 14, 2, true,  null, null, true),
@@ -86,7 +93,8 @@ insert into public.questions
   (5, 101, 'Supports',   '<p>Pick your supports</p>',                          6, 2, true,  null, null, null),
   (6, 101, 'Intro',      '<table><tr><td>Welcome</td></tr></table>',          12, 0, true,  null, null, null),
   (7, 101, 'AUDIT text', '<p>computed</p>',                                    5, 3, true,  null, null, null),
-  (8, 101, 'Legacy',     '<p>old widget</p>',                                  0, 4, true,  null, null, null);
+  (8, 101, 'Legacy',     '<p>old widget</p>',                                  0, 4, true,  null, null, null),
+  (9, 104, 'Module 2 Q', '<p>later cohort</p>',                               14, 1, true,  null, null, null);
 insert into public.question_options (question_id, value, sort_order) values
   (4, 'Strongly disagree', 1), (4, 'Strongly agree', 2),
   (5, 'Family', 2), (5, 'Friends', 1), (5, 'Coach', 3);
@@ -100,13 +108,32 @@ psql -v ON_ERROR_STOP=1 -q <<'SQL'
 do $$
 declare r record; got text;
 begin
-  -- Exclusions: inactive profile (102), non-lesson profile (103), inactive question (3).
+  -- Rollout seed: only module 1 ("order" = 1) is enabled automatically.
+  if (select array_agg(module_id order by module_id) from mobile_exercise_rollout)
+       <> array[10] then
+    raise exception 'rollout seed should hold exactly module 1 (portion 10)';
+  end if;
+
+  -- Exclusions: inactive profile (102), non-lesson profile (103), inactive
+  -- question (3), and the not-yet-rolled-out module-2 sheet (104).
   if (select count(*) from mobile_lesson_exercises) <> 7 then
     raise exception 'expected 7 exercise rows, got %', (select count(*) from mobile_lesson_exercises);
   end if;
-  if exists (select 1 from mobile_lesson_exercises where profile_id in (102, 103) or question_id = 3) then
-    raise exception 'inactive/non-lesson rows leaked into the view';
+  if exists (select 1 from mobile_lesson_exercises where profile_id in (102, 103, 104) or question_id = 3) then
+    raise exception 'inactive/non-lesson/unrolled rows leaked into the view';
   end if;
+
+  -- Gradual rollout: enabling module 2 is ONE ROW — its exercises appear
+  -- immediately; flipping enabled=false hides them again.
+  insert into mobile_exercise_rollout (module_id, note) values (20, 'module 2 test');
+  if not exists (select 1 from mobile_lesson_exercises where profile_id = 104) then
+    raise exception 'enabling module 2 should surface its exercises';
+  end if;
+  update mobile_exercise_rollout set enabled = false where module_id = 20;
+  if exists (select 1 from mobile_lesson_exercises where profile_id = 104) then
+    raise exception 'disabling a module should hide its exercises';
+  end if;
+  delete from mobile_exercise_rollout where module_id = 20;
 
   -- Ordering keys exposed: profile 101 sorts before 100; question order intact.
   select string_agg(question_id::text, ',' order by profile_order, question_order) into got

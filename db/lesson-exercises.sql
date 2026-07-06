@@ -25,11 +25,43 @@
 -- sanitize it before rendering (src/lib/html.ts). prompt_title (questions.title)
 -- is a short plain label and the safer default heading.
 --
+-- GRADUAL ROLLOUT: exercises go live module by module (module 1 first) via the
+-- mobile_exercise_rollout table below — enable the next module with one row,
+-- no app deploy needed.
+--
 -- Like mobile_lessons, this exposes definitions to any authenticated caller;
 -- the app gates locked lessons by mobile_lessons.accessible.
 -- Idempotent. Additive-only (see AGENTS.md): never rename/drop a column the
 -- deployed app reads — alias across the transition instead.
 -- =============================================================================
+
+-- 0) Gradual rollout — which MODULES have interactive exercises live --------
+-- We ship module by module (module 1 first), improving as we learn. The gate
+-- lives in the DB, not the app: enabling the next module is one row here
+-- (INSERT or flip `enabled`), live immediately — no app deploy. Lessons whose
+-- module isn't enabled simply return no rows from the view, and the app shows
+-- its "no exercises yet" note.
+--
+-- ⚠ CONFIG DATA — preserve on re-import (like the other app-owned tables).
+-- Toggle `enabled` rather than deleting rows: the module-1 seed below re-runs
+-- on every apply and `on conflict do nothing` preserves your edits, but a
+-- deleted module-1 row would come back.
+create table if not exists public.mobile_exercise_rollout (
+  module_id  integer primary key,              -- portions.id
+  enabled    boolean     not null default true,
+  note       text,
+  created_at timestamptz not null default now()
+);
+grant select on public.mobile_exercise_rollout to authenticated;
+
+-- Seed: module 1 of every program ("order" = 1). Later modules are enabled by
+-- hand as their content is reviewed:
+--   insert into mobile_exercise_rollout (module_id, note) values (<portions.id>, 'module 2');
+insert into public.mobile_exercise_rollout (module_id, note)
+select p.id, 'module 1 (initial rollout)'
+from public.portions p
+where p."order" = 1
+on conflict (module_id) do nothing;
 
 -- 1) Definitions view -------------------------------------------------------
 -- DROP+CREATE (not REPLACE) so column changes never need a migration dance;
@@ -64,14 +96,19 @@ create view public.mobile_lesson_exercises as
          -- question always stays exactly one row.
          coalesce(opts.options, '[]'::jsonb) as options
   from public.profiles pr
+  join public.lessons l on l.id = pr.lesson_id
   join public.questions q on q.profile_id = pr.id and q.active
   left join lateral (
     select jsonb_agg(qo.value order by qo.sort_order, qo.id) as options
     from public.question_options qo
     where qo.question_id = q.id
   ) opts on true
-  where pr.lesson_id is not null
-    and pr.active;
+  where pr.active
+    -- gradual rollout: only lessons in an enabled module surface exercises
+    and exists (
+      select 1 from public.mobile_exercise_rollout ro
+      where ro.module_id = l.portion_id and ro.enabled
+    );
 
 grant select on public.mobile_lesson_exercises to authenticated;
 

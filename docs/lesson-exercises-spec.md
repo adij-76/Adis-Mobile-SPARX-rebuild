@@ -169,3 +169,24 @@ summary from the answers via `mobile_ai_context`.
 - Keep answer **history** (journal over time) or latest-only? (MVP: latest.)
 - Render `display`/computed widgets, or hide for MVP? (MVP: hide.)
 - XP per question, per worksheet, or per lesson? (Suggest: per worksheet.)
+
+---
+
+## Rollout plan (decided)
+
+Ship **gradually, module by module — module 1 first** — and improve the
+experience iteration by iteration as we watch real usage. The gate is
+DB-driven so widening the rollout never needs an app deploy:
+
+- `mobile_exercise_rollout` (in `db/lesson-exercises.sql`) lists the modules
+  whose exercises are live. It's seeded with module 1 of every program
+  (`portions."order" = 1`); the view returns no rows for other modules, and
+  the app shows its "coming soon" note there.
+- Enable the next module with one row, live immediately:
+  `insert into mobile_exercise_rollout (module_id, note) values (<portions.id>, 'module 2');`
+- Roll back a module just as fast: `update mobile_exercise_rollout set enabled = false where module_id = …;`
+- Preserve this table on re-import (config data) — module 1 re-seeds
+  automatically, manually enabled modules don't.
+
+Iterate on content in the legacy tables themselves (question wording, options,
+`sort_order`, `active` flags) — the view reflects edits immediately.
