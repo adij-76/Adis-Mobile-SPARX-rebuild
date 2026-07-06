@@ -336,6 +336,61 @@ function mockWorksheets(lessonId: string): ExerciseWorksheet[] {
         },
       ],
     },
+    // A fill-in "statement" sheet (all short-text blanks + a Post-to-Community
+    // block) — mirrors the Hero Personal Power Statement shape so the composed
+    // statement page, print looks, and community share are testable offline.
+    {
+      lessonId,
+      profileId: `${lessonId}-w3`,
+      title: 'My Power Statement',
+      order: 3,
+      questions: [
+        {
+          questionId: `${lessonId}-w3-q1`,
+          order: 1,
+          inputKind: 'text',
+          title: 'Hero Because',
+          promptHtml: '<p>I became my own Hero because I want to…</p>',
+          minValue: null,
+          maxValue: null,
+          required: false,
+          options: [],
+        },
+        {
+          questionId: `${lessonId}-w3-q2`,
+          order: 2,
+          inputKind: 'content',
+          title: 'Never give up',
+          promptHtml: '<p><strong>And no matter what, I will never give up.</strong></p>',
+          minValue: null,
+          maxValue: null,
+          required: false,
+          options: [],
+        },
+        {
+          questionId: `${lessonId}-w3-q3`,
+          order: 3,
+          inputKind: 'text',
+          title: 'I know I can',
+          promptHtml: '<p>I know I can do this because I am…</p>',
+          minValue: null,
+          maxValue: null,
+          required: false,
+          options: [],
+        },
+        {
+          questionId: `${lessonId}-w3-q4`,
+          order: 4,
+          inputKind: 'content',
+          title: 'Post to Community',
+          promptHtml: '<p><strong>Now, take the next step and post this Power Statement in the community!</strong></p>',
+          minValue: null,
+          maxValue: null,
+          required: false,
+          options: [],
+        },
+      ],
+    },
   ];
 }
 

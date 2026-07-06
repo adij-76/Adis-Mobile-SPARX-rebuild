@@ -26,17 +26,20 @@ import { RankMovement } from '@/components/ui/rank-movement';
 import { RichText } from '@/components/ui/rich-text';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
+import { PrintRow, StatementView } from '@/components/statement-view';
 import { useAuth } from '@/lib/auth';
 import { htmlToText } from '@/lib/html';
 import {
   hasValue,
   isAnswerable,
+  isStatementSheet,
   questionHeading,
   responsesByQuestion,
   runnerQuestions,
   scaleEndpoints,
   worksheetProgress,
 } from '@/lib/exercises';
+import { PRINT_LOOKS, printContent } from '@/lib/print';
 import { useStore } from '@/lib/store';
 import { XP_BASE } from '@/lib/xp';
 import { useXpAward, type XpMovement } from '@/lib/xp-award';
@@ -144,28 +147,36 @@ export function useLessonExercises(lessonId: string | null): LessonExercisesStat
 // The Exercises step: worksheet list → per-worksheet guided stepper.
 // ---------------------------------------------------------------------------
 
+type ActiveSheet = { ws: ExerciseWorksheet; mode: 'run' | 'statement' };
+
 export function ExercisesSection({ ex }: { ex: LessonExercisesState }) {
   const { awardXp } = useStore();
   const award = useXpAward();
-  const [active, setActive] = useState<ExerciseWorksheet | null>(null);
+  const [active, setActive] = useState<ActiveSheet | null>(null);
   const [celebrate, setCelebrate] = useState<{
     title: string;
     earned: number;
     movement: XpMovement | null;
+    /** Statement sheet to reveal after the celebration ("and THEN post it"). */
+    next: ExerciseWorksheet | null;
   } | null>(null);
   // Guards a double-award if a worksheet is reopened + refinished this session.
   const awarded = useRef<Set<string>>(new Set());
 
   const finish = (ws: ExerciseWorksheet, byQuestion: Map<string, ExerciseResponse>) => {
-    setActive(null);
+    const complete = worksheetProgress(ws, byQuestion).complete;
+    // Fill-in sheets reveal the composed statement once they're done.
+    const statement = complete && isStatementSheet(ws) ? ws : null;
     const firstCompletion =
-      worksheetProgress(ws, byQuestion).complete &&
-      !ex.initiallyComplete.has(ws.profileId) &&
-      !awarded.current.has(ws.profileId);
-    if (!firstCompletion) return;
+      complete && !ex.initiallyComplete.has(ws.profileId) && !awarded.current.has(ws.profileId);
+    if (!firstCompletion) {
+      setActive(statement ? { ws: statement, mode: 'statement' } : null);
+      return;
+    }
+    setActive(null);
     awarded.current.add(ws.profileId);
     const earned = awardXp(XP_BASE.worksheet_complete);
-    setCelebrate({ title: ws.title, earned, movement: null });
+    setCelebrate({ title: ws.title, earned, movement: null, next: statement });
     if (earned > 0) {
       award({ source: 'exercise', refId: ws.profileId, points: earned }).then((m) =>
         setCelebrate((c) => (c ? { ...c, movement: m } : c)),
@@ -204,8 +215,11 @@ export function ExercisesSection({ ex }: { ex: LessonExercisesState }) {
       {ex.worksheets.map((ws) => {
         const p = worksheetProgress(ws, ex.byQuestion);
         const state = p.complete ? 'done' : p.answered > 0 ? 'resume' : 'start';
+        // A finished fill-in sheet opens on its composed statement (read/print/
+        // share), with Edit to get back into the runner.
+        const mode = p.complete && isStatementSheet(ws) ? 'statement' : 'run';
         return (
-          <Pressable key={ws.profileId} style={styles.sheetCard} onPress={() => setActive(ws)}>
+          <Pressable key={ws.profileId} style={styles.sheetCard} onPress={() => setActive({ ws, mode })}>
             <View style={[styles.sheetIcon, p.complete && styles.sheetIconDone]}>
               <Ionicons
                 name={p.complete ? 'checkmark' : 'create-outline'}
@@ -236,13 +250,20 @@ export function ExercisesSection({ ex }: { ex: LessonExercisesState }) {
         animationType="slide"
         onRequestClose={() => setActive(null)}
         presentationStyle="fullScreen">
-        {active ? (
-          <WorksheetRunner
-            worksheet={active}
+        {active?.mode === 'statement' ? (
+          <StatementView
+            worksheet={active.ws}
             byQuestion={ex.byQuestion}
-            onSave={(q, v) => ex.saveAnswer(active, q, v)}
+            onEdit={() => setActive({ ws: active.ws, mode: 'run' })}
             onClose={() => setActive(null)}
-            onFinish={(byQ) => finish(active, byQ)}
+          />
+        ) : active ? (
+          <WorksheetRunner
+            worksheet={active.ws}
+            byQuestion={ex.byQuestion}
+            onSave={(q, v) => ex.saveAnswer(active.ws, q, v)}
+            onClose={() => setActive(null)}
+            onFinish={(byQ) => finish(active.ws, byQ)}
           />
         ) : (
           <View />
@@ -255,7 +276,11 @@ export function ExercisesSection({ ex }: { ex: LessonExercisesState }) {
             title={celebrate.title}
             earned={celebrate.earned}
             movement={celebrate.movement}
-            onDone={() => setCelebrate(null)}
+            onDone={() => {
+              const next = celebrate.next;
+              setCelebrate(null);
+              if (next) setActive({ ws: next, mode: 'statement' });
+            }}
           />
         ) : (
           <View />
@@ -366,6 +391,20 @@ function WorksheetRunner({
         keyboardShouldPersistTaps="handled">
         {heading ? <Txt variant="title">{heading}</Txt> : null}
         {showPrompt ? <RichText html={q.promptHtml!} /> : null}
+        {q.inputKind === 'content' && q.promptHtml ? (
+          // Wall-worthy content (the Hero Manifesto, the tips) can be printed
+          // in a look the member picks — web only.
+          <PrintRow
+            label="Print & post it on your wall"
+            onPick={(lookId) =>
+              printContent(
+                q.title?.trim() || worksheet.title,
+                q.promptHtml!,
+                PRINT_LOOKS.find((l) => l.id === lookId) ?? PRINT_LOOKS[0],
+              )
+            }
+          />
+        ) : null}
         <QuestionInput q={q} value={draft} onChange={setDraft} />
       </ScrollView>
 
