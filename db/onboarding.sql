@@ -60,12 +60,43 @@ create policy mobile_group_audience_select on public.mobile_group_audience
   for select to authenticated using (true);   -- read-only config; admins write directly
 grant select on public.mobile_group_audience to authenticated;
 
--- --- caller demographics (from the app profile; SECURITY DEFINER so views can call) ---
+-- Admin map: the production `users.gender` code → a 'men'/'women' band. Prod
+-- stores gender as an integer code (a code_set), so we can't infer the band
+-- without this. It starts EMPTY: gender gating for EXISTING users stays off
+-- (they keep access) until you map your codes here — then it activates. New
+-- users are unaffected (their band comes from the onboarding profile text).
+-- Discover your codes:  select gender, count(*) from public.users group by 1;
+-- Then map, e.g.:        insert into public.mobile_gender_map(code,band) values ('1','men'),('2','women');
+create table if not exists public.mobile_gender_map (
+  code text primary key,                        -- users.gender value, as text
+  band text not null check (band in ('men','women'))
+);
+alter table public.mobile_gender_map enable row level security;
+drop policy if exists mobile_gender_map_select on public.mobile_gender_map;
+create policy mobile_gender_map_select on public.mobile_gender_map
+  for select to authenticated using (true);
+grant select on public.mobile_gender_map to authenticated;
+
+-- Gender gating for existing users is only enforced once the map is populated.
+create or replace function public.mobile_gender_gating_active()
+  returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.mobile_gender_map)
+$$;
+grant execute on function public.mobile_gender_gating_active() to authenticated;
+
+-- --- caller demographics ----------------------------------------------------
+-- Resolved from the onboarding profile (new users) OR the production users row
+-- (existing users), so gating applies to everyone. SECURITY DEFINER so views can
+-- read the base tables under RLS.
 create or replace function public.mobile_my_age()
   returns integer language sql stable security definer set search_path = public as $$
-  select case when p.birth_date is null then null
-              else extract(year from age(p.birth_date))::int end
-  from public.mobile_onboarding_profile p where p.auth_uid = auth.uid()
+  select case when bd is null then null else extract(year from age(bd))::int end
+  from (
+    select coalesce(
+      (select p.birth_date from public.mobile_onboarding_profile p where p.auth_uid = auth.uid()),
+      (select u.birth_date from public.users u where lower(u.email) = lower(auth.jwt() ->> 'email'))
+    ) as bd
+  ) s
 $$;
 grant execute on function public.mobile_my_age() to authenticated;
 
@@ -75,14 +106,81 @@ create or replace function public.mobile_my_is_adult()
 $$;
 grant execute on function public.mobile_my_is_adult() to authenticated;
 
--- 'men' / 'women' band for group matching (only male/female map to a gendered
--- group; everyone else sees 'any' groups only).
+-- 'men' / 'women' band: onboarding profile text for new users; the prod gender
+-- code via mobile_gender_map for existing users. Null = unknown/other.
 create or replace function public.mobile_my_gender()
   returns text language sql stable security definer set search_path = public as $$
-  select case p.gender when 'male' then 'men' when 'female' then 'women' else null end
-  from public.mobile_onboarding_profile p where p.auth_uid = auth.uid()
+  select coalesce(
+    (select case p.gender when 'male' then 'men' when 'female' then 'women' else null end
+       from public.mobile_onboarding_profile p where p.auth_uid = auth.uid()),
+    (select m.band
+       from public.users u
+       join public.mobile_gender_map m on m.code = u.gender::text
+      where lower(u.email) = lower(auth.jwt() ->> 'email'))
+  )
 $$;
 grant execute on function public.mobile_my_gender() to authenticated;
+
+-- --- shared audience check (used by groups + community channels) -------------
+-- Given a resolved audience (gender band + age band), can the caller see it?
+-- Safe rollout: an EXISTING user whose gender isn't determinable (map not yet
+-- populated, or their code unmapped) is NOT gender-gated; likewise an existing
+-- user with no birth date on file isn't age-gated. New users (onboarding data)
+-- are always gated.
+create or replace function public.mobile_audience_check(a_gender text, a_age text)
+  returns boolean language plpgsql stable security definer set search_path = public as $$
+declare existing boolean; my_gender text; adult boolean; ok_gender boolean; ok_age boolean;
+begin
+  if coalesce(a_gender,'any') = 'any' and coalesce(a_age,'any') = 'any' then
+    return true;
+  end if;
+  existing := exists (select 1 from public.users u where lower(u.email) = lower(auth.jwt() ->> 'email'));
+  my_gender := public.mobile_my_gender();
+  adult := public.mobile_my_is_adult();
+
+  if coalesce(a_gender,'any') = 'any' then
+    ok_gender := true;
+  elsif existing and (not public.mobile_gender_gating_active() or my_gender is null) then
+    ok_gender := true;                         -- can't determine an existing user's gender → don't hide
+  else
+    ok_gender := (a_gender = my_gender);
+  end if;
+
+  if coalesce(a_age,'any') = 'any' then
+    ok_age := true;
+  elsif existing and adult is null then
+    ok_age := true;                            -- existing user, no DOB on file → don't hide
+  elsif a_age = 'adult' then
+    ok_age := adult is true;
+  else -- 'teen'
+    ok_age := adult is false;
+  end if;
+
+  return coalesce(ok_gender, false) and coalesce(ok_age, false);
+end
+$$;
+grant execute on function public.mobile_audience_check(text, text) to authenticated;
+
+-- Infer a gender/age audience from a group or channel TITLE and apply the check.
+-- (women before men — "women" contains "men"; \y…\y matches "men" as a whole word.)
+create or replace function public.mobile_audience_title_ok(p_title text)
+  returns boolean language sql stable security definer set search_path = public as $$
+  select public.mobile_audience_check(
+    case
+      when p_title ilike '%women%' or p_title ilike '%woman%'
+        or p_title ilike '%ladies%' or p_title ilike '%female%' then 'women'
+      when p_title ~* '\ymen\y' or p_title ilike '%male%'
+        or p_title ilike '%brotherhood%' or p_title ilike '%guys%' then 'men'
+      else 'any'
+    end,
+    case
+      when p_title ~* '\y(teen|teens|youth|adolescent|adolescents)\y' then 'teen'
+      when p_title ilike '%adult%' then 'adult'
+      else 'any'
+    end
+  )
+$$;
+grant execute on function public.mobile_audience_title_ok(text) to authenticated;
 
 create or replace function public.mobile_onboarded()
   returns boolean language sql stable security definer set search_path = public as $$
@@ -96,47 +194,21 @@ grant execute on function public.mobile_onboarded() to authenticated;
 -- The gate used by mobile_groups. Existing users (real prod row) are never
 -- audience-gated. Onboarded new users must match the group's audience; a group
 -- with no audience row is open to all.
+-- Applies to EVERY caller (new + existing). An explicit mobile_group_audience
+-- tag wins; otherwise the audience is inferred from the group's title. The
+-- shared checker handles the safe-rollout rules for existing users.
 create or replace function public.mobile_group_audience_ok(p_group_id bigint)
   returns boolean language plpgsql stable security definer set search_path = public as $$
-declare
-  a_gender text; a_age text; ok_gender boolean; ok_age boolean;
+declare a_gender text; a_age text;
 begin
-  -- existing production users keep their current (role-based) access unchanged
-  if exists (select 1 from public.users u where lower(u.email) = lower(auth.jwt() ->> 'email')) then
-    return true;
-  end if;
-
-  -- 1) explicit admin tag wins
   select audience_gender, audience_age into a_gender, a_age
   from public.mobile_group_audience where sds_group_id = p_group_id;
-
-  -- 2) no explicit tag → INFER the audience from the group's title, so gating
-  --    works out of the box for conventionally-named groups (Men's / Women's /
-  --    Teen) with no manual tagging. Check "women" before "men" (women contains
-  --    "men"); \y…\y matches "men" only as a whole word (not inside "women").
-  if a_gender is null then
-    select case
-             when g.title ilike '%women%' or g.title ilike '%woman%'
-               or g.title ilike '%ladies%' or g.title ilike '%female%' then 'women'
-             when g.title ~* '\ymen\y' or g.title ilike '%male%'
-               or g.title ilike '%brotherhood%' or g.title ilike '%guys%' then 'men'
-             else 'any'
-           end,
-           case
-             when g.title ~* '\y(teen|teens|youth|adolescent|adolescents)\y' then 'teen'
-             when g.title ilike '%adult%' then 'adult'
-             else 'any'
-           end
-    into a_gender, a_age
-    from public.sds_groups g where g.id = p_group_id;
-    if a_gender is null then return true; end if;   -- group not found → open
+  if a_gender is not null then
+    return public.mobile_audience_check(a_gender, a_age);   -- explicit tag
   end if;
-
-  ok_gender := a_gender = 'any' or a_gender = public.mobile_my_gender();
-  ok_age := a_age = 'any'
-         or (a_age = 'adult' and public.mobile_my_is_adult() is true)
-         or (a_age = 'teen'  and public.mobile_my_is_adult() is false);
-  return coalesce(ok_gender, false) and coalesce(ok_age, false);
+  return public.mobile_audience_title_ok(
+    (select title from public.sds_groups where id = p_group_id)
+  );                                                        -- inferred from title
 end
 $$;
 grant execute on function public.mobile_group_audience_ok(bigint) to authenticated;

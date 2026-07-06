@@ -88,6 +88,12 @@ begin
              r.user_id                 as author_id
       from raw r
       left join public.users u on u.id = r.user_id
+      -- Protect gendered/age forums: hide posts from a channel the caller isn't
+      -- part of (channel-less posts are always visible). Audience is inferred
+      -- from the channel name (or an explicit tag), same as the groups.
+      where r.comm_channel_id is null
+         or public.mobile_audience_title_ok(
+              (select ch.name from public.comm_channels ch where ch.id = r.comm_channel_id))
       order by r.created_at desc
   $v$, app_union);
   execute 'grant select on mobile_posts to authenticated';
@@ -172,6 +178,9 @@ create or replace view mobile_channels as
          (select count(distinct cp.user_id) from public.comm_posts cp
            where cp.comm_channel_id = ch.id and cp.active) as member_count
   from public.comm_channels ch
+  -- Protect gendered/age forums: hide channels the caller isn't part of
+  -- (audience inferred from the channel name, or an explicit tag).
+  where public.mobile_audience_title_ok(ch.name)
   order by ch.id;
 
 grant select on mobile_channels to authenticated;
