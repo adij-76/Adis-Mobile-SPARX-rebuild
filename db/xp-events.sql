@@ -37,6 +37,15 @@ create policy mobile_xp_events_insert on public.mobile_xp_events
   for insert to authenticated with check (auth_uid = auth.uid());
 grant select, insert on public.mobile_xp_events to authenticated;
 
+-- Daily check-in XP is a once-per-day reward: at most ONE 'checkin' event per
+-- user per calendar day. The day is carried in ref_id (e.g. '2026-07-06'), so
+-- this partial unique index makes the "once per day" rule the server's job
+-- instead of the client's fragile local-storage flag. Legacy check-in rows have
+-- ref_id = NULL; NULLs are distinct in a unique index, so they never collide
+-- with the new dated rows (no backfill needed).
+create unique index if not exists mobile_xp_events_checkin_day
+  on public.mobile_xp_events (auth_uid, ref_id) where source = 'checkin';
+
 -- --- window helper: keep the period → time-cutoff logic in one place ---------
 -- 'today' = since midnight UTC (matches the app's date convention), 'week' =
 -- rolling 7 days, anything else = all-time.
@@ -103,3 +112,28 @@ create or replace function public.mobile_xp_project(p_added integer, p_period te
          (select count(*) from windowed)::integer as total_players
 $$;
 grant execute on function public.mobile_xp_project(integer, text) to authenticated;
+
+-- --- idempotent daily check-in award ----------------------------------------
+-- Award the day's check-in XP exactly once, no matter how many times the client
+-- calls it (retries, a second device, cleared local storage). The unique index
+-- above is the arbiter: the first call for a given (user, day) inserts and
+-- returns awarded=true; every later call for the same day no-ops and returns
+-- awarded=false, so the client knows whether to celebrate. SECURITY INVOKER —
+-- RLS still applies (the row is the caller's own).
+create or replace function public.mobile_award_checkin_xp(
+    p_points integer, p_day text, p_app_user_id integer default null)
+  returns jsonb
+  language plpgsql volatile set search_path = public as $$
+declare v_rows integer;
+begin
+  if auth.uid() is null or coalesce(p_points, 0) <= 0 then
+    return jsonb_build_object('awarded', false, 'points', 0);
+  end if;
+  insert into public.mobile_xp_events (app_user_id, source, ref_id, points)
+  values (p_app_user_id, 'checkin', p_day, p_points)
+  on conflict (auth_uid, ref_id) where source = 'checkin' do nothing;
+  get diagnostics v_rows = row_count;
+  return jsonb_build_object('awarded', v_rows > 0,
+                            'points', case when v_rows > 0 then p_points else 0 end);
+end $$;
+grant execute on function public.mobile_award_checkin_xp(integer, text, integer) to authenticated;

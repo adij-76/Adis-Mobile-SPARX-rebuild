@@ -51,3 +51,48 @@ export function useXpAward() {
     [appUserId],
   );
 }
+
+/**
+ * Daily check-in variant: the award is idempotent per calendar day, decided by
+ * the SERVER (mobile_award_checkin_xp) rather than local storage — so a retry,
+ * a second device, or cleared storage can't double-award or silently skip the
+ * XP. Returns the movement to celebrate on the day's FIRST check-in, or null if
+ * the day was already rewarded (no second celebration).
+ */
+export function useCheckinXpAward() {
+  const { user } = useAuth();
+  const appUserId = user?.appUserId ?? null;
+
+  return useCallback(
+    async (points: number, day: string, period: XpPeriod = 'week'): Promise<XpMovement | null> => {
+      const pts = Math.round(points || 0);
+      if (pts <= 0) return null;
+      // Project first (read-only) so we can show the rank movement if we award.
+      let proj = null;
+      try {
+        proj = await api.xp.project(pts, period);
+      } catch {
+        proj = null;
+      }
+      // Server enforces once-per-day; only assume awarded if the RPC is
+      // unreachable so the reward still shows (it's idempotent server-side, so a
+      // later retry won't duplicate).
+      let res: { awarded: boolean; points: number };
+      try {
+        res = await api.xp.awardCheckin(pts, day, appUserId);
+      } catch {
+        res = { awarded: true, points: pts };
+      }
+      if (!res.awarded) return null;
+      if (!proj) return { earned: res.points, rank: null, moved: 0, totalPlayers: null, period };
+      return {
+        earned: res.points,
+        rank: proj.projectedRank,
+        moved: Math.max(0, proj.currentRank - proj.projectedRank),
+        totalPlayers: proj.totalPlayers,
+        period,
+      };
+    },
+    [appUserId],
+  );
+}
