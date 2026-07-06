@@ -44,6 +44,7 @@ Two groups: **(i) app-owned tables** (create first), then **(ii) views + functio
 | 9 | `db/community-views.sql` | Community read views: `mobile_posts` (exposes `author_id` for DM-from-post), `mobile_comments`, `mobile_channels`, `mobile_notifications`. Run after file 4. | ✅ |
 | 10 | `db/leaderboard.sql` | Leaderboard functions (SECURITY DEFINER): `mobile_leaderboard_metric(metric, period)` (points/lessons/workshops/community/videos/check-ins over `user_points`→`user_rewards`→`rewards`), `mobile_streak_leaderboard(period)` (longest check-in run over `daily_assessments`), legacy `mobile_leaderboard_period(period)`. Rolling windows (7/30 days). | ✅ |
 | 10b | `db/ai-context.sql` | **Sparxy personalization**: `mobile_ai_context(auth_uid)` SECURITY DEFINER RPC → the whole per-user picture as one JSON, **straddling BOTH layers** — legacy Rails prod (`users`, `answer_headers`, `daily_assessments`, `comm_posts`, `user_points`) UNIONED with the `mobile_*` tables. Helper `mobile_ai_assessments(auth_uid, app_user_id)` unifies mobile + legacy assessments under the same instrument keys (profile 268→gad7, 269→phq9, 49→audit_c, 163→intake) so trends are continuous across the web→mobile transition. Existing users get their full history + mobile activity; new users get mobile only (no legacy rows yet). Returns identity, focus/problems, latest assessments + full history, check-ins (mobile ∪ daily_assessments), 7-day activity, gamification (mobile XP + `legacy_points`), recent posts (mobile ∪ comm_posts), safety flags. **service_role only** (revoked from anon/authenticated). Read-only. | ✅ |
+| 10c | `db/admin-dashboard.sql` | **Admin dashboard**: `mobile_admin_signups(days)` SECURITY DEFINER function → recent Supabase signups (email, signed_up_at, onboarded_at, primary problem, new-vs-existing). **service_role only** (revoked from anon/authenticated) — query from the Supabase SQL editor to watch testers join. Read-only. | ✅ |
 | 11 | `db/auth-and-storage.sql` | Imports users into Supabase Auth (keeps passwords), avatars bucket + storage policies | ✅ |
 | 12 | `db/lockdown-base-tables.sql` | **Run LAST.** Base-table hardening: revokes `anon`/`authenticated` from every non-`mobile_` object (the production base tables) so the public anon key can't read `users.encrypted_password` / PII or write/`TRUNCATE` prod tables. Leaves the whole `mobile_*` surface untouched (each file grants its own) — needs no re-grants. Last line of `db/apply-order.txt`; idempotent. | ✅ |
 
@@ -122,6 +123,15 @@ and retires the app-owned tables. Each carries keys back to the real FKs.
 `user_rewards`, `rewards`, `daily_assessments`, `sds_groups`) directly — nothing
 app-owned to write back; they keep working as-is against the migrated schema.
 
+**Executable job:** `db/reconcile.sql` implements this table — ONE-TIME, manual,
+transaction-guarded (runs inside `begin … rollback;` so you inspect the row-count
+NOTICEs, then flip to `commit;`), idempotent (guards/on-conflict so a re-run never
+double-writes). It creates prod `users` rows for mobile-first users first, then
+writes each app-owned table back. Fields that depend on the target env's exact
+columns / code_sets are marked `⚠ CONFIRM`; a few destinations (comments,
+reactions, group threads, blocks, group signups) are deferred with TODO until the
+prod mechanism is confirmed. NOT in `apply-order.txt` — run it by hand at cutover.
+
 After the job: app reads/writes prod directly; app-owned tables become a cache or
 are dropped. Document the executed job + date in `db/README.md` at cutover.
 
@@ -183,6 +193,11 @@ are dropped. Document the executed job + date in `db/README.md` at cutover.
    `apply-migrations` workflow ran (SUPABASE_DB_URL set), this already happened.
 5. Confirm dashboard-only settings (section E).
 6. Run the contract audit (section F) — regression fails CI, not the app.
+7. **Cutover write-back (when retiring the app-owned tables):** back up prod, then
+   run `db/reconcile.sql` by hand (section C) — it materializes all `mobile_*`
+   data into the production Rails tables. Review the NOTICE counts inside its
+   transaction, confirm the `⚠ CONFIRM` fields against the live schema, then
+   `commit;`. This is separate from a routine re-import (steps 1–6).
 
 ## H. Rules & gotchas (must hold at migration time)
 
