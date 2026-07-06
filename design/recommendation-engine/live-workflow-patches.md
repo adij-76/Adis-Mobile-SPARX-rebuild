@@ -28,7 +28,7 @@ so the app reflects their latest session within a minute of the note landing.
         "url": "PASTE-THE-RECOMMEND-USER-PRODUCTION-URL-HERE",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={ \"ai_note_id\": {{ $('Postgres5').item.json.id }}, \"trigger\": \"note\" }",
+        "jsonBody": "={ \"app_user_id\": {{ $('Postgres5').item.json.user_id }}, \"trigger\": \"note\" }",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -52,8 +52,16 @@ so the app reflects their latest session within a minute of the note landing.
    first node to the new node).
 5. **Save.**
 
-The node sends the `ai_notes` row id; the v4 engine looks up the user from it.
+The node sends the client's production `user_id` straight from the `ai_notes`
+row the SOAP flow just wrote. (We send the user id, NOT the note id: the SOAP
+pipeline writes to the legacy database, and the engine's copy of `ai_notes` on
+Supabase lags behind imports — a fresh note id wouldn't resolve there.)
 `onError: continue` means a hiccup here can never break note processing.
+
+**Verify the field once:** after adding the node, run one execution and check
+the node's INPUT panel shows a numeric `user_id` coming from `Postgres5`. If
+`Postgres5`'s output doesn't include `user_id` in your n8n version, tell
+Claude — the fallback is one extra lookup node, 2 minutes.
 
 ---
 
