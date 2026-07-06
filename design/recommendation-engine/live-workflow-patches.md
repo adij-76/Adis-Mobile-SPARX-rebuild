@@ -1,5 +1,13 @@
 # Patches for the LIVE n8n workflows
 
+> **Two-database topology (discovered during deployment):** the legacy EC2
+> Postgres (n8n credential **"Postgres account"**) holds LIVE `ai_notes` /
+> treatment plans and is what the chatbot/SOAP workflows already use; the
+> **"Supabase (app DB)"** credential holds the app tables, the
+> `mobile_ai_context` RPC, and the engine's write targets. Rule of thumb for
+> every patch below: notes/plan queries → legacy credential; `mobile_ai_context`
+> and anything `mobile_*` → Supabase credential.
+
 Two small edits to workflows already running in your n8n instance. Reference
 exports of those workflows (as of 2026-07-03) are archived in
 `design/n8n-live/`. Do these AFTER importing the v4 recommendation engine
@@ -98,8 +106,10 @@ credential inside it:
 }
 ```
 
-Rewire the context chain: delete the `wol_data → Code in JavaScript`
-connection, then connect `wol_data → Session_Notes → Code in JavaScript`.
+Credential: the chatbot's existing **"Postgres account"** (legacy DB — that's
+where live `ai_notes` rows are). Rewire the context chain: delete the
+`wol_data → Code in JavaScript` connection, then connect
+`wol_data → Session_Notes → Code in JavaScript`.
 (`alwaysOutputData: true` keeps the chain alive for users with no notes.)
 
 ### B2. Extend the `Code in JavaScript` node
@@ -194,22 +204,12 @@ order by tpi.updated_at desc
 (shipped to `main` in commit `4d0bf41`), and `mobile_ai_context(uuid)` is live
 in the database.
 
-### C0. Permission check (do this first — 1 minute)
+### C0. Permission check — already satisfied
 
-The RPC's EXECUTE is granted to `service_role` only. Your n8n Postgres
-credential connects as its own database role, which may or may not be covered.
-Check: create a temporary Postgres node in any workflow, run
-`select current_user;`, note the role name, then run this **in the SQL
-editor**:
-
-```sql
--- replace n8n_role with whatever current_user returned (skip if it returned
--- 'postgres' — superuser already has access)
-grant execute on function public.mobile_ai_context(uuid) to n8n_role;
-```
-
-Then verify from n8n itself: `select public.mobile_ai_context(null);` should
-return a JSON object (mostly nulls), not a permissions error.
+The **"Supabase (app DB)"** credential created during engine deployment calls
+`mobile_ai_context` successfully (proven by the engine's App-context node
+returning safety flags). Use that same credential for the node below; no grant
+needed.
 
 ### C1. Pass `authUid` through `Consolidate Data`
 
@@ -246,6 +246,9 @@ JavaScript`:
   "connections": {}
 }
 ```
+
+Credential for this node: **"Supabase (app DB)"** — the RPC and all `mobile_*`
+tables live there, not in the legacy DB the rest of the chatbot uses.
 
 `alwaysOutputData` + `onError: continue` = **fail-open**: if the RPC errors or
 `authUid` is missing (old app builds still in the field), chat continues with
