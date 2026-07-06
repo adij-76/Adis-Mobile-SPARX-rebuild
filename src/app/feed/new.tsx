@@ -7,6 +7,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 
 import { Button } from '@/components/ui/button';
+import { Confetti } from '@/components/confetti';
+import { RankMovement } from '@/components/ui/rank-movement';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { api } from '@/api';
@@ -14,7 +16,7 @@ import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
 import { useCurrentAuthor } from '@/lib/auth';
 import { useStore } from '@/lib/store';
-import { useXpAward } from '@/lib/xp-award';
+import { useXpAward, type XpMovement } from '@/lib/xp-award';
 
 // Sample images used by "Add photo" until a real image picker is wired in.
 const SAMPLE_PHOTOS = [
@@ -53,6 +55,17 @@ export default function NewPost() {
   const [photo, setPhoto] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [celebrate, setCelebrate] = useState<{ earned: number; movement: XpMovement | null } | null>(
+    null,
+  );
+
+  // Intro flow came in via replace() (no back stack) — send them to their
+  // community feed to SEE the post they just made and stay in the activation
+  // loop; otherwise return to the room they composed from.
+  const leave = () => {
+    if (isIntro) router.replace('/(tabs)/community');
+    else router.back();
+  };
 
   const submit = async () => {
     if (busy) return;
@@ -80,17 +93,23 @@ export default function NewPost() {
     // post is real.
     const name = communities.find((c) => c.id === selectedCommunity)?.name ?? 'Community';
     addPost({ community: name, text: body, image: photo ?? undefined, author });
-    const earned = awardCommunityXp('community_post');
-    const bonus = isIntro ? awardBonus(50) : 0;
-    const total = earned + bonus;
-    if (total > 0) award({ source: isIntro ? 'intro' : 'community_post', points: total });
+    const earned = awardCommunityXp('community_post') + (isIntro ? awardBonus(50) : 0);
     setBusy(false);
-    // Intro flow came in via replace() (no back stack) — send them to their
-    // community feed to SEE the post they just made and stay in the activation
-    // loop; otherwise return to the room they composed from.
-    if (isIntro) router.replace('/(tabs)/community');
-    else router.back();
+    // Celebrate the post the same way lessons / check-ins do — +XP and the
+    // leaderboard movement — then leave when they tap Continue.
+    if (earned > 0) {
+      setCelebrate({ earned, movement: null });
+      award({ source: isIntro ? 'intro' : 'community_post', points: earned }).then((m) =>
+        setCelebrate((c) => (c ? { ...c, movement: m } : c)),
+      );
+    } else {
+      leave();
+    }
   };
+
+  if (celebrate) {
+    return <PostCelebration earned={celebrate.earned} movement={celebrate.movement} intro={isIntro} onDone={leave} />;
+  }
 
   const addPhoto = () => {
     // Placeholder for a real picker/file input: cycle sample → sample → off.
@@ -206,6 +225,55 @@ export default function NewPost() {
   );
 }
 
+/** Reward screen after posting to the community — mirrors the lesson / check-in
+ *  celebration so sharing always feels rewarding (+XP and leaderboard movement). */
+function PostCelebration({
+  earned,
+  movement,
+  intro,
+  onDone,
+}: {
+  earned: number;
+  movement: XpMovement | null;
+  intro: boolean;
+  onDone: () => void;
+}) {
+  return (
+    <View style={styles.ackRoot}>
+      <Confetti />
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
+        <View style={styles.ackCenter}>
+          <View style={styles.ackStar}>
+            <Ionicons name="chatbubbles" size={48} color={Colors.primaryDarker} />
+          </View>
+          <Txt variant="display" color={Colors.white} center style={{ marginTop: Spacing.xl }}>
+            {intro ? "You're in! 🎉" : 'Posted! 🎉'}
+          </Txt>
+          <Txt variant="body" color={Colors.textMutedOnDark} center style={{ marginTop: Spacing.sm }}>
+            {intro
+              ? 'Introducing yourself is a big first step. Your community is glad you’re here.'
+              : 'Thanks for sharing — showing up for others is how the community grows.'}
+          </Txt>
+          <View style={styles.ackReward}>
+            <Txt variant="display" color={Colors.orange}>
+              +{earned}
+            </Txt>
+            <Txt variant="caption" color={Colors.textMutedOnDark}>
+              XP earned
+            </Txt>
+          </View>
+          <View style={{ marginTop: Spacing.lg }}>
+            <RankMovement movement={movement} />
+          </View>
+          <View style={styles.ackButtonWrap}>
+            <Button title="Continue" variant="white" onPress={onDone} />
+          </View>
+        </View>
+      </SafeAreaView>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.white },
   body: { padding: Spacing.lg, gap: Spacing.lg },
@@ -253,4 +321,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   footer: { padding: Spacing.lg },
+  // Post celebration (mirrors the lesson/check-in reward screen)
+  ackRoot: { flex: 1, backgroundColor: Colors.primaryDarker },
+  ackCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl },
+  ackStar: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: Colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ackReward: { alignItems: 'center', marginTop: Spacing.xl },
+  ackButtonWrap: { position: 'absolute', left: Spacing.xl, right: Spacing.xl, bottom: Spacing.xl },
 });
