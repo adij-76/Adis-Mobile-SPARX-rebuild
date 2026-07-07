@@ -13,6 +13,7 @@ import { ExercisesSection, useLessonExercises } from '@/components/exercise-runn
 import { SparxySummary } from '@/components/sparxy-summary';
 import { Button } from '@/components/ui/button';
 import { RankMovement } from '@/components/ui/rank-movement';
+import { useAuth } from '@/lib/auth';
 import { useXpAward, type XpMovement } from '@/lib/xp-award';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { Stepper } from '@/components/ui/stepper';
@@ -61,6 +62,7 @@ export default function LessonScreen() {
   const courseModule = moduleQ.data;
 
   const { isFav, toggleFav, markLessonComplete } = useStore();
+  const { user: authUser } = useAuth();
   const award = useXpAward();
   // Exercises + answers are shared by the Worksheet step (interactive runner)
   // and the Summary step (Sparxy reads the answers).
@@ -244,10 +246,22 @@ export default function LessonScreen() {
               if (step === last) {
                 const earned = markLessonComplete(lesson.id);
                 setCelebrate({ earned, workshop: isWorkshop, movement: null });
+                // Durable, cross-device completion record (server is the source
+                // of truth; the leaderboard + checkmarks read it back).
+                api.content
+                  .recordLessonComplete(
+                    lesson.id,
+                    isWorkshop ? 'workshop' : 'lesson',
+                    authUser?.appUserId ?? null,
+                  )
+                  .catch(() => {});
                 if (earned > 0) {
-                  award({ source: 'lesson', refId: lesson.id, points: earned }).then((m) =>
-                    setCelebrate((c) => (c ? { ...c, movement: m } : c)),
-                  );
+                  // Distinct source so the Lessons vs Workshops boards separate.
+                  award({
+                    source: isWorkshop ? 'workshop' : 'lesson',
+                    refId: lesson.id,
+                    points: earned,
+                  }).then((m) => setCelebrate((c) => (c ? { ...c, movement: m } : c)));
                 }
               } else {
                 setStep((s) => s + 1);

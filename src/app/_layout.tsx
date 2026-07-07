@@ -53,8 +53,14 @@ function Shell() {
   const { status, user } = useAuth();
   const { status: onboarding, completeDestination } = useOnboarding();
   const assessmentGate = useAssessmentGate();
-  const { mergeRemoteCheckins, hydrateFavorites, hydrateWatched, hydrateGameState, gameState } =
-    useStore();
+  const {
+    mergeRemoteCheckins,
+    hydrateFavorites,
+    hydrateWatched,
+    hydrateCompletedLessons,
+    hydrateGameState,
+    gameState,
+  } = useStore();
   const segments = useSegments();
   const router = useRouter();
   const onLogin = segments[0] === 'login';
@@ -118,6 +124,14 @@ function Shell() {
       .watchedVideoIds()
       .then((ids) => {
         if (active && ids.length) hydrateWatched(ids);
+      })
+      .catch(() => {});
+    // Hydrate completed lessons/workshops so the "completed" checkmark follows
+    // the user across devices (server is the durable record).
+    api.content
+      .completedLessonIds()
+      .then((ids) => {
+        if (active && ids.length) hydrateCompletedLessons(ids);
       })
       .catch(() => {});
     // Hydrate durable gamification state (video points, streak bonuses, badges).

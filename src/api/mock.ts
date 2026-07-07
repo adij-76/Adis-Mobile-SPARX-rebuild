@@ -119,7 +119,15 @@ export const mockContent: ContentApi = {
   // Only completed videos (≥95%) count as watched for the checklist.
   watchedVideoIds: () =>
     delay([...mockWatched.entries()].filter(([, p]) => p >= 95).map(([id]) => id)),
+  recordLessonComplete: (lessonId) => {
+    mockCompletedLessons.add(String(lessonId));
+    return delay(undefined);
+  },
+  completedLessonIds: () => delay([...mockCompletedLessons]),
 };
+
+// In-memory completed lessons for the mock adapter.
+const mockCompletedLessons = new Set<string>();
 
 // In-memory watch progress for the mock adapter (video id → furthest percent).
 const mockWatched = new Map<string, number>();

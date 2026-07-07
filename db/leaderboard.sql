@@ -1,18 +1,22 @@
 -- =============================================================================
--- Leaderboards — multiple boards over rolling windows, from the real rewards
--- ledger (user_points → user_rewards → rewards) + daily_assessments (streak).
+-- Leaderboards — multiple boards over rolling windows, sourced from the
+-- APP-OWNED layer: the XP events ledger (mobile_xp_events) + mobile_checkins.
 --
--- Every board counts SERVER-AWARDED actions (watched a video, completed a
--- lesson, posted in community, checked in) or points — never self-reported
--- scores — so it can't be gamed by entering false data.
+-- Why not the legacy user_points/rewards/daily_assessments ledger? Because the
+-- current mobile-first users' activity lands in the app-owned tables, not the
+-- prod reward tables — so a legacy-sourced board shows nothing for them (only
+-- the XP board, which already reads mobile_xp_events, had data). Sourcing every
+-- board from the ledger makes real in-app activity show, and keeps all boards
+-- consistent with the XP board. Every board still counts SERVER-recorded actions
+-- (each is one itemized XP event) — never self-reported scores.
 --
 --   mobile_leaderboard_metric(metric, period)  — points | lessons | workshops |
---       community | videos | checkins. 'points' sums user_points; the rest count
---       award events whose reward short_name matches the metric's set.
+--       community | videos | checkins. 'points' sums mobile_xp_events.points;
+--       the rest count itemized events by `source`.
 --   mobile_streak_leaderboard(period)          — longest consecutive check-in run
---       within the window (gaps-and-islands over daily_assessments).
---   mobile_leaderboard_period(period)          — legacy all-points board (kept so
---       the currently-deployed app keeps working until the new one ships).
+--       within the window (gaps-and-islands over mobile_checkins).
+--   mobile_leaderboard_period(period)          — legacy all-points board over
+--       user_points (kept for back-compat; unused by the current app).
 --
 -- Windows are ROLLING: week = last 7 days, month = last 30 days, all = everything
 -- (streak 'all' = ever). SECURITY DEFINER to read the base tables. Idempotent.
@@ -42,86 +46,85 @@ as $$
 $$;
 grant execute on function public.mobile_leaderboard_period(text) to authenticated;
 
--- --- multi-metric board ------------------------------------------------------
--- score = points sum (metric 'points') or count of matching award events.
+-- --- multi-metric board (from the app-owned XP ledger) -----------------------
+-- score = points sum (metric 'points') or a count of the matching itemized XP
+-- events. Sourced from mobile_xp_events (NOT the legacy user_points/rewards
+-- ledger) so it reflects real in-app activity by the current mobile-first users
+-- — whose actions live in the app-owned layer, not the prod reward tables.
+-- Identity resolves via app_user_id → users when linked (else "Member"), and
+-- the caller is flagged via auth.uid(), mirroring mobile_xp_leaderboard.
 drop function if exists public.mobile_leaderboard_metric(text, text);
 create function public.mobile_leaderboard_metric(p_metric text, p_period text)
-  returns table (user_id bigint, name text, avatar text, score int, you boolean)
+  returns table (user_id text, name text, avatar text, score int, you boolean)
   language sql stable security definer set search_path = public
 as $$
-  with sset as (
-    select case p_metric
-             when 'lessons'   then array['lesson_complete','lesson_assignment_completed']
-             when 'workshops' then array['workshop_complete','workshop_assignment_completed']
-             when 'community' then array['enter_community','commpost_assignment_completed']
-             when 'videos'    then array['watched_video','video_assignment_completed','watched_welcome_video']
-             when 'checkins'  then array['daily_assessment']
-             else array[]::text[]              -- 'points' → all rewards
-           end as names
+  with windowed as (
+    select e.auth_uid,
+           max(e.app_user_id) as app_user_id,
+           (case p_metric
+              when 'points'    then coalesce(sum(e.points), 0)
+              when 'lessons'   then count(distinct e.ref_id) filter (where e.source = 'lesson')
+              when 'workshops' then count(distinct e.ref_id) filter (where e.source = 'workshop')
+              when 'community' then count(*) filter (where e.source in ('community_post','community_reply','intro'))
+              when 'videos'    then count(distinct e.ref_id) filter (where e.source = 'video')
+              when 'checkins'  then count(distinct e.ref_id) filter (where e.source = 'checkin')
+              else 0
+            end)::int as score
+    from public.mobile_xp_events e
+    where e.created_at >= public.mobile_xp_window_start(p_period)
+    group by e.auth_uid
   )
-  select u.id::bigint,
-         coalesce(nullif(trim(u.first_name), ''), split_part(u.email, '@', 1)),
+  select coalesce(w.app_user_id::text, w.auth_uid::text),
+         coalesce(nullif(trim(u.first_name), ''), 'Member'),
          u.avatar_link,
-         (case when p_metric = 'points' then coalesce(sum(up.points), 0) else count(*) end)::int as score,
-         (u.id = (select id from public.users where lower(email) = lower(auth.jwt() ->> 'email')))
-  from public.users u
-  join public.user_points up on up.user_id = u.id
-  cross join sset
-  left join public.user_rewards ur on ur.id = up.user_reward_id
-  left join public.rewards r on r.id = ur.reward_id
-  where (case
-           when p_period = 'week'  then up.created_at >= now()::timestamp - interval '7 days'
-           when p_period = 'month' then up.created_at >= now()::timestamp - interval '30 days'
-           else true
-         end)
-    and (p_metric = 'points' or r.short_name = any (sset.names))
-  group by u.id, u.first_name, u.email, u.avatar_link
-  having (case when p_metric = 'points' then coalesce(sum(up.points), 0) else count(*) end) > 0
-  order by score desc
+         w.score,
+         (w.auth_uid = auth.uid())
+  from windowed w
+  left join public.users u on u.id = w.app_user_id
+  where w.score > 0
+  order by w.score desc
   limit 50;
 $$;
 grant execute on function public.mobile_leaderboard_metric(text, text) to authenticated;
 
--- --- longest check-in streak -------------------------------------------------
+-- --- longest check-in streak (from app-owned mobile_checkins) -----------------
 -- Longest run of consecutive check-in days within the window (gaps-and-islands:
--- consecutive dates share d - row_number()). 'all' = longest streak ever.
+-- consecutive dates share d - row_number()). Sourced from mobile_checkins (one
+-- row per user per day) rather than legacy daily_assessments, so it reflects the
+-- current users' real check-ins. 'all' = longest streak ever.
 drop function if exists public.mobile_streak_leaderboard(text);
 create function public.mobile_streak_leaderboard(p_period text)
-  returns table (user_id bigint, name text, avatar text, score int, you boolean)
+  returns table (user_id text, name text, avatar text, score int, you boolean)
   language sql stable security definer set search_path = public
 as $$
   with days as (
-    select da.user_id, date(da.created_at) as d
-    from public.daily_assessments da
-    where case
-            when p_period = 'week'  then da.created_at >= now()::timestamp - interval '7 days'
-            when p_period = 'month' then da.created_at >= now()::timestamp - interval '30 days'
-            else true
-          end
-    group by da.user_id, date(da.created_at)
+    select c.auth_uid, c.date as d, max(c.app_user_id) as app_user_id
+    from public.mobile_checkins c
+    where c.date >= (public.mobile_xp_window_start(p_period))::date
+    group by c.auth_uid, c.date
   ),
   islands as (
-    select user_id, d,
-           d - (row_number() over (partition by user_id order by d))::int as grp
+    select auth_uid, d, app_user_id,
+           d - (row_number() over (partition by auth_uid order by d))::int as grp
     from days
   ),
   runs as (
-    select user_id, count(*)::int as streak
+    select auth_uid, max(app_user_id) as app_user_id, count(*)::int as streak
     from islands
-    group by user_id, grp
+    group by auth_uid, grp
   ),
   best as (
-    select user_id, max(streak) as score
+    select auth_uid, max(app_user_id) as app_user_id, max(streak) as score
     from runs
-    group by user_id
+    group by auth_uid
   )
-  select u.id::bigint,
-         coalesce(nullif(trim(u.first_name), ''), split_part(u.email, '@', 1)),
+  select coalesce(b.app_user_id::text, b.auth_uid::text),
+         coalesce(nullif(trim(u.first_name), ''), 'Member'),
          u.avatar_link,
          b.score,
-         (u.id = (select id from public.users where lower(email) = lower(auth.jwt() ->> 'email')))
+         (b.auth_uid = auth.uid())
   from best b
-  join public.users u on u.id = b.user_id
+  left join public.users u on u.id = b.app_user_id
   order by b.score desc
   limit 50;
 $$;
