@@ -148,3 +148,15 @@ dedup makes re-runs safe.
 11,927 total → after length gate ≈ 5–7k → after ops/speaker screen ≈ 3–5k
 high-quality exchanges, of which Deep Dive + named groups ≈ 1,100+. Even the
 low end is ~40× today's usable corpus.
+
+## Post-smoke-test backlog (2026-07-08)
+
+- **Catalog drift check:** vimeo id 507704285 exists in legacy `snippet_vectors`
+  (served in chat) but not in Supabase `snippets.vimeo_url` — vector catalog
+  and app catalog have drifted. Add a periodic diff (links in vectors missing
+  from app catalog and vice versa) so chat and rail recommend from provably
+  identical inventories.
+- **Titles for video vectors:** `snippet_vectors` has ai_summary + snippet_link
+  but no title, so the rec agent cannot name videos (falls back to URL-as-title;
+  main agent currently prefers titled lessons). Enrich vector metadata with
+  titles at next re-embed, or join titles at retrieval.
