@@ -80,6 +80,18 @@ worksheet shape the module contains, checking:
     the DB via the sheet title.
   - *Community CTA* = a content block titled like "Post to Community"
     (`/post .*communit/i`) → the statement page's share button.
+  - *Scored sheet* = a title-matched recipe in `src/lib/exercise-scores.ts`
+    (e.g. ACE ← `/adverse childhood/i`). On completion the score is saved
+    WITH ITS DATE as an append-only `mobile_assessment_responses` row
+    (instrument key), shown on a calm result screen (framing → number →
+    band note), and re-recorded on edited retakes — that's the dated
+    history for future comparisons, and Sparxy's context unions it in
+    automatically. Adding the next instrument (Wheel readouts, SF-36,
+    Likert sheets) = one config entry; get the bands + framing from Adi
+    (the legacy compute engine was Rails code — there's nothing to port
+    from the DB). NOTE: IGNTD's ACE is the EXPANDED 19-item version, so
+    the traditional "4+" threshold does NOT apply — 5+ = likely serious
+    developmental trauma, always framed gently (Adi's rule).
   - *Print row* appears on every content step (web only).
 - **Resume/XP**: partial sheet resumes at first unanswered; first completion
   awards once; retakes don't.
