@@ -21,8 +21,8 @@ anywhere unless its SQL lives in git and is listed here.**
 
 | # | Change | SQL lives in | Applied to legacy? | Post-migration action |
 |---|---|---|---|---|
-| 1 | `conversational_segments_vectors` QA: backup table, delete 116 low-quality/ops/PII rows, scrub client first names | `design/method-corpus/31-conversational-segments-qa.md` | ⬜ pending (Adi to run) | Verify count = 86 and no scrubbed names remain; if table was rebuilt, re-run all three blocks |
-| 2 | Segment ingestion v2 (Tuesday groups, Adi-led sessions — future) | workflow + QA gate, TBD | ⬜ not built | Re-run ingestion against migrated transcript store |
+| 1 | ~~`conversational_segments_vectors` QA delete/scrub on legacy~~ **SUPERSEDED 2026-07-07**: corpus moves to NEW Supabase table `sparky_segments`; the 116 bad rows simply don't carry over, the 86 keepers seed the new table. No legacy surgery needed. | `design/sparky-ai/segments-ingestion-v2.md` (keep-list in `design/method-corpus/31-conversational-segments-qa.md`) | n/a | Legacy `conversational_segments_vectors` is retired at chatbot repoint; EXCLUDE from migration |
+| 2 | Segment ingestion v2 → `sparky_segments` (Supabase): Deep Dive groups + QA-gated 1:1s, name-scrubbed, session_kind/coach tags | `design/sparky-ai/segments-ingestion-v2.md` | ⬜ to build | Nothing — table is already in the destination DB. Only the SOURCE (transcript_conversations) migrates; re-point the ingestion workflow's read side afterward |
 | 3 | `ai_chat_profiles` rolling-summary table (Patch D3 — future) | patches doc Patch D | ⬜ not built | Create table in new DB; re-point nightly job |
 
 ## App-DB objects already migration-proof (in git, Supabase side)
