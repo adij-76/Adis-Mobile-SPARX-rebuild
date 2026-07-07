@@ -42,8 +42,8 @@ for retrieval (pulled when relevant).
 | **The Abstinence Myth** (book) | reportedly in `ai_documents` vector table | Verify coverage via corpus census |
 | **Unhooked book exercises** | Drive: "Unhooked book exercises.docx" + "Unhooked Exercises" sheet | Capture → future exercises library + Sparky in-chat toolkit |
 | ~~OneDrive method folders~~ | migrated to Google Drive ("speaking and consulting", "writing and publishing") | ✅ inventoried in `90-drive-inventory.md`; key files captured in 06/07/10 |
-| **"How to Become Unhooked" workshop** | recording/transcript NOT in the two Drive trees. Found elsewhere in Drive: `Workbook - How to Get Truly Unhooked Live Workshop with Dr. Adi Jaffe.pdf` (parent folder id `1Gmp1gUk_yeOvf8l8Vwp9w5abvczMv2vL`) | Capture workbook; Adi to locate the recording/transcript |
-| **"Perfect Life Blueprint" workshop** | not in the two trees. Related find: `L3 E1 Your Perfect Day.pdf` (2021 course, parent id `1u-JGqDJ3E8tPQqnxMAd3qpD_lCiL2w3V`) | Adi to point at the course folder; then capture |
+| **"How to Become Unhooked" workshop** | ✅ already on the platform as videos (per Adi 2026-07-07) — locate via `lessons` (`lesson_type = 1`) / `snippets`; check vector coverage in legacy `lessons_vectors`/`snippet_vectors`. Companion workbook PDF in Drive (parent folder id `1Gmp1gUk_yeOvf8l8Vwp9w5abvczMv2vL`) | Verify transcripts are vectorized; capture workbook |
+| **"Perfect Life Blueprint" workshop** | ✅ already on the platform as videos (per Adi 2026-07-07). Related Drive find: `L3 E1 Your Perfect Day.pdf` (2021, parent id `1u-JGqDJ3E8tPQqnxMAd3qpD_lCiL2w3V`) | Same — verify vector coverage |
 | **Book 3 method files** | Drive: Book3-Unhooked-Leadership (`Pattern-Behavior-Map.md`, `Avoidance-Tax-Knowledge-Base.md`, 2 workshop outlines) + old business presentations (workshop/keynote PDFs) | Next capture pass |
 | **Jaffe Method Compendium + Decade-in-90-Days manual** | Drive: Coaching/Templates | Next capture pass |
 | **Course work** | TBD | Same |
