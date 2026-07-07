@@ -68,6 +68,14 @@ export function scaleEndpoints(q: ExerciseQuestion): { low: string | null; high:
   return { low: q.options[0] ?? null, high: q.options[q.options.length - 1] ?? null };
 }
 
+/** Real legacy scales (modules 2-3) are labeled Likert LISTS, not numeric
+ *  ranges: min/max are 0/0 or null and every point's label lives in `options`.
+ *  Those render as tappable labeled rows; a numeric strip only makes sense
+ *  when there are no per-point labels. */
+export function isLabeledScale(q: ExerciseQuestion): boolean {
+  return q.inputKind === 'scale' && q.options.length >= 2;
+}
+
 /** A saved answer as display text (worksheet review + the Sparxy summary). */
 export function answerText(q: ExerciseQuestion, r: ExerciseResponse | undefined): string {
   if (!hasValue(r) || !r) return '';
@@ -88,9 +96,16 @@ export function answerText(q: ExerciseQuestion, r: ExerciseResponse | undefined)
 // personal statement the member can read in full, print, and share.
 // ---------------------------------------------------------------------------
 
-/** A worksheet reads as a fill-in statement when every answerable question is
- *  a SHORT text blank (the mad-libs shape) — reflections/quizzes don't apply. */
+/** Sheets whose TITLE says they compose into one personal declaration. The
+ *  all-text shape alone is not enough — modules 2-3 have belief checklists and
+ *  the ACE questionnaire as short-text sheets, and turning "does this belief
+ *  apply to me? — yes" into a wall poster would be nonsense. */
+const STATEMENT_TITLE = /statement|manifesto|hero code|pledge|commitment/i;
+
+/** A worksheet reads as a fill-in statement when its title signals one AND
+ *  every answerable question is a SHORT text blank (the mad-libs shape). */
 export function isStatementSheet(ws: ExerciseWorksheet): boolean {
+  if (!STATEMENT_TITLE.test(ws.title)) return false;
   const answerable = ws.questions.filter(isAnswerable);
   return answerable.length >= 2 && answerable.every((q) => q.inputKind === 'text');
 }

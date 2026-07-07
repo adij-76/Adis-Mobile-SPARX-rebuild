@@ -302,15 +302,33 @@ function mockWorksheets(lessonId: string): ExerciseWorksheet[] {
       order: 2,
       questions: [
         {
+          questionId: `${lessonId}-w2-q0`,
+          order: 0,
+          inputKind: 'content',
+          title: 'Reference',
+          promptHtml:
+            '<p>Real content blocks carry tables and images:</p>' +
+            '<table><thead><tr><th>Hormone</th><th>Role</th></tr></thead>' +
+            '<tbody><tr><td>Cortisol</td><td>Stress response</td></tr>' +
+            '<tr><td>Dopamine</td><td>Reward and motivation</td></tr></tbody></table>' +
+            '<p><img src="https://images.unsplash.com/photo-1490578474895-699cd4e2cf59?w=600&q=70" alt="illusion" /></p>',
+          minValue: null,
+          maxValue: null,
+          required: false,
+          options: [],
+        },
+        {
+          // The real legacy shape: a labeled Likert "scale" — min/max unset
+          // (or 0/0), every point's label in options.
           questionId: `${lessonId}-w2-q1`,
           order: 1,
           inputKind: 'scale',
           title: 'I am in control of my choices',
           promptHtml: '<p>How much do you agree right now?</p>',
           minValue: 0,
-          maxValue: 4,
+          maxValue: 0,
           required: true,
-          options: ['Strongly disagree', 'Strongly agree'],
+          options: ['Strongly disagree', 'Disagree', 'Neutral', 'Agree', 'Strongly agree', 'Completely'],
         },
         {
           questionId: `${lessonId}-w2-q2`,

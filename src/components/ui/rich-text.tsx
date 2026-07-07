@@ -16,6 +16,10 @@ const RICH_CSS = `
 .sparx-rich ul, .sparx-rich ol { margin: 4px 0 8px; padding-left: 20px; }
 .sparx-rich li { margin: 2px 0; }
 .sparx-rich blockquote { margin: 6px 0; padding-left: 12px; border-left: 3px solid #E3E8EF; color: #55636F; }
+.sparx-rich img { max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0; display: block; }
+.sparx-rich table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 13px; display: block; overflow-x: auto; }
+.sparx-rich td, .sparx-rich th { border: 1px solid #E3E8EF; padding: 6px 8px; text-align: left; vertical-align: top; }
+.sparx-rich th { background: #F4F7FA; font-family: Lato_700Bold; }
 `;
 
 let cssInjected = false;
