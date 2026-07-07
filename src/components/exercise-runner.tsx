@@ -32,6 +32,7 @@ import { htmlToText } from '@/lib/html';
 import {
   hasValue,
   isAnswerable,
+  isLabeledScale,
   isStatementSheet,
   questionHeading,
   responsesByQuestion,
@@ -210,9 +211,13 @@ export function ExercisesSection({ ex }: { ex: LessonExercisesState }) {
     );
   }
 
+  // A sheet of only hidden computed 'display' widgets has nothing to run —
+  // don't list it (module 3 is display-heavy; guards future content too).
+  const visibleSheets = ex.worksheets.filter((ws) => runnerQuestions(ws).length > 0);
+
   return (
     <View style={{ gap: Spacing.md }}>
-      {ex.worksheets.map((ws) => {
+      {visibleSheets.map((ws) => {
         const p = worksheetProgress(ws, ex.byQuestion);
         const state = p.complete ? 'done' : p.answered > 0 ? 'resume' : 'start';
         // A finished fill-in sheet opens on its composed statement (read/print/
@@ -485,6 +490,34 @@ function QuestionInput({
         />
       );
     case 'scale': {
+      // Real legacy scales are labeled Likert lists (min/max unset or 0/0, the
+      // labels in options) — render those as tappable rows and store BOTH the
+      // 0-based index (analytics) and the label (readable everywhere).
+      if (isLabeledScale(q)) {
+        const pickedIdx = typeof value.json === 'number' ? value.json : null;
+        return (
+          <View style={{ gap: Spacing.sm }}>
+            {q.options.map((o, i) => {
+              const on = pickedIdx === i;
+              return (
+                <Pressable
+                  key={`${i}-${o}`}
+                  onPress={() => onChange({ json: i, text: o })}
+                  style={[styles.optionRow, on && styles.optionRowOn]}>
+                  <Ionicons
+                    name={on ? 'radio-button-on' : 'radio-button-off'}
+                    size={20}
+                    color={on ? Colors.primary : Colors.strokeStrong}
+                  />
+                  <Txt variant="bodySm" color={on ? Colors.primary : Colors.textMain} style={{ flex: 1 }}>
+                    {o}
+                  </Txt>
+                </Pressable>
+              );
+            })}
+          </View>
+        );
+      }
       const min = q.minValue ?? 0;
       const max = q.maxValue ?? Math.max(min + 4, min + q.options.length - 1);
       const points = Array.from({ length: Math.max(2, max - min + 1) }, (_, i) => min + i);

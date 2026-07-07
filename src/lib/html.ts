@@ -17,7 +17,9 @@ export function htmlToText(html: string): string {
   if (!html) return '';
   const text = html
     .replace(/<\s*br\s*\/?>/gi, '\n')
-    .replace(/<\s*\/\s*(p|div|h[1-6]|li|ul|ol|blockquote)\s*>/gi, '\n')
+    // Table cells → dot-separated, rows → lines, so legacy tables stay readable.
+    .replace(/<\s*\/\s*t[dh]\s*>/gi, ' · ')
+    .replace(/<\s*\/\s*(p|div|h[1-6]|li|ul|ol|blockquote|tr|table)\s*>/gi, '\n')
     .replace(/<\s*li[^>]*>/gi, '• ')
     .replace(/<[^>]+>/g, '')
     .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
@@ -30,14 +32,17 @@ export function htmlToText(html: string): string {
 }
 
 // Tags kept as-is (formatting). Anything else is unwrapped (content preserved).
+// Tables are kept because lesson-exercise content blocks use them for real
+// data (e.g. hormone reference tables); IMG is handled specially below.
 const KEEP = new Set([
   'P', 'BR', 'STRONG', 'B', 'EM', 'I', 'U', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6',
   'UL', 'OL', 'LI', 'A', 'SPAN', 'BLOCKQUOTE', 'DIV',
+  'TABLE', 'THEAD', 'TBODY', 'TR', 'TD', 'TH',
 ]);
 // Tags removed entirely (content dropped) — the XSS/formatting-hazard set.
 const DROP = new Set([
   'SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'LINK', 'META', 'FORM',
-  'INPUT', 'BUTTON', 'TEXTAREA', 'SVG', 'IMG', 'VIDEO', 'AUDIO', 'BASE',
+  'INPUT', 'BUTTON', 'TEXTAREA', 'SVG', 'VIDEO', 'AUDIO', 'BASE',
 ]);
 
 /**
@@ -61,6 +66,22 @@ export function sanitizeHtml(html: string): string {
       const tag = el.tagName.toUpperCase();
       if (DROP.has(tag)) {
         el.remove();
+        continue;
+      }
+      // Images: exercise content uses them for real material (optical-illusion
+      // sheets). Keep ONLY https-sourced ones, stripped to src+alt — anything
+      // else (data:, javascript:, tracking attrs) is removed.
+      if (tag === 'IMG') {
+        const src = el.getAttribute('src')?.trim() ?? '';
+        if (!/^https:\/\//i.test(src)) {
+          el.remove();
+          continue;
+        }
+        const alt = el.getAttribute('alt') ?? '';
+        for (const attr of Array.from(el.attributes)) el.removeAttribute(attr.name);
+        el.setAttribute('src', src);
+        if (alt) el.setAttribute('alt', alt);
+        el.setAttribute('loading', 'lazy');
         continue;
       }
       clean(el); // recurse first so unwrapping keeps cleaned children
