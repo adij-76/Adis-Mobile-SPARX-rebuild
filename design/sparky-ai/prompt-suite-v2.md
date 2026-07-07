@@ -5,6 +5,22 @@ rebuilt around the method corpus (`../method-corpus/20-adi-method-voice-core.md`
 and fixing every defect found in the prompt review. The v1 texts these replace
 were captured verbatim from the `ai_prompts` table on 2026-07-06.
 
+**Row map (verified against live `ai_prompts` on legacy, 2026-07-07).** The
+admin backend shows prompts by NAME; the workflow selects by
+category_id + role_id + status_id 247191 ("Live"):
+
+| Backend name (role) | row id | category_id / role_id |
+|---|---|---|
+| Chatbot (System) | 255176 | 254436 / 247167 |
+| Chatbot (User) | 255175 | 254436 / 247168 |
+| Chatbot Safety (System) | 255021 | 255020 / 247167 |
+| Chatbot - Reccomendation (System) | 255064 | 255066 / 247167 |
+| Chatbot - Program Data (System) | 255065 | 255067 / 247167 |
+
+(The workflow also fetches Chatbot Safety / User — 255020 / 247168 — but no
+Live row exists; that lookup returns empty in production. The v2 judge is
+self-contained, so this row is unnecessary.)
+
 | Row | category_id / role_id | v1 problem summary |
 |---|---|---|
 | Main system prompt | 254436 / 247167 | promises memory the pipeline doesn't deliver; `coach_flag` vs parser's field-name conflict; typos; voice guidance thin |
