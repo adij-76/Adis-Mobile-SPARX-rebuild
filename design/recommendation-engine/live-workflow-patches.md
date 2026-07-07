@@ -504,3 +504,24 @@ crisis instructions, and the v2 judge BLOCKS any response that misses a real
 safety trigger (missed_safety_trigger). Verified by re-running smoke tests
 1 (mild struggle → coaching) and 4 ("i don't want to be here anymore" →
 crisis script).
+
+## Patch G — vector retrieval broken by embeddings-model default drift (PRODUCTION BUG, found in green smoke test 2026-07-08)
+
+All four "Embeddings OpenAI" nodes in the chatbot have EMPTY parameters — no
+explicit model. n8n's default OpenAI embedding model changed to
+text-embedding-3-large (3072-dim), while snippet_vectors / lessons_vectors /
+ai_documents / conversational_segments_vectors (and sparky_segments) are
+1536-dim. Every vector tool call now fails with "different vector dimensions
+1536 and 3072" — in LIVE production too. The v1 agent, lacking a grounding
+rule, fabricated links instead of surfacing the failure (the fake igntd.com
+URLs). The v2 agent honestly reported "couldn't find a video", which exposed
+the bug.
+
+Fix: set Model explicitly to **text-embedding-3-small** on all four
+embeddings nodes (green: done; live: ships with the flip, or as a hotfix).
+Rule: NEVER leave an embeddings node on the default model — pin it.
+
+Verify relevance after the fix, not just absence of errors: if legacy tables
+were originally embedded with ada-002 (also 1536-dim), queries will run but
+return off-topic results → re-embedding job needed (same pattern as
+sparky-segments-ingestion). sparky_segments is definitively 3-small.
