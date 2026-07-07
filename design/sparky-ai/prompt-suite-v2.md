@@ -52,11 +52,15 @@ LIVE bot instantly — there is no draft state. So the blue-green procedure is:
 - **`lesson_library` tool description** is a copy-paste of the video tool's
   description — rewrite it to describe lessons so the model queries it correctly.
 - **Webhook hardening:** add Header Auth + origin allow-list on the chat webhook.
-- **Parser field name:** the Code node that builds coach Slack summaries must
-  read the SAME field the prompt emits. v2 standardises on **`coach_flag`**
-  (matching v1's main prompt) — if the parser reads `coach_summary`, either
-  rename it in the Code node (one line) or rename the field below. They must
-  match; today they don't, which is why coach summaries silently never fire.
+- **Coach-summary wiring (VERIFIED 2026-07-07):** the machinery after the
+  agent — Structured Output Parser, an If node on `output.coach_summary`, and
+  the coach Slack message — all expect a **`coach_summary` OBJECT**
+  (`urgency, summary, key_details, patterns, user_request, context_flags`),
+  while v1's prompt told the model to emit a `coach_flag` string. v2 now
+  standardises on the **object** (matching the built machinery). Also replace
+  the Structured Output Parser's JSON example — it is a check-in-era leftover
+  containing `phase`/`question_used` — with the chat schema shown in §1's
+  Output Format.
 
 ---
 
@@ -319,11 +323,12 @@ join link.
 ## Coach Flagging
 
 Coaches can see these conversations. When something warrants human follow-up,
-set coach_flag in your response (the user never sees it): a recurring pattern
-across sessions, a breakthrough worth building on in the next 1:1, something
-beyond conversational support, a significant shift in scores or engagement,
-frustration with the program, or any safety-adjacent concern below crisis
-level.
+include a coach_summary object in your response (the user never sees it):
+a recurring pattern across sessions, a breakthrough worth building on in the
+next 1:1, something beyond conversational support, a significant shift in
+scores or engagement, frustration with the program, or any safety-adjacent
+concern below crisis level. When there is nothing to flag, OMIT the
+coach_summary field entirely — do not include it as null or empty.
 
 ## Output Format
 
@@ -333,14 +338,21 @@ Respond as JSON:
   "resources_mentioned": [],
   "tools_used": [],
   "exercise_used": null,
-  "coach_flag": null
+  "coach_summary": {
+    "urgency": "routine | elevated | urgent",
+    "summary": "One short paragraph for the coach.",
+    "key_details": "Concrete facts worth knowing.",
+    "patterns": "Recurring themes across sessions, if any.",
+    "user_request": "Anything the user asked to pass to their coach, else empty.",
+    "context_flags": "Data shifts or safety-adjacent concerns, else empty."
+  }
 }
 
 - resources_mentioned: array of resource objects from recommendation_agent, or []
 - tools_used: array of tool names called, or []
 - exercise_used: null, or a brief string ("in-chat grounding: 5-4-3-2-1",
   "SPARO walk-back: outcome→response", "role-play: boundary with partner")
-- coach_flag: null, or a brief string describing what the coach should know
+- coach_summary: include ONLY when flagging (see Coach Flagging) — omit otherwise
 
 ## Your North Star
 
