@@ -137,7 +137,7 @@ re-runs don't duplicate; disabling the engine leaves the app healthy.
 | Picks per run | "Validate picks" (`slice(0, 5)` / `slice(0, 2)`) + prompt | 3–5 videos, ≤2 lessons |
 | Note history depth | signals SQL `ai_notes` lateral (`limit 5`) | last 5 notes |
 | Signal priority | ranking prompt "priority order" list | plan+notes → check-ins → wheel → lessons |
-| Approved-status ids | treatment-plan lateral (`254183, 254184`) | matches Treatment Plan workflow |
+| Approved-status ids | treatment-plan lateral (`254183, 254184`) | confirmed via legacy `sds_codes` ("Treatment Plan Item Status"): 254182 Submitted · 254183 Reviewed - Accepted · 254184 Reviewed - Accepted With Edits · 254592 Archived. Approved set correct; Archived rightly excluded; Submitted items await clinician review. |
 | No-repeat window | candidate + insert SQL (`interval '60 days'`) | 60 days |
 | Candidate pool sizes | candidate SQL `limit 40` / `limit 30` | 40 videos, 30 lessons |
 | "Active user" window (batch) | signals SQL (`interval '14 days'`) | 14 days |
