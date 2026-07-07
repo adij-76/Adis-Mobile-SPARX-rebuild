@@ -525,3 +525,14 @@ Verify relevance after the fix, not just absence of errors: if legacy tables
 were originally embedded with ada-002 (also 1536-dim), queries will run but
 return off-topic results → re-embedding job needed (same pattern as
 sparky-segments-ingestion). sparky_segments is definitively 3-small.
+
+## Patch H — app sessionId is not a uuid; chat logging fails (PRODUCTION BUG #4, found in green smoke test 2026-07-08)
+
+`ai_chat_responses.session_id` is uuid-typed. The rebuilt app generates
+`s-${Date.now()}-${random}` sessionIds (src/app/(tabs)/sparky.tsx), so every
+insert from app-originated chats fails ("invalid input syntax for type
+uuid") — chats from the rebuilt app have not been logging, which also starves
+the new cross-session Chat_History context. Fixed app-side on this branch:
+sessionId is now crypto.randomUUID() (with a Math.random RFC4122 fallback for
+runtimes without crypto). Ships to the live app when this branch (or the fix
+cherry-picked) merges to main. Test harnesses must also use uuid sessionIds.
