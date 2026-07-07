@@ -71,3 +71,13 @@ percent is not real — treat native progress as unavailable and lean on web.
   real async store — no change needed, just retest persistence.
 - **Push notifications**, deep links, and real auth (replace the hard-coded
   Sparky `userId`) are not wired yet.
+- **Lesson-exercise rich content (images + tables).** On web, `RichText`
+  renders sanitized HTML: content blocks keep their **https images** (Module
+  2's optical-illusion exercises depend on them) and **tables** (hormone /
+  nutrition references). On native the fallback is `htmlToText`, which drops
+  images and flattens tables to " · "-separated lines — the illusion sheets
+  lose their point. Recommended approach when native ships: keep the same
+  sanitizer, add a small custom renderer for the KEEP subset (paragraphs/bold/
+  lists as `Txt`, `expo-image` for https `<img>`, tables as the text fallback)
+  rather than pulling in a heavy HTML-rendering dependency. Grep
+  `mobile_lesson_exercises` for `<img` to find every affected sheet.
