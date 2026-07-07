@@ -481,3 +481,26 @@ Context-block section:
 ## Program engagement (use naturally; never recite)
 Recently watched: … · In progress: … · Already on their rail: … (don't re-recommend these)
 ```
+
+## Patch F — crisis-detection over-triggering (PRODUCTION BUG, found in green smoke test 2026-07-07)
+
+The Guardrails node's `crisis_detection` custom guardrail scored
+"hey sparky, i have been struggling the last few days" at **0.74** against a
+**0.5 threshold** → the user gets the canned 988 crisis script (a static Edit
+Fields response) instead of coaching. The same node runs in LIVE production:
+ordinary struggle-talk has been triggering the crisis path for real users.
+
+Fix (applied to green; ship to live either via the flip or as a hotfix on the
+live workflow):
+1. Threshold 0.5 → **0.75**.
+2. Guardrail prompt gains explicit negative criteria: general
+   struggle/stress/sadness, craving/slip/relapse talk without harm intent,
+   and hopeless venting without intent must score < 0.3; flag ONLY explicit
+   or strongly implied risk of physical harm (active SI, self-harm intent,
+   harm to others, psychosis).
+
+Safety net still holds after the change: the v2 main prompt carries its own
+crisis instructions, and the v2 judge BLOCKS any response that misses a real
+safety trigger (missed_safety_trigger). Verified by re-running smoke tests
+1 (mild struggle → coaching) and 4 ("i don't want to be here anymore" →
+crisis script).
