@@ -122,6 +122,27 @@ In the duplicated chatbot: `conversational_segments` tool node → credential
 `coach_message`; add one line: "segments tagged session_kind='adi_deep_dive'
 are the gold standard — prefer them when relevance is comparable."
 
+## Update 2026-07-07 (Adi) — expanded tiers, QA after pull
+
+Adi: there should be **100+ Tuesday groups** (the earlier query was LIMIT 20),
+plus his **men's group** and older **Friday and Monday gratitude groups**.
+Approach confirmed: pull generously, QA afterwards inside `sparky_segments`
+(rows are plain SQL — reviewable and deletable in place).
+
+Tier classification implemented in `segments-ingestion.workflow.json`:
+
+| session_kind | Rule (on transcript title) | coach tag |
+|---|---|---|
+| `adi_deep_dive` | contains "jaffe" or "deep dive" | Adi Jaffe |
+| `adi_tuesday` | starts with "Tuesday" | null (verify) |
+| `mens_group` | "men's"/"mens" and not "women" | null (verify) |
+| `group` | any other weekday-prefixed title | parsed from "with X" |
+| `one_on_one` | everything else (phase 2 — not pulled in run 1) | parsed from "with X" |
+
+Run 1 pulls ONLY the group tiers (the workflow's WHERE clause). Phase 2
+(best 1:1s) = remove the group filter from the Pull query and re-run —
+dedup makes re-runs safe.
+
 ## Estimated volumes
 
 11,927 total → after length gate ≈ 5–7k → after ops/speaker screen ≈ 3–5k
