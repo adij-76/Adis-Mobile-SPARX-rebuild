@@ -47,6 +47,7 @@ for retrieval (pulled when relevant).
 | **Book 3 method files** | Drive: Book3-Unhooked-Leadership (`Pattern-Behavior-Map.md`, `Avoidance-Tax-Knowledge-Base.md`, 2 workshop outlines) + old business presentations (workshop/keynote PDFs) | Next capture pass |
 | **Jaffe Method Compendium + Decade-in-90-Days manual** | Drive: Coaching/Templates | Next capture pass |
 | **Course work** | TBD | Same |
+| **More session segments** (Tuesday deep-dive groups, Adi-led 1:1s) | legacy DB transcript store (the SOAP pipeline transcribes every session; only ~20 transcripts ever made it into `conversational_segments_vectors`, and after QA just 86 segments remain) | Ingestion v2: windowed chunk keys (client turn + prior coach turn), speaker validation, name scrub, `session_type`/`coach` tags in metadata, QA gate per `31-conversational-segments-qa.md` criteria; over-weight Adi-led sessions |
 | **Best articles** | Adi to send links/text | Capture as markdown here + embed |
 | **Podcast appearances** (voice gold) | Adi to send links | Transcribe best segments → voice-sample file |
 | **Voice samples** (Adi at his best, any format) | Adi to send | Feeds the "Adi Method & Voice" prompt core |
