@@ -432,3 +432,52 @@ them concurrently. The real wins, in order of impact:
 
 **Measure before/after:** each n8n execution shows per-node timing — screenshot
 one execution before patching and one after; the delta is the proof.
+
+### Patch D addendum — the FULL context stack (what Sparky knows per message)
+
+"History" means more than chat. After Patches B + C + D, every message
+carries all five layers — this table is the checklist for the deployment:
+
+| Layer | What it contains | Source / node | Status |
+|---|---|---|---|
+| 1. Identity & focus | name, age, sobriety days, program, primary/secondary problem | `App_Context` → `mobile_ai_context` (🟢) | Patch C |
+| 2. Clinical | last 5 SOAP note narratives + tags + risk; approved plan items | `Session_Notes` (🔴) | Patch B |
+| 3. Assessments & check-ins | validated scores + trends, safety flags, recent check-ins, wheel | `App_Context` RPC (🟢) | Patch C |
+| 4. Conversation history | in-session memory (window 20) + last ~12 cross-session exchanges | memory node + `Chat_History` (🔴) | Patch D |
+| 5. Engagement / app use | videos watched, lessons in progress, streak/XP, what the rail already recommended | **the gap — D4 below** | NEW |
+
+**D4 — engagement detail + rail awareness (🟢 Supabase, fail-open).** The RPC's
+`activity_7d` is a summary; Sparky should also know WHAT they engaged with, and
+what the recommendation engine already put on their rail (so chat suggestions
+don't duplicate it). One query, merged into the context block as `engagementBlock`:
+
+```sql
+with me as (
+  select u.id as user_id, u.auth_uid
+  from public.users u
+  where u.id = {{ $('Consolidate Data').first().json.body.userId }}
+  limit 1
+)
+select
+  (select coalesce(json_agg(x), '[]'::json) from (
+     select w.video_id, w.progress_pct, w.watched_at::date as d
+     from mobile_video_watches w, me where w.auth_uid = me.auth_uid
+     order by w.watched_at desc limit 5) x)         as recent_videos,
+  (select coalesce(json_agg(y), '[]'::json) from (
+     select lp.lesson_id, lp.progress_value, lp.updated_at::date as d
+     from lesson_progresses lp, me where lp.user_id = me.user_id
+     order by lp.updated_at desc limit 5) y)        as lessons_in_progress,
+  (select coalesce(json_agg(z), '[]'::json) from (
+     select rc.content_type, rc.content_id, rc.reason, rc.created_at::date as d
+     from mobile_recommended_content rc, me where rc.user_id = me.user_id
+     order by rc.created_at desc limit 8) z)        as rail_already_recommended;
+```
+(Verify the two engagement table/column names against the live schema when
+pasting — `mobile_video_watches` is confirmed; the lesson-progress table name
+should be checked in Supabase → Table Editor.)
+
+Context-block section:
+```
+## Program engagement (use naturally; never recite)
+Recently watched: … · In progress: … · Already on their rail: … (don't re-recommend these)
+```
