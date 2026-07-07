@@ -99,6 +99,12 @@ export type ContentApi = {
   /** Ids of videos the user has *completed* (percent ≥ 95) — hydrates the local
    *  watched set / checklist. Partial progress is stored but doesn't tick here. */
   watchedVideoIds(): Promise<string[]>;
+  /** Record a durable lesson/workshop completion (cross-device, reconcilable).
+   *  Idempotent — first completion wins the timestamp. Best-effort. */
+  recordLessonComplete(lessonId: string, lessonType: 'lesson' | 'workshop', appUserId: string | null): Promise<void>;
+  /** Ids of lessons/workshops the user has completed — hydrates the local
+   *  completed set so the checkmarks follow the user across devices. */
+  completedLessonIds(): Promise<string[]>;
 };
 
 export type MeetingsApi = {

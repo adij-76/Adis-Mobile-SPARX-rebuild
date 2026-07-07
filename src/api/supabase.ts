@@ -405,6 +405,35 @@ export const supabaseContent: ContentApi = {
       return [];
     }
   },
+  async recordLessonComplete(lessonId, lessonType, appUserId) {
+    const idNum = Number(appUserId);
+    // Upsert on the (auth_uid, lesson_id) PK — idempotent, first completion wins.
+    const res = await fetch(`${BASE}/rest/v1/mobile_completed_lessons?on_conflict=auth_uid,lesson_id`, {
+      method: 'POST',
+      headers: {
+        apikey: ANON,
+        Authorization: `Bearer ${authToken ?? ANON}`,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=ignore-duplicates,return=minimal',
+      },
+      body: JSON.stringify({
+        lesson_id: String(lessonId),
+        lesson_type: lessonType,
+        app_user_id: Number.isFinite(idNum) ? idNum : null,
+      }),
+    });
+    if (!res.ok) throw new Error(`Lesson complete save failed (${res.status})`);
+  },
+  async completedLessonIds() {
+    try {
+      const rows = await rest<{ lesson_id: string }[]>('mobile_completed_lessons', {
+        select: 'lesson_id',
+      });
+      return rows.map((r) => String(r.lesson_id));
+    } catch {
+      return [];
+    }
+  },
 };
 
 export const supabaseMeetings: MeetingsApi = {

@@ -189,6 +189,8 @@ type StoreValue = {
   markVideoWatched: (id: string) => void;
   /** Merge server-recorded video watches in (cross-device). Called once on auth. */
   hydrateWatched: (ids: string[]) => void;
+  /** Merge server-recorded lesson completions in (cross-device). Called on auth. */
+  hydrateCompletedLessons: (ids: string[]) => void;
   /** Award points for advancing a video's furthest-watched to `percent`, scaled
    *  by the current check-in streak. Returns the points earned this step (0 if no
    *  new tier crossed). Idempotent on re-watch. */
@@ -414,6 +416,12 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
           const next = [...new Set([...s.watchedVideos, ...ids])];
           if (next.length === s.watchedVideos.length) return s;
           return { ...s, watchedVideos: next };
+        }),
+      hydrateCompletedLessons: (ids) =>
+        update((s) => {
+          const next = [...new Set([...s.completedLessons, ...ids])];
+          if (next.length === s.completedLessons.length) return s;
+          return { ...s, completedLessons: next };
         }),
       xp: state.xp,
       awardXp: (base) => {
