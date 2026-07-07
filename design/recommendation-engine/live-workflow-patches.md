@@ -343,3 +343,92 @@ the current `userId` by construction. (Your existing `snippet_vectors` /
 4. Run one session through the SOAP workflow (or re-run a past execution) and
    confirm the new `Re-rank recommendations` node fires and new rows appear in
    `mobile_recommended_content` with `run_source = 'note'`.
+
+---
+
+## Patch D — real conversation history (stop pretending, start remembering)
+
+**The problem, precisely located:** the app creates a NEW random `sessionId`
+every time the Sparky screen opens (`src/app/(tabs)/sparky.tsx:101` —
+`s-${Date.now()}-${random}`), and all chat memory is keyed by that
+`sessionId`. So Sparky's memory is wiped every conversation, while the v1
+prompt told it to "reference past conversations" — hence the fabrication
+risk. Meanwhile every exchange IS durably logged to `ai_chat_responses`
+(user_id, session_id, user_input, ai_output) — we just never read it back.
+
+**D1 — Chat_History node (cross-session recall, no schema change):**
+Add a Postgres node `Chat_History` (🔴 legacy credential — `ai_chat_responses`
+lives there) with alwaysOutputData + onError: continue (fail-open), query:
+
+```sql
+select session_id,
+       left(user_input, 300)  as user_said,
+       left(ai_output, 300)   as sparky_said,
+       created_at
+from ai_chat_responses
+where user_id = {{ $('Consolidate Data').first().json.body.userId }}
+  and session_id <> '{{ $('Consolidate Data').first().json.body.sessionId }}'
+order by created_at desc
+limit 12;
+```
+
+In `Code in JavaScript`, build a `historyBlock` from those rows (oldest
+first, grouped by session date) and add it to the context block as:
+
+```
+## Recent conversations with this user (for continuity — reference naturally, never recite)
+[2026-07-03] They talked about X; you suggested Y.
+...
+```
+
+**D2 — raise the in-session window:** all three Postgres Chat Memory nodes
+default to ~5 turns. On the MAIN memory node set Context Window Length to 20.
+(Do this while also fixing the collision: sub-agent memories keyed
+`{{sessionId}}:rec` / `{{sessionId}}:program`, or removed entirely — they're
+stateless lookups.)
+
+**D3 (phase 2, the proper fix) — rolling profile:** nightly n8n job
+summarizes each user's last-24h `ai_chat_responses` rows into
+`ai_chat_profiles (user_id pk, profile text, updated_at)` — themes, open
+loops, what worked, exercises done. `Chat_History` then reads ONE profile row
++ last session's tail instead of 12 raw exchanges: cheaper, smarter, and it
+matches the prompt's "recurring pattern across sessions" coach-flag rule.
+The v2 prompt already describes context honestly, so D1→D3 upgrades need no
+prompt change.
+
+**Why not persist the sessionId in the app instead?** One-line app change,
+but it funnels months of chat into one unbounded memory key, ships only via
+`main`, and loses the per-conversation analytics grain of ai_chat_responses.
+The context-block approach keeps control in n8n where we can tune it.
+
+## Patch E — latency: fewer round trips (honest version of "parallel flows")
+
+n8n executes nodes in a single workflow run **sequentially, even across
+branches** — fanning the context fetches into parallel branches does NOT run
+them concurrently. The real wins, in order of impact:
+
+1. **One query per database.** Today's context chain is serial:
+   wol_data → Checkin_Data → Session_Notes → App_Context → Chat_History
+   would be 5 round trips. Collapse to TWO nodes:
+   - `Legacy_Context` (🔴 legacy): one SQL with lateral joins returning
+     notes + chat history in a single row —
+     `select notes.*, history.* from (…ai_notes lateral…) notes, (…ai_chat_responses lateral…) history`
+   - `App_Context` (🟢 Supabase): already one call —
+     `mobile_ai_context(auth_uid)` covers check-ins, wheel, assessments,
+     flags; retire separate wol_data/Checkin_Data reads once Patch C is in.
+   Each DB call ~100–300ms; this alone saves roughly a second per message.
+2. **Trim what the agent waits on.** The judge (claude-sonnet-4-6) runs on
+   every message — keep it, but make sure the two logging inserts
+   (`ai_chat_responses`, `user_alerts`) run AFTER `Respond to Webhook`, not
+   before it, so the user isn't waiting on bookkeeping writes.
+3. **Sub-agents are already lazy** — recommendation/program-data tools only
+   run when the main agent calls them. No change needed; do NOT pre-warm
+   them.
+4. **True parallelism (only if 1–3 aren't enough):** split context-fetch
+   into a sub-workflow invoked via Execute Workflow with "Wait: off" won't
+   help (you need the result); the legitimate heavy option is two HTTP
+   Request nodes calling n8n's own webhook endpoints concurrently — complexity
+   not justified at current latency. Revisit only with measurements.
+
+**Measure before/after:** each n8n execution shows per-node timing — screenshot
+one execution before patching and one after; the delta is the proof.
