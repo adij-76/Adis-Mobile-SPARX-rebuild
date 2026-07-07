@@ -33,8 +33,8 @@
     },
     {
       "parameters": {
-        "model": "claude-sonnet-4-20250514",
-        "options": { "temperature": 0.7 }
+        "model": "claude-sonnet-5",
+        "options": {}
       },
       "id": "anthropic-model",
       "name": "Claude (Anthropic)",
@@ -101,6 +101,6 @@
   },
   "settings": { "executionOrder": "v1" },
   "meta": {
-    "_comment": "Sparky RAG chat agent. After import: (1) open each node with REPLACE credentials and pick your Anthropic / OpenAI / Postgres credentials; (2) paste system-prompt.md into the Sparky Agent system message; (3) confirm the Claude model id is one your key can access; (4) Save, then toggle the workflow Active; (5) copy the PRODUCTION webhook URL into the GitHub repo variable SPARKY_WEBHOOK. Node typeVersions may differ in your n8n — if a node warns, delete it and re-add the same node from the palette, keeping the parameters shown here."
+    "_comment": "Sparky RAG chat agent. After import: (1) open each node with REPLACE credentials and pick your Anthropic / OpenAI / Postgres credentials; (2) paste system-prompt.md into the Sparky Agent system message; (3) confirm the Claude model id is one your key can access — note claude-sonnet-4-20250514 was RETIRED June 2026, use a current id like claude-sonnet-5, and do NOT set temperature (current Claude models reject sampling params); (4) Save, then toggle the workflow Active; (5) copy the PRODUCTION webhook URL into the GitHub repo variable SPARKY_WEBHOOK. Node typeVersions may differ in your n8n — if a node warns, delete it and re-add the same node from the palette, keeping the parameters shown here."
   }
 }

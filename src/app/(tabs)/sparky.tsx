@@ -98,7 +98,15 @@ export default function Sparky() {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [activeVideo, setActiveVideo] = useState<SparkyVideo | null>(null);
-  const sessionId = useRef(`s-${Date.now()}-${Math.floor(Math.random() * 1e6)}`).current;
+  // Must be a real UUID: the chat pipeline logs to ai_chat_responses whose
+  // session_id column is uuid-typed (non-uuid ids silently fail to log).
+  const sessionId = useRef(
+    globalThis.crypto?.randomUUID?.() ??
+      'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+      }),
+  ).current;
 
   const send = async (value?: string) => {
     const content = (value ?? text).trim();

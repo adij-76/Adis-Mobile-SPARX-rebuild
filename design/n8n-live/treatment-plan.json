@@ -1,0 +1,1600 @@
+{
+  "name": "6.) Treatment Plan",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -11120,
+        1584
+      ],
+      "id": "d5a98c83-4edf-409d-9e68-c5a446ffd81d",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ai_notes",
+          "mode": "list",
+          "cachedResultName": "ai_notes"
+        },
+        "limit": 1,
+        "where": {
+          "values": [
+            {
+              "column": "id",
+              "value": "={{ $json.id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -10896,
+        1584
+      ],
+      "id": "e6658dae-3c7e-4a0d-81ff-072f192ae3e1",
+      "name": "Get AI Note Data",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select get_or_create_ai_treatment_plan_id({{ $json.user_id }})",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -10672,
+        1584
+      ],
+      "id": "e7ba49b5-0cc0-4df4-8d07-00ff3bd248e6",
+      "name": "Get Treatment Plan ID",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// Parse Step 2 — DYNAMIC (no hardcoded field names or SDS codes)\n// ═══════════════════════════════════════════════════════════════\n//\n// Handles the AI's natural output shape (evaluation + content per field)\n// and transforms it into field_results[] with DB-ready metadata.\n//\n// Uses field_code_map from Prepare Plan Data for SDS code lookups\n// instead of a hardcoded mapping.\n\nconst item = $input.item.json;\n\n// ── Unwrap AI output ──\nlet raw = item.output || item;\nif (Array.isArray(raw)) raw = raw[0]?.output || raw[0] || raw;\nif (raw.output && typeof raw.output === 'object') raw = raw.output;\nif (typeof raw === 'string') {\n  try { raw = JSON.parse(raw); } catch (e) {\n    const m = raw.match(/```(?:json)?\\s*([\\s\\S]*?)\\s*```/);\n    if (m) raw = JSON.parse(m[1]);\n    else { const j = raw.match(/\\{[\\s\\S]*\\}/); if (j) raw = JSON.parse(j[0]); }\n  }\n}\n\n// ── Locate the evaluation object ──\n// The AI may wrap fields under different keys — check all known shapes\nconst evaluation = raw.treatment_plan_evaluation\n  || raw.field_assessments\n  || raw.plan_evaluation\n  || raw;\n\n// ── Get dynamic field info from upstream ──\nconst planData = $('Prepare Plan Data').item.json;\nconst fieldCodeMap = planData.field_code_map;     // { field_name: sds_code_id }\nconst knownFields = planData.field_names;          // [\"client_context\", \"history\", ...]\nconst planId = planData.plan_metadata.ai_treatment_plan_id;\nconst sessionId = planData.session.id;\nconst sessionDate = planData.session.date;\nconst clientId = raw.client_id || planData.session.client_id;\n\n// ── Discover fields from the AI output ──\n// Use BOTH the known DB fields AND whatever the AI returned\n// This handles the case where the AI adds a new field or uses a slightly different name\nfunction toSnakeCase(s) {\n  return s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');\n}\n\n// Get all field names from the evaluation object, excluding metadata keys\nconst METADATA_KEYS = new Set([\n  'client_id', 'session_date', 'deferred_observations', 'ai_recommendations',\n  'schema_version', 'overall_assessment', 'session_summary'\n]);\n\nconst aiFieldNames = Object.keys(evaluation).filter(k => !METADATA_KEYS.has(k));\n\n// Merge: known DB fields + any new fields from AI output\nconst allFields = new Set([...knownFields, ...aiFieldNames.map(toSnakeCase)]);\n\n// ── Process each field ──\nconst fieldResults = [];\nlet hasMaterialChanges = false;\nlet safetyRequiresReview = false;\nlet safetyContent = null;\n\nfor (const fieldName of allFields) {\n  // Find matching data in AI output (try exact match, then snake_case variants)\n  let fieldData = evaluation[fieldName];\n  if (!fieldData) {\n    // Try finding by iterating AI output keys\n    for (const aiKey of Object.keys(evaluation)) {\n      if (toSnakeCase(aiKey) === fieldName) {\n        fieldData = evaluation[aiKey];\n        break;\n      }\n    }\n  }\n\n  // If the AI didn't mention this field at all, it's implicitly \"no_change\"\n  if (!fieldData) {\n    fieldResults.push({\n      field_name: fieldName,\n      has_update: false,\n      action: 'no_change',\n      priority: 'routine',\n      confidence: 'high',\n      current_content: planData.current_plan[fieldName]?.content || null,\n      proposed_content: null,\n      ai_reasoning: 'Field not addressed in session analysis — no relevant content found.',\n      change_summary: null,\n      transcript_evidence: null,\n      reviewer_attention: null,\n      ai_treatment_plan_id: planId,\n      sds_code_id: fieldCodeMap[fieldName] || 0,\n      input_source_id: sessionId,\n      session_date: sessionDate\n    });\n    continue;\n  }\n\n  // ── Normalize the decision structure ──\n  // Shape A: { current_value, decision: { action, priority, rationale }, proposed_update }\n  // Shape B: { has_update, action, decision_reasoning, evidence_references, ... }\n  const decision = fieldData.decision || fieldData;\n  const action = decision.action || 'no_change';\n  const isUpdate = action !== 'no_change' && action !== 'unchanged';\n\n  if (isUpdate) hasMaterialChanges = true;\n\n  // ── Get proposed content ──\n  let proposedContent = fieldData.proposed_update\n    || fieldData.proposed_content\n    || decision.proposed_update\n    || null;\n\n  const contentStr = (proposedContent !== null && typeof proposedContent === 'object')\n    ? JSON.stringify(proposedContent)\n    : proposedContent;\n\n  // ── Get current value ──\n  const currentValue = fieldData.current_value\n    ?? (planData.current_plan[fieldName]?.content || null);\n\n  // ── Build reasoning + metadata ──\n  const rationale = decision.rationale || decision.decision_reasoning || '';\n  const priority = decision.priority || 'routine';\n  const confidence = decision.confidence || 'high';\n\n  // Build change summary\n  let changeSummary = null;\n  if (isUpdate) {\n    const friendlyName = fieldName.replace(/_/g, ' ');\n    if (!currentValue) {\n      changeSummary = `Initial documentation: ${friendlyName}`;\n    } else if (action === 'replace') {\n      changeSummary = `Updated ${friendlyName} based on new session information`;\n    } else if (action === 'append') {\n      changeSummary = `Added to ${friendlyName} from session findings`;\n    } else {\n      changeSummary = `${action}: ${friendlyName}`;\n    }\n  }\n\n  // ── Safety detection ──\n  const isSafetyField = fieldName === 'risk_assessment'\n    || fieldName === 'safety'\n    || fieldName.includes('risk')\n    || fieldName.includes('safety');\n\n  if (isSafetyField && isUpdate) {\n    safetyRequiresReview = true;\n    safetyContent = { proposed: contentStr, rationale, priority };\n  }\n\n  // ── Extract transcript evidence ──\n  const evidenceRefs = fieldData.evidence_references || decision.evidence_references || [];\n  const transcriptEvidence = Array.isArray(evidenceRefs)\n    ? evidenceRefs.map(e => typeof e === 'string' ? e : (e.quote || e.verbatim_quote || '')).filter(Boolean).join(' | ')\n    : (typeof evidenceRefs === 'string' ? evidenceRefs : '');\n\n  // ── Goal-specific metadata (if this looks like a goals field) ──\n  const goalDetails = fieldData.goal_details\n    || decision.goal_details\n    || fieldData.goal_specific\n    || null;\n\n  fieldResults.push({\n    field_name: fieldName,\n    has_update: isUpdate,\n    action,\n    priority,\n    confidence,\n    current_content: currentValue,\n    proposed_content: contentStr,\n    ai_reasoning: rationale,\n    change_summary: changeSummary,\n    transcript_evidence: transcriptEvidence || null,\n    reviewer_attention: (priority === 'high' || priority === 'urgent')\n      ? `Priority: ${priority}. ${rationale}`\n      : null,\n    goal_details: goalDetails,\n    // DB-ready fields\n    ai_treatment_plan_id: planId,\n    sds_code_id: fieldCodeMap[fieldName] || 0,\n    input_source_id: sessionId,\n    session_date: sessionDate\n  });\n}\n\n// ── Handle fields the AI returned that aren't in the DB yet ──\n// (sds_code_id will be 0 — the DB write will need to handle this)\nconst unmappedFields = fieldResults\n  .filter(f => f.has_update && f.sds_code_id === 0)\n  .map(f => f.field_name);\n\n// ── Session metadata ──\nconst deferredObs = raw.deferred_observations || evaluation.deferred_observations || [];\nconst aiRecs = raw.ai_recommendations || evaluation.ai_recommendations || [];\n\nconst sessionMeta = {\n  _type: 'session_meta',\n  has_material_changes: hasMaterialChanges,\n  safety_requires_review: safetyRequiresReview,\n  safety_content: safetyContent,\n  client_id: clientId,\n  session_id: sessionId,\n  session_date: sessionDate,\n  ai_treatment_plan_id: planId,\n  deferred_observations: JSON.stringify(deferredObs),\n  ai_recommendations: JSON.stringify(aiRecs),\n  fields_with_updates: fieldResults.filter(f => f.has_update).map(f => f.field_name),\n  fields_without_updates: fieldResults.filter(f => !f.has_update).map(f => f.field_name),\n  unmapped_fields: unmappedFields,  // Fields the AI suggested that don't have sds_code_ids\n  schema_version: raw.schema_version || '1.0'\n};\n\nreturn [{\n  json: {\n    session_meta: sessionMeta,\n    field_results: fieldResults,\n    updates: fieldResults.filter(f => f.has_update),\n    update_count: fieldResults.filter(f => f.has_update).length,\n    skip_count: fieldResults.filter(f => !f.has_update).length\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -7504,
+        1584
+      ],
+      "id": "2f798983-f632-435b-b129-5564aa2b7c56",
+      "name": "Parse Step 2"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4ab81410-3b2a-4052-8251-1c4de5a2e0e2",
+              "leftValue": "={{ $json.session_meta.has_material_changes }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -5808,
+        1584
+      ],
+      "id": "c26708ed-9e12-499a-8d8e-84aabf1be5ea",
+      "name": "Has Material Changes?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "7f4d3d29-5fc2-4891-952f-96492cf66703",
+              "leftValue": "={{ $json._type }}",
+              "rightValue": "plan_item",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [
+        -5360,
+        1392
+      ],
+      "id": "cdc5b4b0-ec26-4505-ba24-98bb8b7f51f4",
+      "name": "Filter Plan Items"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ai_treatment_plan_items",
+          "mode": "list",
+          "cachedResultName": "ai_treatment_plan_items"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ai_treatment_plan_id": "={{ $json.ai_treatment_plan_id }}",
+            "sds_code_id": "={{ $json.sds_code_id }}",
+            "input_source_id": "={{ $json.input_source_id }}",
+            "input_content": "={{ $json.input_content }}",
+            "item_content_orig": "={{ $json.item_content_orig }}",
+            "item_content": "={{ $json.item_content }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ai_treatment_plan_id",
+              "displayName": "ai_treatment_plan_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status_id",
+              "displayName": "status_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "sds_code_id",
+              "displayName": "sds_code_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "input_source",
+              "displayName": "input_source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "input_source_column",
+              "displayName": "input_source_column",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "input_source_id",
+              "displayName": "input_source_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "input_content",
+              "displayName": "input_content",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "item_content",
+              "displayName": "item_content",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "item_content_orig",
+              "displayName": "item_content_orig",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "sds_user_id",
+              "displayName": "sds_user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -5136,
+        1392
+      ],
+      "id": "b3ab03d2-f1fc-481a-b4ec-4b95fc1143b9",
+      "name": "Insert Plan Items",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2b236782-996d-4580-b19a-9b360010ac85",
+              "leftValue": "={{ $json._type }}",
+              "rightValue": "session_log",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [
+        -5360,
+        1584
+      ],
+      "id": "3f103904-356f-4e26-8087-4fbe8f86d8a5",
+      "name": "Filter Session Log"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// Build Non-Material Session Log\n// ═══════════════════════════════════════════════════════════════\n//\n// When the gate determines no material changes, we still log the session.\n\nconst parsed = $input.item.json;\nconst meta = parsed.session_meta;\nconst step1 = $('Parse Step 1').first().json;\n\nreturn [{\n  json: {\n    ai_treatment_plan_id: meta.ai_treatment_plan_id,\n    session_id: meta.session_id,\n    session_date: meta.session_date,\n    session_summary: step1.session_summary || '',\n    material_changes: false,\n    fields_updated: '[]',\n    deferred_observations: meta.deferred_observations || '[]',\n    ai_recommendations: meta.ai_recommendations || '[]',\n    safety_review_completed: false,\n    safety_adequate: null,\n    safety_reviewer_flags: null\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5584,
+        1776
+      ],
+      "id": "85b162c2-9207-4905-818b-0d04471f7361",
+      "name": "Build Non-Material Log"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\"session_classification\": {\"type\": \"clinical\", \"confidence\": \"high\", \"rationale\": \"Substantive therapeutic discussion\"}, \"extracted_content\": {\"client_context_mentions\": [{\"content\": \"description\", \"verbatim_quote\": \"exact words\", \"clinical_weight\": \"significant\"}], \"presenting_concerns_mentions\": [{\"content\": \"description\", \"verbatim_quote\": \"exact words\", \"clinical_weight\": \"significant\"}], \"history_mentions\": [], \"safety_mentions\": [{\"content\": \"description\", \"verbatim_quote\": \"exact words\", \"severity\": \"denial_of_si\", \"context\": \"how it came up\"}], \"strengths_mentions\": [{\"content\": \"description\", \"verbatim_quote\": \"exact words\", \"clinical_weight\": \"significant\"}], \"goal_mentions\": [{\"content\": \"description\", \"verbatim_quote\": \"exact words\", \"goal_reference\": \"which goal\", \"direction\": \"progress\"}], \"intervention_mentions\": [], \"monitoring_mentions\": [], \"other_clinical_content\": []}, \"session_summary\": \"2-3 sentence factual summary of what occurred in the session.\"}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        -8752,
+        1808
+      ],
+      "id": "39e1e146-267f-4aee-b488-bb58a6799a00",
+      "name": "Step 1 Output Parser2"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"client_id\": \"User 2\",\n  \"session_date\": \"2026-02-11\",\n  \"treatment_plan_evaluation\": {\n    \"client_context\": {\n      \"current_value\": \"Client age 69, turning 70 in ~6 months. Lives in ~175 sq ft home in someone's backyard near Ballard, Seattle. Income ~$1,100/month. Sister-in-law provides financial support. Has cat as companion. Receives in-home therapy biweekly. Engaged with PCP, SUD counselor, and regular counselor.\",\n      \"decision\": {\n        \"action\": \"no_change\",\n        \"priority\": \"routine\",\n        \"rationale\": \"No new demographic or life situation information discussed this session.\"\n      }\n    },\n    \"presenting_concerns\": {\n      \"current_value\": \"- Anxiety/catastrophizing: ongoing with episodic functional impairment during stress\\n- Substance use: daily alcohol ~10 years, methamphetamine use with recent reduction attempts\\n- Dental avoidance: trauma-related, ongoing oral pain and cancer concern\\n- Anhedonia/low mood: related to son's situation and isolation\",\n      \"decision\": {\n        \"action\": \"replace\",\n        \"priority\": \"routine\",\n        \"rationale\": \"Client reported new somatic symptom (jaw clenching at night) not previously documented. Represents physical manifestation of existing anxiety pattern.\"\n      },\n      \"proposed_update\": \"- Anxiety/catastrophizing: ongoing with episodic functional impairment during stress; new somatic manifestation of jaw clenching/grinding reported this session\\n- Substance use: daily alcohol ~10 years, methamphetamine use with recent reduction attempts; client anticipates needing medically supervised detox\\n- Dental avoidance: trauma-related, ongoing oral pain (broken tooth, tongue lesion) and cancer concern\\n- Anhedonia/low mood: related to son's situation and isolation\\n- Somatic symptoms: jaw clenching at night (new this session), chronic hand/arm nerve pain\"\n    },\n    \"history\": {\n      \"current_value\": \"- Substance use: early onset alcohol (6th grade), IV drug use at 14, 33 years in AA off/on, periods of sobriety (1/3/6/12 years), current daily alcohol ~10 years, ongoing methamphetamine use\\n- Medical/surgical: multiple hand/arm surgeries, gallbladder removal, menopause at 34, prior bioidentical hormones\\n- Trauma: IPV (husband assault), prior homelessness, traumatic dental extractions, PTSD\\n- Family/social: three marriages, two sons (one estranged, one with fentanyl addiction), family alcoholism\",\n      \"decision\": {\n        \"action\": \"no_change\",\n        \"priority\": \"routine\",\n        \"rationale\": \"No new historical disclosures this session.\"\n      }\n    },\n    \"risk_assessment\": {\n      \"current_value\": \"CURRENT STATUS (as of 2026-02-04):\\nPassive SI reported intermittently during stress/catastrophizing. No plan/intent disclosed. Conditional firearm statement documented historically.\\n\\nRISK FACTORS (active):\\n- Daily heavy alcohol use with withdrawal risk\\n- Ongoing methamphetamine use\\n- Passive SI during distress\\n- Limited local support network\\n- Financial strain\\n\\nRISK FACTORS (historical):\\n- Conditional firearm statement\\n- Past homelessness\\n- IPV history\\n\\nPROTECTIVE FACTORS:\\n- Engaged with multiple providers\\n- Sister-in-law support\\n- Future-oriented thinking\\n- Medication adherence improving\\n\\nMONITORING:\\n- Reassess SI each session\\n- Monitor substance use and withdrawal risk\",\n      \"decision\": {\n        \"action\": \"replace\",\n        \"priority\": \"high\",\n        \"rationale\": \"Safety override: client denied SI when directly assessed this session. Reassessment date must be updated. No change in risk profile but current status needs refresh.\"\n      },\n      \"proposed_update\": \"CURRENT STATUS (as of 2026-02-11):\\nClient denied suicidal and homicidal ideation when directly assessed: 'I get frustrated but I don't think about hurting myself.' No plan or intent reported.\\n\\nRISK FACTORS (active):\\n- Daily heavy alcohol use ~10 years with anticipated need for medically supervised detox\\n- Ongoing methamphetamine use\\n- Intermittent passive SI during distress (not endorsed this session)\\n- Limited local support network\\n- Financial strain ($1,100/month)\\n\\nRISK FACTORS (historical — do NOT remove, clinician review required to clear):\\n- Conditional firearm statement ('put a 44 up against my temple')\\n- Past homelessness (2 years in car)\\n- IPV history (husband assaulted client)\\n\\nPROTECTIVE FACTORS:\\n- Engaged with PCP, SUD counselor, therapist\\n- Sister-in-law financial support\\n- Companionship from cat\\n- Future-oriented thinking and treatment engagement\\n- Improving medication adherence\\n- Uses breathing techniques independently\\n\\nMONITORING:\\n- Reassess SI each session during high distress\\n- Monitor substance use pattern and withdrawal risk\\n- Track readiness for medically supervised detox\"\n    },\n    \"strengths_and_considerations\": {\n      \"current_value\": \"- Coping skills: daily meditation, gratitude journaling, goal-setting/list-making, deep breathing\\n- Support network: PCP, SUD counselor, therapist (weekly + biweekly in-home), sister-in-law, landlady/friend, cat\\n- Functional strengths: medication adherence, home organization, cooking, yard work\\n- Engagement: active in Ignited program, peer meetings, consistent therapy attendance\",\n      \"decision\": {\n        \"action\": \"replace\",\n        \"priority\": \"routine\",\n        \"rationale\": \"Client demonstrated new independent use of breathing technique before meetings — novel coping skill application not previously documented.\"\n      },\n      \"proposed_update\": \"- Coping skills: daily meditation, gratitude journaling, goal-setting/list-making, deep breathing, independently using breathing technique before stressful situations (new this session)\\n- Support network: PCP, SUD counselor, therapist (weekly + biweekly in-home), sister-in-law (financial), landlady/friend, cat companion\\n- Functional strengths: medication adherence improving, home organization, cooking, yard work, problem-solving (shut down bank cards promptly after wallet loss)\\n- Engagement: active in Ignited program daily check-ins, peer meetings, consistent therapy attendance\"\n    },\n    \"client_goals\": {\n      \"current_value\": \"ACTIVE:\\n- Pursue medically supervised alcohol detox (since 2026-01; progressing)\\n  Latest: exploring detox options with SUD counselor, target by end of year or birthday in August\\n- Address dental needs and overcome trauma-related avoidance (since 2026-01; active)\\n  Latest: found dentist, working on coping strategies for appointment anxiety\\n- Reduce/stop methamphetamine use (since 2026-01; progressing)\\n  Latest: achieved 6 days abstinence ~3 weeks ago\\n\\nCOMPLETED:\\n- End contact with 'Mike' (completed 2026-01 — blocked)\\n\\nONGOING/MAINTENANCE:\\n- Maintain gratitude journaling and meditation practice\\n- Continue engagement with care team\\n- Maintain medication adherence routine\",\n      \"decision\": {\n        \"action\": \"replace\",\n        \"priority\": \"routine\",\n        \"rationale\": \"Client reports measurable sleep improvement (5/7 good nights) representing progress on wellness goals. Updated progress note.\"\n      },\n      \"proposed_update\": \"ACTIVE:\\n- Pursue medically supervised alcohol detox (since 2026-01; progressing)\\n  Latest: exploring options with SUD counselor, target by end of year or birthday in August\\n- Address dental needs and overcome trauma-related avoidance (since 2026-01; active)\\n  Latest: appointment scheduled for Saturday, practicing coping strategies (breathing, TRE, tapping)\\n- Reduce/stop methamphetamine use (since 2026-01; progressing)\\n  Latest: achieved 6 days abstinence ~3 weeks ago, continued reduction efforts\\n- Improve emotion identification and thought-feeling-body connection (since 2026-02; active)\\n  Latest: practicing feelings wheel check-ins morning/lunch/evening\\n\\nCOMPLETED:\\n- End contact with 'Mike' (completed 2026-01 — blocked)\\n\\nONGOING/MAINTENANCE:\\n- Maintain gratitude journaling and meditation practice\\n- Continue engagement with care team\\n- Maintain medication adherence routine (duloxetine + ADHD med)\"\n    },\n    \"interventions\": {\n      \"current_value\": \"- Emotion-labeling/feelings wheel: introduced 2026-02, brief self-check-ins 3x/day\\n- Peer support group: ongoing\\n- Box/square breathing: introduced for dental anxiety\\n- TRE exercises: provided video link\\n- Tapping/EFT: provided document for anxiety\\n- Bedtime routine: TRE + relaxation breathing (double inhale/exhale)\",\n      \"decision\": {\n        \"action\": \"no_change\",\n        \"priority\": \"routine\",\n        \"rationale\": \"No new interventions introduced this session. Client referenced existing breathing technique.\"\n      }\n    },\n    \"monitoring_plan\": {\n      \"current_value\": \"- Substance use: alcohol quantity/frequency, methamphetamine use/abstinence, triggers\\n- Medication: adherence and side effects (duloxetine, ADHD med)\\n- Safety: reassess SI each session, monitor for escalation\\n- Dental: follow-through with Saturday appointment, anxiety management\\n- Functioning: sleep, self-care, routine maintenance\",\n      \"decision\": {\n        \"action\": \"no_change\",\n        \"priority\": \"routine\",\n        \"rationale\": \"Current monitoring targets remain appropriate. No shift in clinical focus indicated.\"\n      }\n    },\n    \"gaps\": {\n      \"current_value\": \"- SI details: frequency, triggers, plan/intent, access to means, prior attempts\\n- Substance use specifics: exact quantities, last use dates, withdrawal history\\n- Medication list: complete names/doses for all current medications\\n- Cognitive concerns: memory complaints not yet formally assessed\",\n      \"decision\": {\n        \"action\": \"replace\",\n        \"priority\": \"routine\",\n        \"rationale\": \"SI was directly assessed this session — gap partially resolved. Remaining gaps unchanged.\"\n      },\n      \"proposed_update\": \"- SI details: frequency and triggers of intermittent passive SI still need clarification (denied this session but historically endorsed); prior attempts and access to means beyond historical firearm statement\\n- Substance use specifics: exact daily quantities of alcohol, methamphetamine frequency, last use dates, withdrawal history (seizures/DTs)\\n- Medication list: ADHD medication name/dose still not identified\\n- Cognitive concerns: memory complaints not yet formally assessed — consider screening if persistent\"\n    }\n  },\n  \"deferred_observations\": [\n    \"Client mentioned feeling isolated since the move — single mention without elaboration. Track if recurring.\",\n    \"Sleep improvement (5/7 good nights) may correlate with medication adherence — worth exploring.\"\n  ],\n  \"ai_recommendations\": [\n    \"Consider structured risk assessment (C-SSRS) given intermittent passive SI and substance use risk factors.\",\n    \"Sleep improvement is encouraging — assess whether specific sleep hygiene changes or medication effects are contributing.\",\n    \"Dental appointment Saturday — consider brief check-in about coping strategy use and follow-through.\"\n  ],\n  \"schema_version\": \"1.0\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        -7728,
+        1808
+      ],
+      "id": "b47ed21c-1ac3-441f-baff-3c1c907c656b",
+      "name": "Step 2 Output Parser1"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\"safety_adequate\": true, \"severity_appropriate\": true, \"recommended_severity\": \"high\", \"routing_issues\": [], \"missing_safety_content\": [], \"missing_follow_up_questions\": [], \"revised_risk_content\": null, \"reviewer_flags\": \"Risk assessment captures key elements.\"}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        -6256,
+        1696
+      ],
+      "id": "5613f8ca-f53d-4197-a0d0-c2699803b846",
+      "name": "Safety Review Parser1"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ai_treatment_plan_session_log",
+          "mode": "list",
+          "cachedResultName": "ai_treatment_plan_session_log"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ai_treatment_plan_id": "={{ $json.ai_treatment_plan_id }}",
+            "session_id": "={{ $json.session_id }}",
+            "session_date": "={{ $json.session_date }}",
+            "session_summary": "={{ $json.session_summary }}",
+            "material_changes": "={{ $json.material_changes }}",
+            "deferred_observations": "={{ $json.deferred_observations }}",
+            "ai_recommendations": "={{ $json.ai_recommendations }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ai_treatment_plan_id",
+              "displayName": "ai_treatment_plan_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "session_id",
+              "displayName": "session_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "session_date",
+              "displayName": "session_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "session_summary",
+              "displayName": "session_summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "material_changes",
+              "displayName": "material_changes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "deferred_observations",
+              "displayName": "deferred_observations",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ai_recommendations",
+              "displayName": "ai_recommendations",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -5136,
+        1584
+      ],
+      "id": "be344c72-7bb0-45d2-b786-ea962537c188",
+      "name": "Insert Session Log1",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ai_treatment_plan_session_log",
+          "mode": "list",
+          "cachedResultName": "ai_treatment_plan_session_log"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ai_treatment_plan_id": "={{ $json.ai_treatment_plan_id }}",
+            "session_id": "={{ $json.session_id }}",
+            "session_date": "={{ $json.session_date }}",
+            "session_summary": "={{ $json.session_summary }}",
+            "material_changes": "={{ $json.material_changes }}",
+            "deferred_observations": "={{ $json.deferred_observations }}",
+            "ai_recommendations": "={{ $json.ai_recommendations }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ai_treatment_plan_id",
+              "displayName": "ai_treatment_plan_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "session_id",
+              "displayName": "session_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "session_date",
+              "displayName": "session_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "session_summary",
+              "displayName": "session_summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "material_changes",
+              "displayName": "material_changes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "deferred_observations",
+              "displayName": "deferred_observations",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ai_recommendations",
+              "displayName": "ai_recommendations",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -5360,
+        1776
+      ],
+      "id": "d6c950d7-b1c8-42b3-8046-2707a0ea24bc",
+      "name": "Insert Non-Material Log1",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5.2",
+          "mode": "list",
+          "cachedResultName": "gpt-5.2"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -8880,
+        1808
+      ],
+      "id": "6991f0c7-1ef7-4200-9774-4532db30afee",
+      "name": "OpenAI Model Step 3",
+      "credentials": {
+        "openAiApi": {
+          "id": "42PJb5TBKvC0IGmD",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5.2",
+          "mode": "list",
+          "cachedResultName": "gpt-5.2"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -7856,
+        1808
+      ],
+      "id": "98213a16-a338-4f46-90a3-555cfe6d9999",
+      "name": "OpenAI Model Step 4",
+      "credentials": {
+        "openAiApi": {
+          "id": "42PJb5TBKvC0IGmD",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5.2",
+          "mode": "list",
+          "cachedResultName": "gpt-5.2"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -6384,
+        1696
+      ],
+      "id": "c543a788-483b-4e9d-9cf2-5492f356217e",
+      "name": "OpenAI Model Step 5",
+      "credentials": {
+        "openAiApi": {
+          "id": "42PJb5TBKvC0IGmD",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.item.json;\nlet data = item.output || item;\nif (typeof data === 'string') {\n  try { data = JSON.parse(data); } catch (e) {\n    const m = data.match(/```(?:json)?\\s*([\\s\\S]*?)\\s*```/);\n    if (m) data = JSON.parse(m[1]);\n    else { const j = data.match(/\\{[\\s\\S]*\\}/); if (j) data = JSON.parse(j[0]); }\n  }\n}\nreturn [{ json: data }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -8528,
+        1584
+      ],
+      "id": "6ffc50e5-e8f0-4a39-aa57-01cd5e61a259",
+      "name": "Parse Step 1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ── Load template (sds_codes) ──\nlet templateRows = [];\ntry {\n  const raw = $('Load Treatment Plan Codes').item.json;\n  if (raw.data && Array.isArray(raw.data)) {\n    templateRows = raw.data;\n  } else if (raw.code_label && Array.isArray(raw.code_label)) {\n    templateRows = raw.code_label.map((label, i) => ({\n      code_label: label,\n      sds_code_id: (raw.sds_code_id || raw.id || [])[i]\n    }));\n  }\n} catch (e) {}\n\n// ── Load existing plan items ──\nlet existingLabels = [], existingContents = [], existingDates = [];\nlet existingSourceIds = [], existingCodeIds = [], existingRowTypes = [];\ntry {\n  const ex = $('Aggregate Plan Items').item.json;\n  existingLabels = ex.code_label || [];\n  existingContents = ex.item_content || [];\n  existingDates = ex.updated_at || [];\n  existingSourceIds = ex.input_source_id || [];\n  existingCodeIds = ex.sds_code_id || [];\n  existingRowTypes = ex.row_type || [];\n} catch (e) {}\n\nfunction toSnakeCase(label) {\n  return label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');\n}\n\n// ── Build template ──\nconst current_plan = {};\nconst field_code_map = {};\n\nfor (const row of templateRows) {\n  const label = row.code_label || row.label;\n  if (!label || label.includes('(ARCHIVE)')) continue;\n\n  const field = toSnakeCase(label);\n  const codeId = row.sds_code_id || row.id;\n\n  field_code_map[field] = codeId;\n  current_plan[field] = {\n    content: null,\n    approved_content: null,\n    approved_date: null,\n    pending_updates: [],\n    last_updated: null,\n    sds_code_id: codeId\n  };\n}\n\n// ── Overlay existing content ──\n// Data arrives ordered by sds_code_id, updated_at DESC (newest first)\n// row_type = 'approved' or 'pending' from the CTE query\nfor (let i = 0; i < existingLabels.length; i++) {\n  const rawLabel = existingLabels[i];\n  if (!rawLabel) continue;\n\n  const field = toSnakeCase(rawLabel);\n  const content = existingContents[i] || null;\n  const updatedAt = existingDates[i] || null;\n  const sourceId = existingSourceIds[i] || null;\n  const codeId = existingCodeIds[i] || null;\n  const rowType = existingRowTypes[i] || 'pending';\n  const isApproved = (rowType === 'approved');\n\n  // Create entry if field not in template (legacy data)\n  if (!current_plan[field]) {\n    current_plan[field] = {\n      content: null,\n      approved_content: null,\n      approved_date: null,\n      pending_updates: [],\n      last_updated: null,\n      sds_code_id: codeId\n    };\n    if (codeId) field_code_map[field] = codeId;\n  }\n\n  if (!content) continue;\n  const entry = current_plan[field];\n\n  if (isApproved && !entry.approved_content) {\n    // First (most recent) approved row = trusted baseline\n    entry.approved_content = content;\n    entry.approved_date = updatedAt;\n    entry.content = content;\n    entry.last_updated = updatedAt;\n    entry.sds_code_id = codeId || field_code_map[field];\n  } else if (!isApproved) {\n    // Pending — only track if newer than approved baseline\n    if (!entry.approved_date || (updatedAt && updatedAt > entry.approved_date)) {\n      entry.pending_updates.push({ content, date: updatedAt });\n    }\n    // No approved version? Use latest pending as fallback\n    if (!entry.approved_content && !entry.content) {\n      entry.content = content;\n      entry.last_updated = updatedAt;\n      entry.sds_code_id = codeId || field_code_map[field];\n    }\n  }\n}\n\n// ── Build outputs ──\nconst field_names = Object.keys(current_plan);\nconst populated_fields = field_names.filter(f => current_plan[f].content !== null);\nconst empty_fields = field_names.filter(f => current_plan[f].content === null);\nconst approved_fields = field_names.filter(f => current_plan[f].approved_content !== null);\nconst pending_only_fields = populated_fields.filter(f => !current_plan[f].approved_content);\nconst fields_with_pending = field_names.filter(f => current_plan[f].pending_updates.length > 0);\n\nconst planId = $('Get Treatment Plan ID').item.json.get_or_create_ai_treatment_plan_id;\nconst sessionDate = $('Get AI Note Data').item.json.created_at;\n\nconst plan_for_ai = {};\nfor (const field of field_names) {\n  plan_for_ai[field] = current_plan[field].content;\n}\n\nlet pending_summary = null;\nif (fields_with_pending.length > 0) {\n  pending_summary = {};\n  for (const field of fields_with_pending) {\n    pending_summary[field] = current_plan[field].pending_updates\n      .map(p => `[${p.date}] ${p.content.substring(0, 200)}...`)\n      .join('\\n');\n  }\n}\n\nreturn [{\n  json: {\n    current_plan,\n    plan_for_ai,\n    pending_summary,\n    field_names,\n    field_code_map,\n    plan_metadata: {\n      ai_treatment_plan_id: planId,\n      field_count: field_names.length,\n      populated_count: populated_fields.length,\n      empty_count: empty_fields.length,\n      empty_fields,\n      populated_fields,\n      approved_fields,\n      pending_only_fields,\n      fields_with_pending,\n      is_new_plan: populated_fields.length === 0\n    },\n    session: {\n      id: $('Get AI Note Data').item.json.id,\n      date: sessionDate,\n      client_id: $('When Executed by Another Workflow').item.json.anonymizedName,\n      transcript: $('When Executed by Another Workflow').item.json.anonymizedWebvtt\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -9552,
+        1584
+      ],
+      "id": "c3ea4b06-b311-417d-bda4-0454074a4cf3",
+      "name": "Prepare Plan Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// Safety Review Gate\n// ═══════════════════════════════════════════════════════════════\n// \n// This node checks: does the Step 2 output contain risk/safety content?\n// If yes → route to Safety Review AI call\n// If no  → skip directly to DB writes\n//\n// This is a CODE node feeding an IF node.\n// Output: { needs_safety_review: boolean, safety_data: {...} }\n\nconst parsed = $input.item.json;\nconst meta = parsed.session_meta;\n\n// Find the risk_assessment field result\nconst riskField = parsed.field_results.find(f => f.field_name === 'risk_assessment');\n\n// Also scan ALL fields for safety-adjacent content the AI might have \n// placed in the wrong field (e.g., SI mention in presenting_concerns)\nconst SAFETY_KEYWORDS = [\n  'suicid', 'self-harm', 'self harm', 'kill', 'die ', 'dying', 'want to die',\n  'harm to others', 'homicid', 'violence', 'assault', 'weapon',\n  'overdose', 'detox', 'withdrawal', 'seizure', 'DTs',\n  'cutting', 'burning', 'not safe', 'unsafe', 'crisis',\n  'passive si', 'active si', 'ideation', 'attempt', 'plan to'\n];\n\nfunction containsSafetyContent(text) {\n  if (!text) return false;\n  const lower = text.toLowerCase();\n  return SAFETY_KEYWORDS.some(kw => lower.includes(kw));\n}\n\n// Check all proposed content for safety signals\nconst safetyInOtherFields = [];\nfor (const field of parsed.field_results) {\n  if (field.field_name === 'risk_assessment') continue;\n  if (field.proposed_content && containsSafetyContent(field.proposed_content)) {\n    safetyInOtherFields.push({\n      field: field.field_name,\n      content_snippet: field.proposed_content.substring(0, 200),\n      concern: 'Safety-relevant content may be routed to wrong field'\n    });\n  }\n}\n\nconst needsReview = meta.safety_requires_review\n  || (riskField && riskField.has_update)\n  || safetyInOtherFields.length > 0;\n\nreturn [{\n  json: {\n    needs_safety_review: needsReview,\n    safety_data: {\n      risk_field: riskField || null,\n      safety_in_other_fields: safetyInOtherFields,\n      deferred_observations: meta.deferred_observations\n    },\n    // Pass through everything else\n    ...parsed\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -7280,
+        1584
+      ],
+      "id": "f0e117a3-6e24-4060-9037-af03fdee407e",
+      "name": "Safety Gate Check"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "3bfcd4d5-a802-4f55-af6c-1d5181cc21f9",
+              "leftValue": "={{ $json.needs_safety_review }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -7056,
+        1584
+      ],
+      "id": "afccdd1a-ea39-4f0c-852a-eb889b7347f2",
+      "name": "Needs Safety Review?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// Apply Safety Review — Merge safety findings back into results\n// ═══════════════════════════════════════════════════════════════\n//\n// This runs AFTER the Safety Review AI call.\n// It takes the safety review output and modifies the field_results\n// if the safety reviewer flagged issues.\n\nconst safetyReview = $input.item.json;\nlet reviewData = safetyReview.output || safetyReview;\n\n// Parse if string\nif (typeof reviewData === 'string') {\n  try { reviewData = JSON.parse(reviewData); } catch(e) {\n    const m = reviewData.match(/```(?:json)?\\s*([\\s\\S]*?)\\s*```/);\n    if (m) reviewData = JSON.parse(m[1]);\n    else { const j = reviewData.match(/\\{[\\s\\S]*\\}/); if (j) reviewData = JSON.parse(j[0]); }\n  }\n}\n\n// Get the current parsed data from upstream\nconst parsed = $('Parse Step 2').item.json;\nconst fieldResults = [...parsed.field_results]; // clone\nconst sessionMeta = { ...parsed.session_meta };\n\n// ── Apply safety corrections ──\n\n// 1. If safety reviewer provided revised content, update risk_assessment\nif (reviewData.revised_risk_content) {\n  const riskIdx = fieldResults.findIndex(f => f.field_name === 'risk_assessment');\n  if (riskIdx >= 0) {\n    fieldResults[riskIdx].proposed_content = reviewData.revised_risk_content;\n    fieldResults[riskIdx].reviewer_attention =\n      (fieldResults[riskIdx].reviewer_attention || '') +\n      ' [Safety review: content was revised. ' + (reviewData.reviewer_flags || '') + ']';\n  }\n}\n\n// 2. If severity was wrong, update priority\nif (!reviewData.severity_appropriate && reviewData.recommended_severity) {\n  const riskIdx = fieldResults.findIndex(f => f.field_name === 'risk_assessment');\n  if (riskIdx >= 0) {\n    const oldPriority = fieldResults[riskIdx].priority;\n    fieldResults[riskIdx].priority = reviewData.recommended_severity;\n    fieldResults[riskIdx].reviewer_attention =\n      (fieldResults[riskIdx].reviewer_attention || '') +\n      ` [Safety review: severity upgraded from ${oldPriority} to ${reviewData.recommended_severity}]`;\n  }\n}\n\n// 3. If routing issues were found (safety content in wrong field), flag them\nif (reviewData.routing_issues && reviewData.routing_issues.length > 0) {\n  for (const issue of reviewData.routing_issues) {\n    // Add reviewer_attention to the affected field\n    const idx = fieldResults.findIndex(f => f.field_name === issue.field || f.field_name === issue);\n    if (idx >= 0) {\n      fieldResults[idx].reviewer_attention =\n        (fieldResults[idx].reviewer_attention || '') +\n        ' [Safety review: this field may contain safety-relevant content that should also appear in risk_assessment]';\n    }\n  }\n\n  // If risk_assessment wasn't being updated but should be, add it\n  const riskIdx = fieldResults.findIndex(f => f.field_name === 'risk_assessment');\n  if (riskIdx >= 0 && !fieldResults[riskIdx].has_update) {\n    fieldResults[riskIdx].has_update = true;\n    fieldResults[riskIdx].action = 'populate';\n    fieldResults[riskIdx].reviewer_attention =\n      '[Safety review: routing issue detected — safety content found in other fields but risk_assessment was not being updated. Clinician review required.]';\n  }\n}\n\n// 4. If missing follow-up questions, add to missing_information\nif (reviewData.missing_follow_up_questions && reviewData.missing_follow_up_questions.length > 0) {\n  const missingIdx = fieldResults.findIndex(f => f.field_name === 'missing_information');\n  if (missingIdx >= 0) {\n    const existingContent = fieldResults[missingIdx].proposed_content;\n    const safetyQuestions = reviewData.missing_follow_up_questions;\n\n    if (existingContent) {\n      // Append safety follow-ups to existing missing info\n      let parsed;\n      try { parsed = JSON.parse(existingContent); } catch(e) { parsed = null; }\n\n      if (Array.isArray(parsed)) {\n        // Merge, avoiding duplicates\n        for (const q of safetyQuestions) {\n          if (!parsed.some(existing => existing.toLowerCase().includes(q.toLowerCase().substring(0, 30)))) {\n            parsed.push('[Safety review] ' + q);\n          }\n        }\n        fieldResults[missingIdx].proposed_content = JSON.stringify(parsed);\n      } else {\n        fieldResults[missingIdx].proposed_content =\n          existingContent + '\\n\\n[From safety review]:\\n' + safetyQuestions.map(q => '- ' + q).join('\\n');\n      }\n    }\n\n    if (!fieldResults[missingIdx].has_update) {\n      fieldResults[missingIdx].has_update = true;\n      fieldResults[missingIdx].action = 'append';\n    }\n  }\n}\n\n// 5. Add safety review summary to session meta\nsessionMeta.safety_review_completed = true;\nsessionMeta.safety_adequate = reviewData.safety_adequate;\nsessionMeta.safety_reviewer_flags = reviewData.reviewer_flags || null;\n\nreturn [{\n  json: {\n    session_meta: sessionMeta,\n    field_results: fieldResults,\n    updates: fieldResults.filter(f => f.has_update),\n    update_count: fieldResults.filter(f => f.has_update).length,\n    skip_count: fieldResults.filter(f => !f.has_update).length\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -6032,
+        1472
+      ],
+      "id": "ef7468d5-72ff-4991-8203-cf247711c990",
+      "name": "Apply Safety Review"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// Prepare DB Writes — DYNAMIC\n// ═══════════════════════════════════════════════════════════════\n//\n// Takes merged results and produces individual items for Postgres.\n// Uses sds_code_id from the dynamic field_code_map — nothing hardcoded.\n//\n// Handles unmapped fields gracefully: logs a warning but doesn't crash.\n\nconst parsed = $input.item.json;\nconst meta = parsed.session_meta;\nconst results = parsed.field_results;\n\nconst outputItems = [];\nconst warnings = [];\n\n// ── Plan item rows (fields with updates) ──\nfor (const field of results) {\n  if (!field.has_update) continue;\n\n  // Guard: if sds_code_id is 0/missing, this field isn't in the DB yet\n  if (!field.sds_code_id) {\n    warnings.push(`Field \"${field.field_name}\" has no sds_code_id — skipping DB insert. Add this field to sds_codes if you want it persisted.`);\n    continue;\n  }\n\n  outputItems.push({\n    json: {\n      _type: 'plan_item',\n      ai_treatment_plan_id: field.ai_treatment_plan_id,\n      sds_code_id: field.sds_code_id,\n      input_source_id: field.input_source_id,\n      input_content: field.transcript_evidence || null,\n      item_content_orig: field.proposed_content,\n      item_content: field.proposed_content,\n      // Extended fields (add columns to your table to use these)\n      ai_reasoning: field.ai_reasoning || null,\n      ai_confidence: field.confidence || null,\n      ai_action: field.action || null,\n      change_summary: field.change_summary || null,\n      reviewer_attention: field.reviewer_attention || null,\n      session_date: field.session_date || null,\n      // Metadata for debugging\n      _field_name: field.field_name\n    }\n  });\n}\n\n// ── Session log row (always) ──\nconst step1 = $('Parse Step 1').first().json;\n\noutputItems.push({\n  json: {\n    _type: 'session_log',\n    ai_treatment_plan_id: meta.ai_treatment_plan_id,\n    session_id: meta.session_id,\n    session_date: meta.session_date,\n    session_summary: step1.session_summary || '',\n    material_changes: meta.has_material_changes,\n    fields_updated: JSON.stringify(meta.fields_with_updates || []),\n    deferred_observations: meta.deferred_observations || '[]',\n    ai_recommendations: meta.ai_recommendations || '[]',\n    safety_review_completed: meta.safety_review_completed || false,\n    safety_adequate: meta.safety_adequate ?? null,\n    // Include any warnings about unmapped fields\n    warnings: warnings.length > 0 ? JSON.stringify(warnings) : null\n  }\n});\n\n// If there were unmapped fields but no other items, still return the session log\nif (outputItems.length === 0) {\n  return [{ json: { _type: 'session_log', error: 'No items to write', warnings: JSON.stringify(warnings) } }];\n}\n\nreturn outputItems;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5584,
+        1488
+      ],
+      "id": "8acf4e5e-275b-4c9b-82e6-767c4f2034b2",
+      "name": "Prepare DB Writes"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Review the safety content in this treatment plan update.\n\n**PROPOSED RISK ASSESSMENT:**\n{{ $('Safety Gate Check').item.json.safety_data.risk_field ?  $('Safety Gate Check').item.json.safety_data.risk_field.proposed_content : \"No risk assessment update proposed\" }}\n\n**RISK ASSESSMENT REASONING:**\n{{  $('Safety Gate Check').item.json.safety_data.risk_field ?  $('Safety Gate Check').item.json.safety_data.risk_field.ai_reasoning : \"N/A\" }}\n\n**SAFETY CONTENT IN OTHER FIELDS:**\n{{  $('Safety Gate Check').item.json.safety_data.safety_in_other_fields.length > 0 ? JSON.stringify( $('Safety Gate Check').item.json.safety_data.safety_in_other_fields, null, 2) : \"None detected\" }}\n\n**ORIGINAL SESSION ANALYSIS:**\n{{ JSON.stringify($('Step 1 - Session Analysis').item.json.output, null, 2) }}\n\n**DEFERRED OBSERVATIONS:**\n{{  $('Safety Gate Check').item.json.safety_data.deferred_observations }}\n\nEvaluate and return valid JSON only.",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "={{ $json.system_prompt }}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.8,
+      "position": [
+        -6384,
+        1472
+      ],
+      "id": "6dccba9d-0665-4042-85e8-e75755f3809c",
+      "name": "Safety Review"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Evaluate this session against the current treatment plan. For each field, determine the action and generate proposed content where warranted.\n\n**Client ID:** {{ $('When Executed by Another Workflow').item.json.anonymizedName }}\n**Session Date:** {{ $('Get AI Note Data').item.json.created_at }}\n\n**CURRENT TREATMENT PLAN ({{ $('Prepare Plan Data').item.json.field_names.length }} fields):**\n```json\n{{ JSON.stringify($('Prepare Plan Data').item.json.current_plan, null, 2) }}\n```\n\n**Fields in this plan:** {{ $('Prepare Plan Data').item.json.field_names.join(', ') }}\n\n**Plan Established:** {{ $('Prepare Plan Data').item.json.plan_metadata.plan_established_date || \"Not yet established\" }}\n\n**SESSION ANALYSIS (from Step 1):**\n```json\n{{ JSON.stringify($('Parse Step 1').item.json, null, 2) }}\n```\n\nEvaluate EVERY field listed above. Return valid JSON only.",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "={{ $json.system_prompt }}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.8,
+      "position": [
+        -7856,
+        1584
+      ],
+      "id": "15a70a50-4325-42c9-aca9-269d38ae1a07",
+      "name": "Step 2 - Evaluate and Generate"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze this therapy session transcript and extract structured information.\n\n**Client ID:** {{ $('When Executed by Another Workflow').item.json.anonymizedName }}\n**Session Date:** {{ $('Get AI Note Data').item.json.created_at }}\n\n**TRANSCRIPT:**\n{{ $('When Executed by Another Workflow').item.json.anonymizedWebvtt }}\n\nExtract all clinically relevant content as valid JSON only. Include verbatim quotes for every mention.",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "={{ $json.system_prompt }}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.8,
+      "position": [
+        -8880,
+        1584
+      ],
+      "id": "2c90e501-5199-4627-9814-462233b31020",
+      "name": "Step 1 - Session Analysis"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH approved AS (\n  SELECT DISTINCT ON (sds_code_id)\n    sds_code_id, input_content, item_content, updated_at,\n    tp.status_id, input_source_id, code_label,\n    'approved' as row_type\n  FROM ai_treatment_plan_items tp\n  LEFT JOIN sds_codes sc ON sds_code_id = sc.id\n  WHERE ai_treatment_plan_id = {{ $('Get Treatment Plan ID').item.json.get_or_create_ai_treatment_plan_id }}\n    AND tp.status_id IN (254183, 254184)\n  ORDER BY sds_code_id, tp.updated_at DESC\n),\npending AS (\n  SELECT \n    tp.sds_code_id, tp.input_content, tp.item_content, tp.updated_at,\n    tp.status_id, tp.input_source_id, sc.code_label,\n    'pending' as row_type\n  FROM ai_treatment_plan_items tp\n  LEFT JOIN sds_codes sc ON sds_code_id = sc.id\n  WHERE ai_treatment_plan_id = {{ $('Get Treatment Plan ID').item.json.get_or_create_ai_treatment_plan_id }}\n    AND (tp.status_id = 254182 OR tp.status_id IS NULL)\n    AND tp.updated_at > COALESCE(\n      (SELECT MAX(a.updated_at) FROM approved a WHERE a.sds_code_id = tp.sds_code_id),\n      '1970-01-01'\n    )\n)\nSELECT * FROM approved\nUNION ALL\nSELECT * FROM pending\nORDER BY sds_code_id, updated_at DESC",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -10000,
+        1584
+      ],
+      "id": "0b778055-0336-4eb6-bb66-6589e2cd88dd",
+      "name": "Get All Treatment Plan Entries",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "sds_codes",
+          "mode": "list",
+          "cachedResultName": "sds_codes"
+        },
+        "returnAll": true,
+        "where": {
+          "values": [
+            {
+              "column": "code_set",
+              "value": "Treatment Plan Items"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -10448,
+        1584
+      ],
+      "id": "b14ff4fe-219a-40d3-925a-19758b1bb537",
+      "name": "Load Treatment Plan Codes SQL",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        -10224,
+        1584
+      ],
+      "id": "9a8e7fd6-098e-467b-b9ee-797fa6e974b0",
+      "name": "Load Treatment Plan Codes"
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {
+              "fieldToAggregate": "sds_code_id"
+            },
+            {
+              "fieldToAggregate": "code_label"
+            },
+            {
+              "fieldToAggregate": "input_content"
+            },
+            {
+              "fieldToAggregate": "item_content"
+            },
+            {
+              "fieldToAggregate": "updated_at"
+            },
+            {
+              "fieldToAggregate": "input_source_id",
+              "renameField": true,
+              "outputFieldName": "source_session_id"
+            },
+            {
+              "fieldToAggregate": "row_type"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        -9776,
+        1584
+      ],
+      "id": "f6ca870b-4a01-4682-bd60-6c300d06fb14",
+      "name": "Aggregate Plan Items"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ai_prompts",
+          "mode": "list",
+          "cachedResultName": "ai_prompts"
+        },
+        "limit": 1,
+        "where": {
+          "values": [
+            {
+              "column": "status_id",
+              "value": "247191"
+            },
+            {
+              "column": "category_id",
+              "value": "255042"
+            },
+            {
+              "column": "role_id",
+              "value": "247167"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -9328,
+        1584
+      ],
+      "id": "2587c731-29dc-4bad-90f8-6df28055ca77",
+      "name": "System Prompt - Analysis",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "html": "={{ $json.ai_prompt }}",
+        "destinationKey": "system_prompt",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.markdown",
+      "typeVersion": 1,
+      "position": [
+        -9104,
+        1584
+      ],
+      "id": "90c82074-b10c-4a18-9f4e-82ac7803bf73",
+      "name": "Markdown System - Analysis"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ai_prompts",
+          "mode": "list",
+          "cachedResultName": "ai_prompts"
+        },
+        "limit": 1,
+        "where": {
+          "values": [
+            {
+              "column": "status_id",
+              "value": "247191"
+            },
+            {
+              "column": "category_id",
+              "value": "255044"
+            },
+            {
+              "column": "role_id",
+              "value": "247167"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -8304,
+        1584
+      ],
+      "id": "dca603bc-aea0-4995-8ea8-4237226235cc",
+      "name": "System Prompt - Evalute",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "html": "={{ $json.ai_prompt }}",
+        "destinationKey": "system_prompt",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.markdown",
+      "typeVersion": 1,
+      "position": [
+        -8080,
+        1584
+      ],
+      "id": "5a70a2f1-411f-4f78-b472-1d312f0f6e9d",
+      "name": "Markdown System  - Evalute"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ai_prompts",
+          "mode": "list",
+          "cachedResultName": "ai_prompts"
+        },
+        "limit": 1,
+        "where": {
+          "values": [
+            {
+              "column": "status_id",
+              "value": "247191"
+            },
+            {
+              "column": "category_id",
+              "value": "255043"
+            },
+            {
+              "column": "role_id",
+              "value": "247167"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -6832,
+        1472
+      ],
+      "id": "73229e95-5731-4bba-b27f-c26f7eafc00d",
+      "name": "System Prompt - Safety",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "html": "={{ $json.ai_prompt }}",
+        "destinationKey": "system_prompt",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.markdown",
+      "typeVersion": 1,
+      "position": [
+        -6608,
+        1472
+      ],
+      "id": "72e6110a-22d1-428d-b592-91f794a8e0dd",
+      "name": "Markdown System  - Safety"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Get AI Note Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get AI Note Data": {
+      "main": [
+        [
+          {
+            "node": "Get Treatment Plan ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Treatment Plan ID": {
+      "main": [
+        [
+          {
+            "node": "Load Treatment Plan Codes SQL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Step 2": {
+      "main": [
+        [
+          {
+            "node": "Safety Gate Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Material Changes?": {
+      "main": [
+        [
+          {
+            "node": "Prepare DB Writes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Non-Material Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Plan Items": {
+      "main": [
+        [
+          {
+            "node": "Insert Plan Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Session Log": {
+      "main": [
+        [
+          {
+            "node": "Insert Session Log1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Non-Material Log": {
+      "main": [
+        [
+          {
+            "node": "Insert Non-Material Log1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Model Step 3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Step 1 - Session Analysis",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Step 1 Output Parser2": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Step 1 - Session Analysis",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Model Step 5": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Safety Review",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Model Step 4": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Step 2 - Evaluate and Generate",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Step 2 Output Parser1": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Step 2 - Evaluate and Generate",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Safety Review Parser1": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Safety Review",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Step 1": {
+      "main": [
+        [
+          {
+            "node": "System Prompt - Evalute",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Plan Data": {
+      "main": [
+        [
+          {
+            "node": "System Prompt - Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Safety Gate Check": {
+      "main": [
+        [
+          {
+            "node": "Needs Safety Review?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Safety Review?": {
+      "main": [
+        [
+          {
+            "node": "System Prompt - Safety",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Has Material Changes?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apply Safety Review": {
+      "main": [
+        [
+          {
+            "node": "Has Material Changes?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare DB Writes": {
+      "main": [
+        [
+          {
+            "node": "Filter Plan Items",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Filter Session Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Safety Review": {
+      "main": [
+        [
+          {
+            "node": "Apply Safety Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Step 2 - Evaluate and Generate": {
+      "main": [
+        [
+          {
+            "node": "Parse Step 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Step 1 - Session Analysis": {
+      "main": [
+        [
+          {
+            "node": "Parse Step 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Treatment Plan Entries": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Plan Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Treatment Plan Codes SQL": {
+      "main": [
+        [
+          {
+            "node": "Load Treatment Plan Codes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Treatment Plan Codes": {
+      "main": [
+        [
+          {
+            "node": "Get All Treatment Plan Entries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Plan Items": {
+      "main": [
+        [
+          {
+            "node": "Prepare Plan Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "System Prompt - Analysis": {
+      "main": [
+        [
+          {
+            "node": "Markdown System - Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Markdown System - Analysis": {
+      "main": [
+        [
+          {
+            "node": "Step 1 - Session Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "System Prompt - Evalute": {
+      "main": [
+        [
+          {
+            "node": "Markdown System  - Evalute",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Markdown System  - Evalute": {
+      "main": [
+        [
+          {
+            "node": "Step 2 - Evaluate and Generate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "System Prompt - Safety": {
+      "main": [
+        [
+          {
+            "node": "Markdown System  - Safety",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Markdown System  - Safety": {
+      "main": [
+        [
+          {
+            "node": "Safety Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "uMI7G3OY2E3ubceI"
+  },
+  "versionId": "b20bec9f-0eb6-4d0f-ad54-b54bd1f73503",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c4b298009b5b41f8b263357298a8611fdac884d785e3435c590e16943d468aac"
+  },
+  "nodeGroups": [],
+  "id": "5xEtEeUGAo7bpEKg",
+  "tags": []
+}

@@ -1,0 +1,2783 @@
+{
+  "name": "4.) SOAP & Note QA",
+  "nodes": [
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -1488,
+        1248
+      ],
+      "id": "8218deed-592c-4805-8d7b-940951d14cf3",
+      "name": "OpenAI Chat Model2",
+      "credentials": {
+        "openAiApi": {
+          "id": "42PJb5TBKvC0IGmD",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"sessionMeta\": {\n    \"sessionName\": \"Cognitive Skills Workshop - Week 3\",\n    \"date\": \"08/12/25\",\n    \"duration\": \"60 minutes\",\n    \"clinician\": \"Jordan Patel, LCSW\",\n    \"participants\": [\"user 1\", \"user 2\", \"user 3\"]\n  },\n  \"participant\": {\n    \"id\": \"user 1\",\n    \"soap\": {\n      \"subjective\": {\n        \"rating\": 6,\n        \"narrative\": \"User 1 reported feeling less anxious...\",\n        \"quotes\": {\n          \"quote_1\": \"less anxious than last week\",\n          \"quote_2\": \"the reframing steps helped at work\",\n          \"count\": 2\n        }\n      },\n      \"objective\": {\n        \"rating\": 7,\n        \"narrative\": \"Per transcript, User 1 responded...\",\n        \"measures\": {\n          \"measure_1\": {\n            \"name\": \"Mood check-ins (daily)\",\n            \"value\": \"7/7 completed\",\n            \"when\": \"this week\"\n          },\n          \"measure_2\": {\n            \"name\": \"Self-rated mood (avg)\",\n            \"value\": 6,\n            \"when\": \"this week\"\n          },\n          \"count\": 2\n        }\n      },\n      \"assessment\": {\n        \"rating\": 6,\n        \"narrative\": \"Steady progress toward emotional regulation...\",\n        \"goalsProgress\": {\n          \"goal_1\": {\n            \"goal\": \"[⚠ Missing: treatment plan]\",\n            \"status\": \"partial\",\n            \"evidence\": \"Reports routine use of reframing...\"\n          },\n          \"count\": 1\n        },\n        \"risk\": {\n          \"level\": \"unknown\",\n          \"notes\": \"No risk content noted in transcript.\"\n        }\n      },\n      \"plan\": {\n        \"rating\": 7,\n        \"narrative\": \"Reinforce reframing; add structured stress log...\",\n        \"actions\": {\n          \"action_1\": {\n            \"task\": \"Complete daily stress log\",\n            \"owner\": \"client\",\n            \"due\": null,\n            \"linkedGoal\": \"[⚠ Missing: treatment plan]\"\n          },\n          \"action_2\": {\n            \"task\": \"Bring one log example to next session\",\n            \"owner\": \"client\",\n            \"due\": null,\n            \"linkedGoal\": \"[⚠ Missing: treatment plan]\"\n          },\n          \"action_3\": {\n            \"task\": \"Continue daily mood check-ins\",\n            \"owner\": \"client\",\n            \"due\": null,\n            \"linkedGoal\": \"[⚠ Missing: treatment plan]\"\n          },\n          \"count\": 3\n        },\n        \"nextSession\": {\n          \"date\": \"08/19/25\",\n          \"focus\": \"Review stress log and refine reframing steps\"\n        }\n      }\n    }\n  }\n}",
+        "autoFix": true
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        -1488,
+        1040
+      ],
+      "id": "6f39cfe9-e864-444c-9628-ffe3b970ce1a",
+      "name": "Structured Output Parser2"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"participant_id\": \"[Full Name]\",\n  \"ai_confidence\": {\n    \"subjective\": 0.85,\n    \"objective\": 0.9,\n    \"assessment\": 0.75,\n    \"plan\": 0.9,\n    \"overall\": 0.85\n  },\n  \"summary_tags\": [\n    \"CBT technique usage\",\n    \"Anxiety processing\",\n    \"Low client engagement\",\n    \"Progress toward treatment goals\"\n  ],\n  \"flags\": [\n    {\n      \"code\": \"LOW_EVIDENCE_FOR_ASSESSMENT\",\n      \"section\": \"assessment\",\n      \"severity\": \"moderate\",\n      \"reason\": \"Limited clinical interpretation or connection to diagnosis/treatment progress\",\n      \"evidence\": \"From QA input: Limited clinical interpretation or connection to diagnosis/treatment progress\"\n    },\n    {\n      \"code\": \"PLAN_NOT_LINKED_TO_GOALS\",\n      \"section\": \"plan\",\n      \"severity\": \"moderate\",\n      \"reason\": \"New proposed goals not explicitly linked to original plan objectives\",\n      \"evidence\": \"From QA input: New proposed goals not explicitly linked to original plan objectives\"\n    }\n  ],\n  \"supervision_recommended\": true,\n  \"supervision_recommended_reasons\": [\n    \"Two or more QA flags present\"\n  ],\n  \"notes\": \"Migrated from legacy QA payload\"\n}\n",
+        "autoFix": true
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        320,
+        1344
+      ],
+      "id": "7a50f3ea-3a53-434e-835b-971b54034689",
+      "name": "Structured Output Parser3"
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ai_notes",
+          "mode": "list",
+          "cachedResultName": "ai_notes"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "supervision_recommended": "={{ $json.output.supervision_recommended }}",
+            "id": "={{ $('Postgres6').item.json.id }}",
+            "summary_tags": "={{ $json.output.summary_tags }}",
+            "subjective_confidence": "={{ $json.output.ai_confidence.subjective }}",
+            "assessment_confidence": "={{ $json.output.ai_confidence.assessment }}",
+            "objective_confidence": "={{ $json.output.ai_confidence.objective }}",
+            "plan_confidence": "={{ $json.output.ai_confidence.plan }}",
+            "notes": "={{ $json.output.notes }}",
+            "qa_flag_section": "={{ $json.output.flags }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "sds_user_id",
+              "displayName": "sds_user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "support_id",
+              "displayName": "support_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "type_id",
+              "displayName": "type_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "support_date",
+              "displayName": "support_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "sds_group_id",
+              "displayName": "sds_group_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "sds_group_event_id",
+              "displayName": "sds_group_event_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "user_category_id",
+              "displayName": "user_category_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "insert_by_id",
+              "displayName": "insert_by_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "zoom_account_id",
+              "displayName": "zoom_account_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "duration_min",
+              "displayName": "duration_min",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "status_id",
+              "displayName": "status_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "notes",
+              "displayName": "notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "coach_name",
+              "displayName": "coach_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "session_type",
+              "displayName": "session_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "session_type_id",
+              "displayName": "session_type_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "session_title",
+              "displayName": "session_title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "support_datetime",
+              "displayName": "support_datetime",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "duration",
+              "displayName": "duration",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "num_participants",
+              "displayName": "num_participants",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "zoom_name",
+              "displayName": "zoom_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "summary_tags",
+              "displayName": "summary_tags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "qa_flag_type",
+              "displayName": "qa_flag_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "qa_flag_section",
+              "displayName": "qa_flag_section",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "qa_flag_reason",
+              "displayName": "qa_flag_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "supervision_recommended",
+              "displayName": "supervision_recommended",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "subjective_rating",
+              "displayName": "subjective_rating",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "subjective_analysis",
+              "displayName": "subjective_analysis",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "subjective_confidence",
+              "displayName": "subjective_confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "objective_rating",
+              "displayName": "objective_rating",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "objective_analysis",
+              "displayName": "objective_analysis",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "objective_confidence",
+              "displayName": "objective_confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "assessment_rating",
+              "displayName": "assessment_rating",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "assessment_analysis",
+              "displayName": "assessment_analysis",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "assessment_confidence",
+              "displayName": "assessment_confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "plan_rating",
+              "displayName": "plan_rating",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "plan_analysis",
+              "displayName": "plan_analysis",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "plan_confidence",
+              "displayName": "plan_confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "user_name",
+              "displayName": "user_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "meeting_type_id",
+              "displayName": "meeting_type_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "user_email",
+              "displayName": "user_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "group_date",
+              "displayName": "group_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "vimeo_id",
+              "displayName": "vimeo_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "coach_rating",
+              "displayName": "coach_rating",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "coach_notes",
+              "displayName": "coach_notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        912,
+        1312
+      ],
+      "id": "19e2e72d-c9f2-41a9-b09a-f5057329df2f",
+      "name": "Postgres5",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ai_notes",
+          "mode": "list",
+          "cachedResultName": "ai_notes"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "subjective_rating": "={{ $json.participant.soap.subjective.rating }}",
+            "objective_rating": "={{ $json.participant.soap.objective.rating }}",
+            "assessment_rating": "={{ $json.participant.soap.assessment.rating }}",
+            "plan_rating": "={{ $json.participant.soap.plan.rating }}",
+            "subjective_analysis": "={{ $json.participant.soap.subjective.narrative }}",
+            "objective_analysis": "={{ $json.participant.soap.objective.narrative }}",
+            "assessment_analysis": "={{ $json.participant.soap.assessment.narrative }}",
+            "plan_analysis": "={{ $json.participant.soap.plan.narrative }}",
+            "id": "={{ $('If6').item.json.id }}",
+            "s_quotes": "={{ $json.participant.soap.subjective.quotes }}",
+            "o_measures": "={{ $json.participant.soap.objective.measures }}",
+            "a_goals_progress": "={{ $json.participant.soap.assessment.goalsProgress }}",
+            "a_risk": "={{ $json.participant.soap.assessment.risk }}",
+            "p_actions": "={{ $json.participant.soap.plan.actions }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "sds_user_id",
+              "displayName": "sds_user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "support_id",
+              "displayName": "support_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "type_id",
+              "displayName": "type_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "support_date",
+              "displayName": "support_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "sds_group_id",
+              "displayName": "sds_group_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "sds_group_event_id",
+              "displayName": "sds_group_event_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "user_category_id",
+              "displayName": "user_category_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "insert_by_id",
+              "displayName": "insert_by_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "zoom_account_id",
+              "displayName": "zoom_account_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "duration_min",
+              "displayName": "duration_min",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "status_id",
+              "displayName": "status_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "notes",
+              "displayName": "notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "coach_name",
+              "displayName": "coach_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "session_type",
+              "displayName": "session_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "session_type_id",
+              "displayName": "session_type_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "session_title",
+              "displayName": "session_title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "support_datetime",
+              "displayName": "support_datetime",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "duration",
+              "displayName": "duration",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "num_participants",
+              "displayName": "num_participants",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "zoom_name",
+              "displayName": "zoom_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "summary_tags",
+              "displayName": "summary_tags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "qa_flag_type",
+              "displayName": "qa_flag_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "qa_flag_section",
+              "displayName": "qa_flag_section",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "qa_flag_reason",
+              "displayName": "qa_flag_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "supervision_recommended",
+              "displayName": "supervision_recommended",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "subjective_rating",
+              "displayName": "subjective_rating",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "subjective_analysis",
+              "displayName": "subjective_analysis",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "subjective_confidence",
+              "displayName": "subjective_confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "objective_rating",
+              "displayName": "objective_rating",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "objective_analysis",
+              "displayName": "objective_analysis",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "objective_confidence",
+              "displayName": "objective_confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "assessment_rating",
+              "displayName": "assessment_rating",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "assessment_analysis",
+              "displayName": "assessment_analysis",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "assessment_confidence",
+              "displayName": "assessment_confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "plan_rating",
+              "displayName": "plan_rating",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "plan_analysis",
+              "displayName": "plan_analysis",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "plan_confidence",
+              "displayName": "plan_confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "user_name",
+              "displayName": "user_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "meeting_type_id",
+              "displayName": "meeting_type_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "user_email",
+              "displayName": "user_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "group_date",
+              "displayName": "group_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "vimeo_id",
+              "displayName": "vimeo_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "coach_rating",
+              "displayName": "coach_rating",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "coach_notes",
+              "displayName": "coach_notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "s_quotes",
+              "displayName": "s_quotes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "o_measures",
+              "displayName": "o_measures",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "a_goals_progress",
+              "displayName": "a_goals_progress",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "a_risk",
+              "displayName": "a_risk",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "p_actions",
+              "displayName": "p_actions",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -896,
+        1120
+      ],
+      "id": "7130d652-8f46-4c8f-8a24-c69a4f3f9400",
+      "name": "Postgres6",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        304,
+        1552
+      ],
+      "id": "dde6f378-94f8-4490-8e7c-d39866f7448b",
+      "name": "OpenAI Chat Model3",
+      "credentials": {
+        "openAiApi": {
+          "id": "42PJb5TBKvC0IGmD",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "call update_ai_notes({{ $json.id }})",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1136,
+        1312
+      ],
+      "id": "4829d100-6ff2-4975-9c25-58e9de37c09e",
+      "name": "Postgres7",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Expects:\n * - Current item JSON can be:\n *    a) Plain SOAP object:\n *       { sessionMeta: {...}, participant: {...} }\n *    b) Wrapped:\n *       { output: { ...SOAP... } }\n *       { output: [ { ...SOAP... } ] }\n *       [ { ...SOAP... } ]\n *\n * - Another node \"Code1\" with a field `nameMapping` shaped like:\n *   {\n *     \"Coach\": \"User 1\",\n *     \"Billy Bob\": \"User 2\",\n *     \"Jeff Alfredo\": \"User 3\"\n *   }\n */\n\nlet data = JSON.parse(JSON.stringify($json));\n\nconst mappingFromCode8 = $node[\"When Executed by Another Workflow\"]?.json?.nameMapping || {};\n\nfunction looksLikeSoap(obj) {\n  return obj && typeof obj === \"object\" &&\n    (obj.sessionMeta || obj.participant);\n}\n\n/**\n * Unwrap common \"output\" wrappers so we always work on the inner SOAP object.\n * If input is already a plain SOAP object, this section is a no-op.\n */\n\n// Case: [ { ...SOAP... } ]\nif (Array.isArray(data) && data.length === 1 && looksLikeSoap(data[0])) {\n  data = data[0];\n}\n\n// Case: { output: ... }\nif (data && typeof data === \"object\" && data.output) {\n  let inner = data.output;\n\n  // { output: [ { ...SOAP... } ] }\n  if (Array.isArray(inner) && inner.length === 1 && looksLikeSoap(inner[0])) {\n    inner = inner[0];\n  }\n\n  // { output: { ...SOAP... } }\n  if (looksLikeSoap(inner)) {\n    data = inner;\n  }\n}\n\nfunction invertMapping(m) {\n  const out = {};\n  for (const realName of Object.keys(m)) {\n    const id = (m[realName] || \"\").toString().trim().toLowerCase();\n    if (!id) continue;\n    out[id] = realName; // \"user 1\" -> \"Coach\"\n  }\n  return out;\n}\n\n// Build: {\"user 1\": \"Coach\", \"user 2\": \"Billy Bob\", ...} (keys lowercased)\nconst idToRealName = invertMapping(mappingFromCode8);\n\n// Precompile regexes for speed\nconst patterns = Object.entries(idToRealName).map(([idLower, realName]) => {\n  const parts = idLower.split(/\\s+/); // \"user 1\" → [\"user\",\"1\"]\n  const pattern = new RegExp(\n    `\\\\b${parts[0]}\\\\s*${parts.slice(1).join(\"\\\\s*\")}\\\\b`,\n    \"gi\"\n  );\n  return { pattern, realName };\n});\n\nfunction replaceInString(s) {\n  if (typeof s !== \"string\" || patterns.length === 0) return s;\n  let out = s;\n  for (const { pattern, realName } of patterns) {\n    out = out.replace(pattern, realName);\n  }\n  return out;\n}\n\nfunction deepReplace(value) {\n  if (value == null) return value;\n\n  if (typeof value === \"string\") {\n    return replaceInString(value);\n  }\n\n  if (Array.isArray(value)) {\n    return value.map(deepReplace);\n  }\n\n  if (typeof value === \"object\") {\n    const out = {};\n    for (const k of Object.keys(value)) {\n      out[k] = deepReplace(value[k]);\n    }\n    return out;\n  }\n\n  return value;\n}\n\n// 1) Replace everywhere (narratives, quotes, etc.)\nlet output = deepReplace(data);\n\n// 2) Ensure structural fields are also normalized\n\n// sessionMeta.participants: array of strings\nif (output.sessionMeta?.participants && Array.isArray(output.sessionMeta.participants)) {\n  output.sessionMeta.participants = output.sessionMeta.participants.map(p => {\n    const key = (p || \"\").toString().trim().toLowerCase();\n    return idToRealName[key] || replaceInString(p);\n  });\n}\n\n// participant.id: single string\nif (output.participant?.id) {\n  const idKey = output.participant.id.toString().trim().toLowerCase();\n  output.participant.id = idToRealName[idKey] || replaceInString(output.participant.id);\n}\n\n// Return updated JSON as a single, unwrapped SOAP object\nreturn [{ json: output }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1120,
+        816
+      ],
+      "id": "004d45e2-2bce-4356-acbe-7ae3401e403c",
+      "name": "Code4"
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Expects:\n * - Current item JSON is the QA output with participant_id, notes, etc.\n * - Another node \"Code1\" with a field `nameMapping` shaped like:\n *   {\n *     \"Coach\": \"User 1\",\n *     \"Billy Bob\": \"User 2\", \n *     \"Jeff Alfredo\": \"User 3\"\n *   }\n *\n * This code:\n *  - Inverts to {\"user 1\": \"Coach\", \"user 2\": \"Billy Bob\", ...} (lowercased keys).\n *  - Replaces IDs case-insensitively across the entire structure:\n *      - participant_id field\n *      - notes field and any other string content\n *  - Uses a regex that tolerates extra spaces between \"user\" and the number.\n */\n\nconst data = JSON.parse(JSON.stringify($json));\nconst mappingFromCode1 = $node[\"When Executed by Another Workflow\"]?.json?.nameMapping || {};\n\nfunction invertMapping(m) {\n  const out = {};\n  for (const realName of Object.keys(m)) {\n    const id = (m[realName] || \"\").toString().trim().toLowerCase();\n    if (!id) continue;\n    out[id] = realName; // \"user 1\" -> \"Coach\"\n  }\n  return out;\n}\n\n// Build: {\"user 1\": \"Coach\", \"user 2\": \"Billy Bob\", ...} (keys lowercased)\nconst idToRealName = invertMapping(mappingFromCode1);\n\n// Precompile regexes for speed: allow \"user   1\" (any spaces), case-insensitive, word boundaries\nconst patterns = Object.entries(idToRealName).map(([idLower, realName]) => {\n  // Split \"user 1\" → [\"user\",\"1\"]\n  const parts = idLower.split(/\\s+/);\n  // Build pattern \"user\\s*1\" and wrap with word boundaries\n  const pattern = new RegExp(`\\\\b${parts[0]}\\\\s*${parts.slice(1).join(\"\\\\s*\")}\\\\b`, \"gi\");\n  return { pattern, realName };\n});\n\nfunction replaceInString(s) {\n  if (typeof s !== \"string\" || patterns.length === 0) return s;\n  let out = s;\n  for (const { pattern, realName } of patterns) {\n    out = out.replace(pattern, realName);\n  }\n  return out;\n}\n\nfunction deepReplace(value) {\n  if (value == null) return value;\n  if (typeof value === \"string\") {\n    return replaceInString(value);\n  }\n  if (Array.isArray(value)) {\n    return value.map(deepReplace);\n  }\n  if (typeof value === \"object\") {\n    const out = {};\n    for (const k of Object.keys(value)) {\n      out[k] = deepReplace(value[k]);\n    }\n    return out;\n  }\n  return value;\n}\n\n// 1) Replace everywhere (notes, flags evidence, etc.)\nlet output = deepReplace(data);\n\n// 2) Ensure participant_id is also normalized (just in case it wasn't caught above)\nif (output.participant_id) {\n  const idKey = output.participant_id.toString().trim().toLowerCase();\n  output.participant_id = idToRealName[idKey] || replaceInString(output.participant_id);\n}\n\n// Return updated JSON\nreturn [{ json: output }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        688,
+        1120
+      ],
+      "id": "daaccc38-f06a-47f2-af1d-c5c4075f8698",
+      "name": "Code9"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "participant.soap.assessment.goalsProgress",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -896,
+        528
+      ],
+      "id": "08713d55-6e07-4515-8bbe-62f6dd7ddd7a",
+      "name": "Split Out4"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "participant.soap.plan.actions",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -896,
+        720
+      ],
+      "id": "020840f3-46b2-4e15-a414-4231b0733adf",
+      "name": "Split Out5"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ai_note_a_goals",
+          "mode": "list",
+          "cachedResultName": "ai_note_a_goals"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ai_note_id": "={{ $('If6').item.json.id }}",
+            "goal": "={{ $json.goal }}",
+            "goal_status": "={{ $json.status }}",
+            "goal_evidence": "={{ $json.evidence }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ai_note_id",
+              "displayName": "ai_note_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "goal",
+              "displayName": "goal",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "goal_status",
+              "displayName": "goal_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "goal_evidence",
+              "displayName": "goal_evidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -672,
+        528
+      ],
+      "id": "af3674ce-3a3f-4c19-b161-4359711c96e2",
+      "name": "Postgres10",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ai_note_p_actions",
+          "mode": "list",
+          "cachedResultName": "ai_note_p_actions"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ai_note_id": "={{ $('If6').item.json.id }}",
+            "action_task": "={{ $json.task }}",
+            "action_owner": "={{ $json.owner }}",
+            "action_due": "={{ $json.due }}",
+            "linked_goal": "={{ $json.linkedGoal }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ai_note_id",
+              "displayName": "ai_note_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "action_task",
+              "displayName": "action_task",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "action_owner",
+              "displayName": "action_owner",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "action_due",
+              "displayName": "action_due",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "linked_goal",
+              "displayName": "linked_goal",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -672,
+        720
+      ],
+      "id": "a64a5818-bac5-4597-a325-fe7d907427c2",
+      "name": "Postgres11",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "participant.soap.objective.measures",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -896,
+        912
+      ],
+      "id": "56166d4e-3db2-4bb5-a640-69e8e997796c",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ai_note_o_measures",
+          "mode": "list",
+          "cachedResultName": "ai_note_o_measures"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ai_note_id": "={{ $('If6').item.json.id }}",
+            "title": "={{ $json.name }}",
+            "measure_value": "={{ $json.value }}",
+            "measure_when": "={{ $json.when }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ai_note_id",
+              "displayName": "ai_note_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "measure_value",
+              "displayName": "measure_value",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "measure_when",
+              "displayName": "measure_when",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -672,
+        912
+      ],
+      "id": "a323b116-b356-47b4-a1db-566f72781127",
+      "name": "Postgres",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "output.flags",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        912,
+        1120
+      ],
+      "id": "3a5282a9-d030-4460-b3ee-2e093ca5a0a1",
+      "name": "Split Out1"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ai_note_qa_flags",
+          "mode": "list",
+          "cachedResultName": "ai_note_qa_flags"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ai_note_id": "={{ $('If6').item.json.id }}",
+            "code": "={{ $json.code }}",
+            "section": "={{ $json.section }}",
+            "severity": "={{ $json.severity }}",
+            "reason": "={{ $json.reason }}",
+            "evidence": "={{ $json.evidence }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ai_note_id",
+              "displayName": "ai_note_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "code",
+              "displayName": "code",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "section",
+              "displayName": "section",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "severity",
+              "displayName": "severity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "evidence",
+              "displayName": "evidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1136,
+        1120
+      ],
+      "id": "3790efe3-1601-4a3d-a7fe-0daa085712e0",
+      "name": "Postgres1",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Markdown User - SOAP').item.json.user_prompt }}\n\n## Provided Inputs\n  - Participant Names: {{ $('When Executed by Another Workflow').item.json.anonymizedName }}\n- Daily assessment data (e.g., mood ratings, symptom trackers, engagement logs):\n- The client’s treatment plan\n- Session metadata:\n  - Date: {{ $('When Executed by Another Workflow').item.json.created_at }}\n\n- Transcript of a clinical session (individual or group):{{ $('When Executed by Another Workflow').item.json.anonymizedWebvtt }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "={{ $json.system_prompt }}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.8,
+      "position": [
+        -1552,
+        816
+      ],
+      "id": "c3361960-eb16-4c0a-9889-52a92de2b50c",
+      "name": "AI Agent (SOAP Note)",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Participant: {{ $('AI Agent (SOAP Note)').item.json.output.sessionMeta.participants[0] }}\n\n{{ $('Markdown User - QA').item.json.user_prompt }}\nAI SOAP Output: \n\nSubjective\nRating:{{ $('AI Agent (SOAP Note)').item.json.output.participant.soap.subjective.rating }}\nNarrative:{{ $('AI Agent (SOAP Note)').item.json.output.participant.soap.subjective.narrative }}\nQuotes:{{ $('AI Agent (SOAP Note)').item.json.output.participant.soap.subjective.quotes }}\n\nObjective\nRating:{{ $('AI Agent (SOAP Note)').item.json.output.participant.soap.objective.rating }}\nNarrative:{{ $('AI Agent (SOAP Note)').item.json.output.participant.soap.objective.narrative }}\n\nAssessment\nRating:{{ $('AI Agent (SOAP Note)').item.json.output.participant.soap.assessment.rating }}\nNarrative:{{ $('AI Agent (SOAP Note)').item.json.output.participant.soap.assessment.narrative }}\n\nPlan\nRating:{{ $('AI Agent (SOAP Note)').item.json.output.participant.soap.plan.rating }}\nNarrative:{{ $('AI Agent (SOAP Note)').item.json.output.participant.soap.plan.narrative }}\n\n\n\nTranscript: {{ $('When Executed by Another Workflow').item.json.anonymizedWebvtt }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "={{ $json.system_prompt }}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.8,
+      "position": [
+        240,
+        1120
+      ],
+      "id": "0aa596e7-2ec8-4b91-b46a-390db07ea35e",
+      "name": "AI Agent (QA Note)",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2ad9692d-ec24-41a0-8b2e-942821975134",
+              "leftValue": "={{ $json.anonymizedName[0] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2784,
+        816
+      ],
+      "id": "cd8f31bf-6ddd-4ea0-abd4-3ae6ac9435c4",
+      "name": "If6"
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -3120,
+        1024
+      ],
+      "id": "e643f93a-8b61-4052-919f-e9096d4aa577",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Extract positive engagement quotes from this transcript:\nRandomized Name: {{ $json.anonymizedName }}\nUser IDs: {{ $json.id }}\n{{ $json.anonymizedWebvtt[0] }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You are a specialized quote extraction system for IGNTD meeting transcripts. Your task is to identify and extract authentic quotes that demonstrate specific client benefits, progress, and success related to IGNTD's shame-free recovery approach.\nEXTRACTION THEMES (in order of priority):\n\nIGNTD Program Benefits - Value from Hero Program, accountability coaching, group sessions, or specific IGNTD tools\nRoot Cause Progress - Addressing underlying issues (anxiety, depression, trauma, self-esteem) through IGNTD\nRecovery Milestones - Sobriety achievements, reduced use, or recovery wins (abstinence not required)\nShame-Free Approach Impact - How IGNTD's non-judgmental, no-labels approach helps them\nLife Transformation via IGNTD - Improvements in relationships, work, health, or self-worth through the program\nIGNTD Community & Support - Benefits from group sessions, community connection, or coach accountability\nSelf-Direction Success - Taking ownership of recovery journey using IGNTD's flexible approach\n\nQUOTE LENGTH REQUIREMENTS:\n\nPRIORITIZE LONGER, COMPLETE QUOTES that capture the full thought, story, or experience\nMinimum length: At least 2-3 sentences when available\nMaximum length: Up to 5-7 sentences if they form a coherent narrative about IGNTD or recovery\nInclude the entire story arc when someone shares a transformation or breakthrough\nCapture full context within the quote itself rather than truncating\nBetter to extract one comprehensive quote than multiple fragments\nIf someone shares a complete experience or testimony, include the whole narrative\n\nSTRICT REQUIREMENTS:\n\nExtract ONLY verbatim quotes directly from the transcript\nQuote MUST reference IGNTD elements: Hero Program, coaching, groups, modules, Dr. Jaffe's methods, OR recovery progress\nGeneral positive statements without IGNTD or recovery connection should be EXCLUDED\nNEVER paraphrase, summarize, or alter original wording\nNEVER fabricate quotes if none exist\nExtract complete thoughts and full narratives, not fragments\nMaintain anonymity with User IDs as provided\n\nSPEAKER ATTRIBUTION RULES:\n\nMap anonymized speaker labels (User 1, User 2, etc.) to their corresponding User IDs when provided\nUse the numeric User ID in the speaker field of your output\nFor unmapped speakers, use \"Unknown\"\nNEVER attempt to identify actual names of participants\n\nQUALITY STANDARDS:\n\nMUST have explicit connection to IGNTD program elements OR recovery journey\nInclude mentions of: Hero Program, modules, accountability calls, group sessions, community, coaches\nInclude recovery progress even if not complete abstinence (harm reduction is valid)\nExclude vague positivity without program or recovery attribution\nPrioritize comprehensive testimonials over brief mentions\nBetter to return zero quotes than loosely connected ones\n\nWHAT TO EXTRACT (Extended Examples):\n✓ \"The IGNTD accountability calls keep me on track every week. I used to dread check-ins with other programs because I felt judged, but here my coach celebrates my progress even when it's small. Last week I only drank twice instead of every day, and she helped me see that as a win.\"\n✓ \"Working through Module 5 helped me understand my triggers in a way I never did before. It's not just about avoiding bars or certain friends. The module showed me how my perfectionism and fear of failure were actually driving me to drink. Now when I feel that pressure at work, I have actual tools to deal with it instead of reaching for a bottle.\"\n✓ \"I've been in recovery programs for 10 years and IGNTD is the first one where I don't feel broken. Dr. Jaffe's approach of treating us like humans who are struggling, not addicts who need to be fixed, changed everything for me. I'm 30 days sober now, but even when I had a slip at day 20, my coach helped me see it as data, not failure. That shame-free approach is why I kept going instead of giving up like I used to.\"\n✓ \"The group sessions make me feel less alone in this. Yesterday, someone shared about their anxiety driving their drinking, and it was like they were telling my story. We worked through the Module 7 exercises together, and for the first time, I could talk about my childhood trauma without feeling ashamed. The community here gets it in a way my family never could.\"\n✓ \"When I started the Hero Program, I couldn't go two days without drinking. My marriage was falling apart, I was missing work, and I hated myself. Six months later, I've been sober for 90 days, my wife and I are in counseling and actually talking again, and I just got promoted. The root cause work in Module 8 helped me see that my drinking was about numbing the pain of feeling inadequate. Now I'm actually dealing with those feelings instead of drowning them.\"\nWHAT NOT TO EXTRACT:\n✗ \"I'm feeling really positive lately\" (no IGNTD/recovery connection)\n✗ \"Business is going well\" (no attribution to program)\n✗ \"I had a good week\" (too vague, no program connection)\n✗ \"Things are better\" (no specifics about IGNTD or recovery)\n✗ \"I went to a meeting\" (unclear if IGNTD meeting)\n✗ \"I'm grateful\" (too general without IGNTD context)\nOUTPUT SPECIFICATIONS:\n\nAlways return valid JSON format\nInclude boolean flag for quotes_found\nProvide accurate total_quotes count\nEach quote must include: quote, theme, context, and speaker fields\nQuotes should capture complete thoughts (2-7 sentences typical)\nContext field should be brief (1 sentence) since quote itself is comprehensive\nTheme must match one of the seven categories listed above\n\nEXAMPLE OUTPUT - When quotes are found:\njson{\n  \"extraction_results\": {\n    \"quotes_found\": true,\n    \"total_quotes\": 3,\n    \"quotes\": [\n      {\n        \"quote\": \"The IGNTD Hero Program completely shifted how I see my recovery. I'm not a broken addict anymore, I'm just working on getting better. When I started six months ago, I couldn't even say the word alcoholic without crying from shame. Now I can talk about my struggles openly in group, and I actually believe I deserve to get better. My coach keeps reminding me that I'm not my worst moments, and that message from Dr. Jaffe's teachings has literally saved my life.\",\n        \"theme\": \"Shame-Free Approach Impact\",\n        \"context\": \"Discussing transformation through IGNTD philosophy\",\n        \"speaker\": \"3720\"\n      },\n      {\n        \"quote\": \"My accountability coach checks in every week and that consistency has been game-changing. I've been sober for 45 days now, which is the longest I've gone in five years. But what's different this time is that when I had cravings last week, I actually called my coach instead of white-knuckling it alone. She walked me through the Module 4 coping strategies, and we identified that I was really just lonely and stressed about a work deadline. Having someone who gets it and doesn't judge me when I'm struggling makes all the difference.\",\n        \"theme\": \"IGNTD Community & Support\",\n        \"context\": \"Sharing breakthrough with coach support\",\n        \"speaker\": \"1137\"\n      },\n      {\n        \"quote\": \"Module 7 on addressing trauma opened my eyes. I finally understand why I was using, and now I can actually heal the real problem. For twenty years, I thought I just had no willpower, that I was weak. But working through those exercises about childhood experiences and how trauma lives in our bodies, I realized I've been self-medicating PTSD this whole time. My drinking wasn't the problem, it was my solution to a problem I didn't even know I had. Now with my IGNTD coach and therapist, I'm actually processing that trauma instead of numbing it.\",\n        \"theme\": \"Root Cause Progress\",\n        \"context\": \"Major realization from Hero Program module work\",\n        \"speaker\": \"3720\"\n      }\n    ]\n  }\n}\nEXAMPLE OUTPUT - When NO quotes are found:\njson{\n  \"extraction_results\": {\n    \"quotes_found\": false,\n    \"total_quotes\": 0,\n    \"quotes\": [],\n    \"note\": \"No IGNTD program or recovery-specific quotes found in this transcript\"\n  }\n}\nEDGE CASES:\n\nMulti-sentence narratives: When someone tells a complete story about their IGNTD experience, include the full narrative\nConnected thoughts: If multiple sentences flow together about IGNTD/recovery, keep them together\nHarm reduction success: Include progress even if not full abstinence\nModule references: Include complete descriptions of module experiences\nCoach mentions: Must be IGNTD coach, not external therapist\nGroup references: Ensure it's IGNTD group sessions\nDr. Jaffe mentions: Include full insights from his teachings/methods\n\nREMEMBER:\nExtract comprehensive quotes that tell a complete story about IGNTD program elements OR recovery progress. Prioritize longer, narrative quotes that provide rich context and complete thoughts over brief, fragmentary mentions. General positivity without program connection should be excluded.\nMAPPING EXAMPLE:\nGiven:\n\nRandomized Names: User 1, User 3\nUser IDs: 3720, 1137\n\nOutput speaker field: \"3720\", \"1137\", or \"Unknown\""
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.8,
+      "position": [
+        -2896,
+        1216
+      ],
+      "id": "2e0af22c-eee5-4c08-8647-7087c31a8fe3",
+      "name": "AI Agent5",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -2832,
+        1648
+      ],
+      "id": "0f91eedf-de9a-4290-807e-f8f2e383b3aa",
+      "name": "OpenAI Chat Model6",
+      "credentials": {
+        "openAiApi": {
+          "id": "42PJb5TBKvC0IGmD",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"extraction_results\": {\n    \"quotes_found\": true,\n    \"total_quotes\": 2,\n    \"quotes\": [\n      {\n        \"quote\": \"Working with IGNTD has completely transformed how I approach my business.\",\n        \"theme\": \"Benefits from IGNTD\",\n        \"context\": \"Discussion about business transformation\",\n        \"speaker\": \"3720\"\n      },\n      {\n        \"quote\": \"I hit my revenue goal two months early!\",\n        \"theme\": \"Celebrating Wins & Progress\",\n        \"context\": \"Sharing quarterly results\",\n        \"speaker\": \"1137\"\n      }\n    ]\n  }\n}",
+        "autoFix": true
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        -2816,
+        1440
+      ],
+      "id": "2c2cf78a-0b15-4690-a36d-3de343710e76",
+      "name": "Structured Output Parser5"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ai_quotes",
+          "mode": "list",
+          "cachedResultName": "ai_quotes"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "quote": "={{ $json.quote }}",
+            "ai_note_id": "={{ $json.speaker }}",
+            "context": "={{ $json.context }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ai_note_id",
+              "displayName": "ai_note_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "user_id",
+              "displayName": "user_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "quote",
+              "displayName": "quote",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "context",
+              "displayName": "context",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "idea_summary",
+              "displayName": "idea_summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "cleaned_quote",
+              "displayName": "cleaned_quote",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -1776,
+        1216
+      ],
+      "id": "e2d1be27-ff93-41cc-ba5e-483ab74f4f36",
+      "name": "Insert rows in a table",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "output.extraction_results.quotes",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -2448,
+        1216
+      ],
+      "id": "b4f65917-0b30-4182-b170-57a125528a52",
+      "name": "Split Out2"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "682575a2-0fe7-4cee-9a8f-672a17b9c62c",
+              "name": "speaker",
+              "value": "={{ isNaN(Number($json.speaker)) ? null : Number($json.speaker) }}",
+              "type": "number"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2000,
+        1216
+      ],
+      "id": "d15cb178-3b6d-4fb8-9eb2-719c912dcc47",
+      "name": "Edit Fields5"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5fddc2e0-5caf-48ef-979b-bc9e914de169",
+              "leftValue": "={{ $json.speaker }}",
+              "rightValue": "Unknown",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        -2224,
+        1216
+      ],
+      "id": "c3c51510-9714-4167-b57a-9eb6e25277ca",
+      "name": "Filter"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "fc0c64e4-d729-4542-8199-084492c05019",
+              "name": "id",
+              "value": "={{ $('Postgres5').item.json.id }}",
+              "type": "number"
+            },
+            {
+              "id": "8bc35a2b-bcaf-4dae-98bf-06b8205b0268",
+              "name": "anonymizedWebvtt",
+              "value": "={{ $('When Executed by Another Workflow').item.json.anonymizedWebvtt }}",
+              "type": "string"
+            },
+            {
+              "id": "530a028c-5fa4-446e-b2cc-123499979045",
+              "name": "anonymizedName",
+              "value": "={{ $('When Executed by Another Workflow').item.json.anonymizedName }}",
+              "type": "string"
+            },
+            {
+              "id": "bb518d38-e626-492f-9c63-ab180b488496",
+              "name": "duration",
+              "value": "={{ $('When Executed by Another Workflow').item.json.duration }}",
+              "type": "string"
+            },
+            {
+              "id": "aa1f33b0-6fe3-4a9a-be88-ef3e423d75d1",
+              "name": "output.participant.soap.subjective",
+              "value": "={{ $('AI Agent (SOAP Note)').item.json.output.participant.soap.subjective }}",
+              "type": "object"
+            },
+            {
+              "id": "69e5aea3-00ed-4925-b2e3-13ed53d99e28",
+              "name": "output.participant.soap.objective",
+              "value": "={{ $('AI Agent (SOAP Note)').item.json.output.participant.soap.objective }}",
+              "type": "object"
+            },
+            {
+              "id": "7e11635b-9afb-4444-aeb2-1409369a941d",
+              "name": "output.participant.soap.assessment",
+              "value": "={{ $('AI Agent (SOAP Note)').item.json.output.participant.soap.assessment }}",
+              "type": "object"
+            },
+            {
+              "id": "1ee40db2-629a-4eb4-8e95-d95c1d1c2f41",
+              "name": "output.participant.soap.plan",
+              "value": "={{ $('AI Agent (SOAP Note)').item.json.output.participant.soap.plan }}",
+              "type": "object"
+            },
+            {
+              "id": "b505ef7f-a4d6-4b5a-ab60-c82d0511eab4",
+              "name": "output.flags",
+              "value": "={{ $('AI Agent (QA Note)').item.json.output.flags }}",
+              "type": "array"
+            },
+            {
+              "id": "c82d6f70-8ee3-4e6c-bdf8-e386074ae0ac",
+              "name": "transcript_id",
+              "value": "={{ $('When Executed by Another Workflow').item.json.transcript_id }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1360,
+        1312
+      ],
+      "id": "b4f273ea-8e35-4a3c-afbc-a10196b5eced",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "5xEtEeUGAo7bpEKg",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/5xEtEeUGAo7bpEKg",
+          "cachedResultName": "6.) Treatment Plan"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "each",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1584,
+        1312
+      ],
+      "id": "283a702a-2c36-46f3-928b-d50c6e2bee40",
+      "name": "Call '6.) Treatment Plan'"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ai_prompts",
+          "mode": "list",
+          "cachedResultName": "ai_prompts"
+        },
+        "limit": 1,
+        "where": {
+          "values": [
+            {
+              "column": "status_id",
+              "value": "247191"
+            },
+            {
+              "column": "category_id",
+              "value": "248009"
+            },
+            {
+              "column": "role_id",
+              "value": "247168"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -2448,
+        816
+      ],
+      "id": "2d3ac30d-7c8d-4744-ba5d-7b6e14027a94",
+      "name": "User Prompt - SOAP",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ai_prompts",
+          "mode": "list",
+          "cachedResultName": "ai_prompts"
+        },
+        "limit": 1,
+        "where": {
+          "values": [
+            {
+              "column": "status_id",
+              "value": "247191"
+            },
+            {
+              "column": "category_id",
+              "value": "248009"
+            },
+            {
+              "column": "role_id",
+              "value": "247167"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -2000,
+        816
+      ],
+      "id": "4c4e56ac-0717-4669-a1a3-205cda8cf4bc",
+      "name": "System Prompt - SOAP",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "html": "={{ $json.ai_prompt }}",
+        "destinationKey": "user_prompt",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.markdown",
+      "typeVersion": 1,
+      "position": [
+        -2224,
+        816
+      ],
+      "id": "052cd625-cecd-47f1-b4df-1ffc1c5ee96b",
+      "name": "Markdown User - SOAP"
+    },
+    {
+      "parameters": {
+        "html": "={{ $json.ai_prompt }}",
+        "destinationKey": "system_prompt",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.markdown",
+      "typeVersion": 1,
+      "position": [
+        -1776,
+        816
+      ],
+      "id": "ef6484be-44a4-4ace-842c-7e70d0dd40df",
+      "name": "Markdown System - SOAP"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ai_prompts",
+          "mode": "list",
+          "cachedResultName": "ai_prompts"
+        },
+        "limit": 1,
+        "where": {
+          "values": [
+            {
+              "column": "status_id",
+              "value": "247191"
+            },
+            {
+              "column": "category_id",
+              "value": "255048"
+            },
+            {
+              "column": "role_id",
+              "value": "247168"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -672,
+        1120
+      ],
+      "id": "c258c0f6-145a-4e07-8e4f-297069780a10",
+      "name": "User Prompt - QA",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "html": "={{ $json.ai_prompt }}",
+        "destinationKey": "user_prompt",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.markdown",
+      "typeVersion": 1,
+      "position": [
+        -448,
+        1120
+      ],
+      "id": "f7f573b8-8fd1-4728-b1e5-d51ce7583c27",
+      "name": "Markdown User - QA"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "ai_prompts",
+          "mode": "list",
+          "cachedResultName": "ai_prompts"
+        },
+        "limit": 1,
+        "where": {
+          "values": [
+            {
+              "column": "status_id",
+              "value": "247191"
+            },
+            {
+              "column": "category_id",
+              "value": "255048"
+            },
+            {
+              "column": "role_id",
+              "value": "247167"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -224,
+        1120
+      ],
+      "id": "ed3b3f43-24b4-41b8-9cd0-58a58aa5931a",
+      "name": "System Prompt - QA",
+      "credentials": {
+        "postgres": {
+          "id": "oWcEyI1cGcchKBJP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "html": "={{ $json.ai_prompt }}",
+        "destinationKey": "system_prompt",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.markdown",
+      "typeVersion": 1,
+      "position": [
+        16,
+        1120
+      ],
+      "id": "33b8eaa5-3cea-48b9-be9f-4afe6d750b00",
+      "name": "Markdown System  - QA"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "OpenAI Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent (SOAP Note)",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Structured Output Parser2",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser2": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent (SOAP Note)",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser3": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent (QA Note)",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres5": {
+      "main": [
+        [
+          {
+            "node": "Postgres7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres6": {
+      "main": [
+        [
+          {
+            "node": "User Prompt - QA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent (QA Note)",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Structured Output Parser3",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code4": {
+      "main": [
+        [
+          {
+            "node": "Split Out4",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Split Out5",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Postgres6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code9": {
+      "main": [
+        [
+          {
+            "node": "Postgres5",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Split Out1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out4": {
+      "main": [
+        [
+          {
+            "node": "Postgres10",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out5": {
+      "main": [
+        [
+          {
+            "node": "Postgres11",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Postgres",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out1": {
+      "main": [
+        [
+          {
+            "node": "Postgres1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent (SOAP Note)": {
+      "main": [
+        [
+          {
+            "node": "Code4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent (QA Note)": {
+      "main": [
+        [
+          {
+            "node": "Code9",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If6": {
+      "main": [
+        [
+          {
+            "node": "User Prompt - SOAP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "If6",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "AI Agent5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent5": {
+      "main": [
+        [
+          {
+            "node": "Split Out2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model6": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent5",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Structured Output Parser5",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser5": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent5",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out2": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields5": {
+      "main": [
+        [
+          {
+            "node": "Insert rows in a table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres1": {
+      "main": [
+        []
+      ]
+    },
+    "Postgres7": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Call '6.) Treatment Plan'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "User Prompt - SOAP": {
+      "main": [
+        [
+          {
+            "node": "Markdown User - SOAP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "System Prompt - SOAP": {
+      "main": [
+        [
+          {
+            "node": "Markdown System - SOAP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Markdown User - SOAP": {
+      "main": [
+        [
+          {
+            "node": "System Prompt - SOAP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Markdown System - SOAP": {
+      "main": [
+        [
+          {
+            "node": "AI Agent (SOAP Note)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "User Prompt - QA": {
+      "main": [
+        [
+          {
+            "node": "Markdown User - QA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Markdown User - QA": {
+      "main": [
+        [
+          {
+            "node": "System Prompt - QA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "System Prompt - QA": {
+      "main": [
+        [
+          {
+            "node": "Markdown System  - QA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Markdown System  - QA": {
+      "main": [
+        [
+          {
+            "node": "AI Agent (QA Note)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "uMI7G3OY2E3ubceI"
+  },
+  "versionId": "c06c4828-e368-4fe2-9890-54f869b00d0c",
+  "meta": {
+    "instanceId": "c4b298009b5b41f8b263357298a8611fdac884d785e3435c590e16943d468aac"
+  },
+  "nodeGroups": [],
+  "id": "M1cvR684r5hRjYxg",
+  "tags": []
+}
