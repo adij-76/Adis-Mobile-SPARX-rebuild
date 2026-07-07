@@ -152,6 +152,8 @@ are dropped. Document the executed job + date in `db/README.md` at cutover.
 | `db/introspect.sql` | One-shot schema dump (paste-back substitute for direct DB access) | ✅ |
 | `db/introspect-module1.sql` | READ-ONLY Module 1 exercise-content dump for the QA loop (`.claude/skills/exercise-content-qa`) — run via apply-migrations **dispatch** (`file=` input), results in the run log; ⚠️ repo+logs are PUBLIC → delete run logs after extracting; NOT in apply-order | ✅ |
 | `db/fix-module1-content.sql` | One-off guarded content fix (applied 2026-07-06): moved the Alcohol tips block (`questions.id=6`) from the Hero Manifesto sheet to the top of First Day Quickstart (tips order Alcohol→Marijuana→Drugs→Sex→Gambling→Food). Idempotent; dispatched manually; NOT in apply-order | ✅ applied |
+| `db/introspect-module2-3.sql` | READ-ONLY Module 2+3 exercise-content dump for the QA loop (same pattern as `introspect-module1.sql`): portion ids, per-lesson summary, per-question ndjson, live-view check. Dispatch-only; ⚠️ delete run logs after extracting; NOT in apply-order | ✅ |
+| `db/enable-module2-3.sql` | Gradual-rollout enable for Modules 2+3 (`mobile_exercise_rollout` ← portions 3 + 4), with before/after proof in the run log. Idempotent; dispatch ONLY AFTER the labeled-scale app build is live on main (lock-step rule); NOT in apply-order | ⏳ dispatch after PR #134 deploys |
 | `docs/gamification.md` | The points/streak/badge/bonus economy + research-backed roadmap and recovery-population guardrails; the "why" behind the reward reconciliation | ✅ |
 | `docs/native-build-notes.md` | Native (iOS/Android) requirements the web build fakes — incl. the WebView bridge needed for real video completion/percent tracking | ✅ |
 
