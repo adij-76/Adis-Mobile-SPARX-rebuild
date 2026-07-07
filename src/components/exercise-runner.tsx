@@ -26,8 +26,10 @@ import { RankMovement } from '@/components/ui/rank-movement';
 import { RichText } from '@/components/ui/rich-text';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
+import { ExerciseScoreView } from '@/components/exercise-score-view';
 import { PrintRow, StatementView } from '@/components/statement-view';
 import { useAuth } from '@/lib/auth';
+import { bandForScore, sheetScore } from '@/lib/exercise-scores';
 import { htmlToText } from '@/lib/html';
 import {
   hasValue,
@@ -148,9 +150,10 @@ export function useLessonExercises(lessonId: string | null): LessonExercisesStat
 // The Exercises step: worksheet list → per-worksheet guided stepper.
 // ---------------------------------------------------------------------------
 
-type ActiveSheet = { ws: ExerciseWorksheet; mode: 'run' | 'statement' };
+type ActiveSheet = { ws: ExerciseWorksheet; mode: 'run' | 'statement' | 'score' };
 
 export function ExercisesSection({ ex }: { ex: LessonExercisesState }) {
+  const { user } = useAuth();
   const { awardXp } = useStore();
   const award = useXpAward();
   const [active, setActive] = useState<ActiveSheet | null>(null);
@@ -158,26 +161,59 @@ export function ExercisesSection({ ex }: { ex: LessonExercisesState }) {
     title: string;
     earned: number;
     movement: XpMovement | null;
-    /** Statement sheet to reveal after the celebration ("and THEN post it"). */
-    next: ExerciseWorksheet | null;
+    /** Follow-up screen after the celebration (composed statement / score). */
+    next: ActiveSheet | null;
   } | null>(null);
   // Guards a double-award if a worksheet is reopened + refinished this session.
   const awarded = useRef<Set<string>>(new Set());
+  // Sheets whose answers changed this session — a retake worth re-recording.
+  const edited = useRef<Set<string>>(new Set());
+
+  /** Persist a scored sheet's result WITH ITS DATE (append-only history in
+   *  mobile_assessment_responses) so scores can be compared over time. Saved
+   *  on first completion and on any retake whose answers changed. */
+  const recordScore = (ws: ExerciseWorksheet, byQuestion: Map<string, ExerciseResponse>) => {
+    const s = sheetScore(ws, byQuestion);
+    if (!s) return null;
+    api.assessments
+      .save(
+        {
+          instrument: s.scoring.instrument,
+          profileId: Number(ws.profileId) || null,
+          score: s.score,
+          severity: bandForScore(s.scoring, s.score).label,
+          answers: s.answers,
+        },
+        user?.appUserId ?? null,
+      )
+      .catch(() => {});
+    return s;
+  };
 
   const finish = (ws: ExerciseWorksheet, byQuestion: Map<string, ExerciseResponse>) => {
     const complete = worksheetProgress(ws, byQuestion).complete;
-    // Fill-in sheets reveal the composed statement once they're done.
-    const statement = complete && isStatementSheet(ws) ? ws : null;
     const firstCompletion =
       complete && !ex.initiallyComplete.has(ws.profileId) && !awarded.current.has(ws.profileId);
+    const scorable = complete && !!sheetScore(ws, byQuestion);
+    if (complete && scorable && (firstCompletion || edited.current.has(ws.profileId))) {
+      recordScore(ws, byQuestion);
+      edited.current.delete(ws.profileId);
+    }
+    // The follow-up screen: score result first, else the composed statement.
+    const next: ActiveSheet | null =
+      complete && scorable
+        ? { ws, mode: 'score' }
+        : complete && isStatementSheet(ws)
+          ? { ws, mode: 'statement' }
+          : null;
     if (!firstCompletion) {
-      setActive(statement ? { ws: statement, mode: 'statement' } : null);
+      setActive(next);
       return;
     }
     setActive(null);
     awarded.current.add(ws.profileId);
     const earned = awardXp(XP_BASE.worksheet_complete);
-    setCelebrate({ title: ws.title, earned, movement: null, next: statement });
+    setCelebrate({ title: ws.title, earned, movement: null, next });
     if (earned > 0) {
       award({ source: 'exercise', refId: ws.profileId, points: earned }).then((m) =>
         setCelebrate((c) => (c ? { ...c, movement: m } : c)),
@@ -220,9 +256,10 @@ export function ExercisesSection({ ex }: { ex: LessonExercisesState }) {
       {visibleSheets.map((ws) => {
         const p = worksheetProgress(ws, ex.byQuestion);
         const state = p.complete ? 'done' : p.answered > 0 ? 'resume' : 'start';
-        // A finished fill-in sheet opens on its composed statement (read/print/
-        // share), with Edit to get back into the runner.
-        const mode = p.complete && isStatementSheet(ws) ? 'statement' : 'run';
+        const scored = p.complete ? sheetScore(ws, ex.byQuestion) : null;
+        // A finished scored sheet opens on its result; a finished fill-in
+        // sheet on its composed statement — both with a way back to the runner.
+        const mode = scored ? 'score' : p.complete && isStatementSheet(ws) ? 'statement' : 'run';
         return (
           <Pressable key={ws.profileId} style={styles.sheetCard} onPress={() => setActive({ ws, mode })}>
             <View style={[styles.sheetIcon, p.complete && styles.sheetIconDone]}>
@@ -241,7 +278,9 @@ export function ExercisesSection({ ex }: { ex: LessonExercisesState }) {
               />
               <Txt variant="caption" color={Colors.textSub}>
                 {p.complete
-                  ? 'Complete — tap to review'
+                  ? scored
+                    ? `Complete — ${scored.scoring.name} ${scored.score}/${scored.max} · tap to review`
+                    : 'Complete — tap to review'
                   : `${p.answered}/${p.total} answered${state === 'resume' ? ' · continue where you left off' : ''}`}
               </Txt>
             </View>
@@ -255,7 +294,23 @@ export function ExercisesSection({ ex }: { ex: LessonExercisesState }) {
         animationType="slide"
         onRequestClose={() => setActive(null)}
         presentationStyle="fullScreen">
-        {active?.mode === 'statement' ? (
+        {active?.mode === 'score' ? (
+          (() => {
+            const s = sheetScore(active.ws, ex.byQuestion);
+            return s ? (
+              <ExerciseScoreView
+                scoring={s.scoring}
+                band={bandForScore(s.scoring, s.score)}
+                score={s.score}
+                max={s.max}
+                onReview={() => setActive({ ws: active.ws, mode: 'run' })}
+                onClose={() => setActive(null)}
+              />
+            ) : (
+              <View />
+            );
+          })()
+        ) : active?.mode === 'statement' ? (
           <StatementView
             worksheet={active.ws}
             byQuestion={ex.byQuestion}
@@ -266,7 +321,10 @@ export function ExercisesSection({ ex }: { ex: LessonExercisesState }) {
           <WorksheetRunner
             worksheet={active.ws}
             byQuestion={ex.byQuestion}
-            onSave={(q, v) => ex.saveAnswer(active.ws, q, v)}
+            onSave={(q, v) => {
+              edited.current.add(active.ws.profileId);
+              ex.saveAnswer(active.ws, q, v);
+            }}
             onClose={() => setActive(null)}
             onFinish={(byQ) => finish(active.ws, byQ)}
           />
@@ -284,7 +342,7 @@ export function ExercisesSection({ ex }: { ex: LessonExercisesState }) {
             onDone={() => {
               const next = celebrate.next;
               setCelebrate(null);
-              if (next) setActive({ ws: next, mode: 'statement' });
+              if (next) setActive(next);
             }}
           />
         ) : (
