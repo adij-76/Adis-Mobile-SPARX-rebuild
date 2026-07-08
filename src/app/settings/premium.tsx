@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
+import { BILLING_ENABLED } from '@/constants/flags';
 import { useAuth } from '@/lib/auth';
 
 const BENEFITS = [
@@ -115,11 +116,22 @@ export default function Premium() {
         </ScrollView>
         {!isPremium && (
           <View style={styles.footer}>
-            <Button
-              title="Start 7-day free trial"
-              variant="primary"
-              onPress={() => router.push('/settings/payment')}
-            />
+            {BILLING_ENABLED ? (
+              <Button
+                title="Start 7-day free trial"
+                variant="primary"
+                onPress={() => router.push('/settings/payment')}
+              />
+            ) : (
+              // Billing isn't live — don't claim a trial started or route into
+              // the fake card flow (audit F-M5). Show it's upcoming instead.
+              <>
+                <Button title="Coming soon" variant="primary" disabled onPress={() => {}} />
+                <Txt variant="caption" color={Colors.textSub} center style={{ marginTop: Spacing.sm }}>
+                  Premium plans launch soon — nothing is charged today.
+                </Txt>
+              </>
+            )}
           </View>
         )}
       </SafeAreaView>
