@@ -75,6 +75,7 @@ type Persisted = {
   readNotifications: string[]; // notification ids marked read
   completedLessons: string[]; // lesson ids marked complete locally (until auth)
   watchedVideos: string[]; // video ids the user has finished (≥95%) — checklist tick
+  watchedLessonVideos: string[]; // lesson ids whose MAIN video was watched to the end
   videoProgress: Record<string, number>; // video id -> furthest percent already scored
   xp: number; // total streak-multiplied XP across all activities (videos, lessons, community, …)
   streakBadges: Record<string, number>; // milestone days (as string) -> times reached
@@ -102,6 +103,7 @@ const EMPTY: Persisted = {
   readNotifications: [],
   completedLessons: [],
   watchedVideos: [],
+  watchedLessonVideos: [],
   videoProgress: {},
   xp: 0,
   streakBadges: {},
@@ -169,6 +171,10 @@ type StoreValue = {
   markAllNotifsRead: (ids: string[]) => void;
   // lesson progress (local until auth)
   isLessonComplete: (id: string) => boolean;
+  /** Whether the lesson's main video has been watched to the end (gates the
+   *  lesson's Complete button together with the exercises). */
+  isLessonVideoWatched: (id: string) => boolean;
+  markLessonVideoWatched: (id: string) => void;
   /** Mark a lesson complete and award XP (streak/bonus-scaled). Returns the XP
    *  earned, or 0 if it was already complete (so the UI can skip the reward). */
   markLessonComplete: (id: string) => number;
@@ -406,6 +412,13 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       },
       completedLessonIds: state.completedLessons,
 
+      isLessonVideoWatched: (id) => state.watchedLessonVideos.includes(id),
+      markLessonVideoWatched: (id) =>
+        update((s) =>
+          s.watchedLessonVideos.includes(id)
+            ? s
+            : { ...s, watchedLessonVideos: [...s.watchedLessonVideos, id] },
+        ),
       isVideoWatched: (id) => state.watchedVideos.includes(id),
       markVideoWatched: (id) =>
         update((s) =>
