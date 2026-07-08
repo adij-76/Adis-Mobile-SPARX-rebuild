@@ -1,0 +1,25 @@
+{
+  "name": "SPARx",
+  "short_name": "SPARx",
+  "description": "SPARx — your IGNTD recovery companion: daily check-ins, lessons, coaching, and community.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0A3653",
+  "theme_color": "#0A3653",
+  "icons": [
+    {
+      "src": "./icon-512.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
