@@ -26,6 +26,9 @@ export function Segmented<T extends string>({
           <Pressable
             key={o.key}
             onPress={() => onChange(o.key)}
+            accessibilityRole="button"
+            accessibilityLabel={o.label}
+            accessibilityState={{ selected: active }}
             style={[
               styles.item,
               inset ? styles.itemInset : styles.itemPill,
@@ -51,7 +54,7 @@ const styles = StyleSheet.create({
     padding: 4,
     gap: 4,
   },
-  item: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  item: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   itemPill: { paddingVertical: Spacing.sm, borderRadius: Radius.pill, backgroundColor: Colors.soft },
   itemInset: { paddingVertical: Spacing.sm, borderRadius: Radius.sm },
   activePill: { backgroundColor: Colors.primary },

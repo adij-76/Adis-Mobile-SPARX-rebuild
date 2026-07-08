@@ -44,8 +44,19 @@ export function WheelChart({ data, size = 320 }: WheelChartProps) {
   const sweep = 360 / n;
   const clamp = (v: number) => Math.max(0, Math.min(100, v)) / 100;
 
+  // Text alternative for screen readers: summarise the current strongest/lowest
+  // areas so the chart isn't silent to non-visual users (audit F-H4).
+  const summary = (() => {
+    if (!n) return 'Wheel of Life chart. No data yet.';
+    const strongest = data.reduce((a, b) => (b.current > a.current ? b : a));
+    const lowest = data.reduce((a, b) => (b.current < a.current ? b : a));
+    return `Wheel of Life chart across ${n} areas. Strongest area: ${strongest.short} at ${Math.round(
+      strongest.current,
+    )}. Lowest area: ${lowest.short} at ${Math.round(lowest.current)}.`;
+  })();
+
   return (
-    <View style={styles.wrap}>
+    <View style={styles.wrap} accessible accessibilityRole="image" accessibilityLabel={summary}>
       <Svg width={size} height={size}>
         {/* dashed grid rings */}
         {Array.from({ length: rings }, (_, k) => (

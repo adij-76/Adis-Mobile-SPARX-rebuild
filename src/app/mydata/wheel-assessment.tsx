@@ -109,6 +109,8 @@ export default function WheelAssessment() {
               touched.current.add(cat.id);
               setValues((s) => ({ ...s, [cat.id]: v }));
             }}
+            accessibilityLabel={`${cat.label} score`}
+            accessibilityValue={{ min: 0, max: 100, now: Math.round(values[cat.id]) }}
             minimumTrackTintColor={cat.color}
             maximumTrackTintColor={Colors.soft}
             thumbTintColor={cat.color}

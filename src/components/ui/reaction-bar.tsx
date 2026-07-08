@@ -55,7 +55,10 @@ export function ReactionBar({
             {REACTIONS.map((r) => (
               <Pressable
                 key={r.key}
-                hitSlop={4}
+                hitSlop={12}
+                accessibilityRole="button"
+                accessibilityLabel={r.label}
+                accessibilityState={{ selected: reaction === r.key }}
                 onPress={(e) => {
                   stop(e);
                   onChange(reaction === r.key ? null : r.key);
@@ -70,7 +73,10 @@ export function ReactionBar({
       )}
       <Pressable
         style={styles.action}
-        hitSlop={6}
+        hitSlop={12}
+        accessibilityRole="button"
+        accessibilityLabel={active ? active.label : 'Like'}
+        accessibilityState={{ selected: !!active }}
         onPress={(e) => {
           stop(e);
           setPicker((o) => !o);

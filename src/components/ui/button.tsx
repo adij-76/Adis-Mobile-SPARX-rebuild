@@ -32,9 +32,13 @@ const BG: Record<Variant, string> = {
   ghost: 'transparent',
 };
 
+// Text/icon colour per variant. Primary/secondary use dark navy on their light
+// orange/blue fills: white-on-orange #FF9D4B was ~2.06:1 (a WCAG fail on every
+// primary CTA) and white-on-lightBlue ~3.0:1 (audit F-H5). Navy #0A3653 lifts
+// primary to ~6.3:1 and secondary to ~4.1:1 while keeping the brand fills.
 const FG: Record<Variant, string> = {
-  primary: Colors.white,
-  secondary: Colors.white,
+  primary: Colors.primaryDark,
+  secondary: Colors.primaryDark,
   white: Colors.primaryDark,
   outline: Colors.primary,
   ghost: Colors.primary,
