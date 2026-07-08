@@ -74,6 +74,7 @@ type Persisted = {
   bookings: Meeting[]; // meetings booked via the booking flow
   bookedIds: string[]; // ids of existing meetings the user reserved
   readNotifications: string[]; // notification ids marked read
+  dismissedNotifications: string[]; // notification ids cleared/dismissed (stay gone)
   completedLessons: string[]; // lesson ids marked complete locally (until auth)
   watchedVideos: string[]; // video ids the user has finished (≥95%) — checklist tick
   watchedLessonVideos: string[]; // lesson ids whose MAIN video was watched to the end
@@ -103,6 +104,7 @@ const EMPTY: Persisted = {
   bookings: [],
   bookedIds: [],
   readNotifications: [],
+  dismissedNotifications: [],
   completedLessons: [],
   watchedVideos: [],
   watchedLessonVideos: [],
@@ -178,6 +180,9 @@ type StoreValue = {
   isNotifRead: (id: string) => boolean;
   markNotifRead: (id: string) => void;
   markAllNotifsRead: (ids: string[]) => void;
+  isNotifDismissed: (id: string) => boolean;
+  dismissNotif: (id: string) => void;
+  clearNotifs: (ids: string[]) => void;
   // lesson progress (local until auth)
   isLessonComplete: (id: string) => boolean;
   /** Whether the lesson's main video has been watched to the end (gates the
@@ -444,6 +449,18 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         update((s) => ({
           ...s,
           readNotifications: Array.from(new Set([...s.readNotifications, ...ids])),
+        })),
+      isNotifDismissed: (id) => state.dismissedNotifications.includes(id),
+      dismissNotif: (id) =>
+        update((s) =>
+          s.dismissedNotifications.includes(id)
+            ? s
+            : { ...s, dismissedNotifications: [...s.dismissedNotifications, id] },
+        ),
+      clearNotifs: (ids) =>
+        update((s) => ({
+          ...s,
+          dismissedNotifications: Array.from(new Set([...s.dismissedNotifications, ...ids])),
         })),
 
       isLessonComplete: (id) => state.completedLessons.includes(id),

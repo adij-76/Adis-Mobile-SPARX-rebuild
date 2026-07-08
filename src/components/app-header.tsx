@@ -8,9 +8,12 @@ import { Txt } from '@/components/ui/text';
 import { Colors, Spacing } from '@/constants/theme';
 import { user } from '@/data/content';
 import { useAuth } from '@/lib/auth';
+import { todayLocal } from '@/lib/checkin';
+import { useStore } from '@/lib/store';
 
 export type AppHeaderProps = {
-  /** Show the unread dot on the bell. */
+  /** Force the unread dot on the bell. When omitted, the dot is driven by real
+   *  state (an outstanding daily check-in) instead of being always-on. */
   hasNotifications?: boolean;
 };
 
@@ -18,10 +21,18 @@ export type AppHeaderProps = {
  * Global app header used across all tabs for consistency:
  * avatar + greeting on the left, bell / chat / bookmark on the right.
  */
-export function AppHeader({ hasNotifications = true }: AppHeaderProps) {
+export function AppHeader({ hasNotifications }: AppHeaderProps) {
   const router = useRouter();
   const { user: authUser } = useAuth();
+  const { checkins, isNotifDismissed } = useStore();
   const firstName = (authUser?.name?.trim() || authUser?.email?.split('@')[0] || 'there').split(' ')[0];
+  // Real unread signal (replaces the always-on dot): today's check-in is still
+  // outstanding and its reminder hasn't been dismissed. Callers can still force
+  // the dot via the prop.
+  const today = todayLocal();
+  const checkinOutstanding =
+    !checkins.some((c) => c.date === today) && !isNotifDismissed(`checkin-${today}`);
+  const showDot = hasNotifications ?? checkinOutstanding;
   return (
     <SafeAreaView edges={['top']} style={styles.safe}>
       <View style={styles.row}>
@@ -46,7 +57,7 @@ export function AppHeader({ hasNotifications = true }: AppHeaderProps) {
           <IconBtn
             name="notifications-outline"
             label="Notifications"
-            dot={hasNotifications}
+            dot={showDot}
             onPress={() => router.push('/notifications')}
           />
           <IconBtn name="chatbubbles-outline" label="Messages" onPress={() => router.push('/feed/messages')} />

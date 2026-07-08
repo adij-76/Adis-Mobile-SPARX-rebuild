@@ -11,6 +11,7 @@ import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
 import { useAuth } from '@/lib/auth';
+import { todayLocal } from '@/lib/checkin';
 import { deviceTz, formatOccurrence, joinOpen, nextOccurrence, parseMeetLengthMin } from '@/lib/groups';
 import { useStore } from '@/lib/store';
 
@@ -25,15 +26,6 @@ type Notif = {
   route: string;
   unread?: boolean;
 };
-
-// Non-meeting alerts (unchanged). The meeting reminders below are derived from
-// the user's real signed-up coaching groups.
-const STATIC_NOTIFS: Notif[] = [
-  { id: 'n2', icon: 'flame', color: '#FF9D4B', title: 'Keep your streak alive', body: "You haven't done today's check-in yet.", time: '2h', route: '/(tabs)/data', unread: true },
-  { id: 'n3', icon: 'heart', color: '#DF1C41', title: 'Maya liked your post', body: '“Day 30 today. The mornings are finally…”', time: '5h', route: '/(tabs)/community' },
-  { id: 'n4', icon: 'school', color: '#38C793', title: 'New workshop available', body: 'A fresh workshop just landed — explore the latest.', time: '1d', route: '/workshop/list' },
-  { id: 'n5', icon: 'trophy', color: '#C7D66D', title: 'You moved up the leaderboard', body: "You're now #3 this week. Nice work!", time: '2d', route: '/mydata/leaderboard' },
-];
 
 /** Compact "time until" label for the right column ("25m", "3h", "2d", "now"). */
 function compactUntil(inst: Date): string {
@@ -50,7 +42,8 @@ export default function Notifications() {
   const router = useRouter();
   const { user } = useAuth();
   const userTz = user?.timeZone || deviceTz();
-  const { isNotifRead, markNotifRead, markAllNotifsRead } = useStore();
+  const { checkins, isNotifRead, markNotifRead, markAllNotifsRead, isNotifDismissed, dismissNotif, clearNotifs } =
+    useStore();
   const groups = useAsync(() => api.groups.list(), []).data ?? [];
 
   // Real meeting reminders: the next occurrence of each signed-up group, soonest
@@ -77,7 +70,9 @@ export default function Notifications() {
         const when = formatOccurrence(inst, userTz);
         const soon = inst.getTime() - now < 24 * 3600 * 1000;
         return {
-          id: `mtg-${g.id}`,
+          // Occurrence-dated so dismissing this week's reminder doesn't hide the
+          // next one for a recurring group.
+          id: `mtg-${g.id}-${inst.toISOString().slice(0, 10)}`,
           icon: 'calendar' as const,
           color: '#166890',
           title: live ? `${g.title} is live now` : g.title,
@@ -91,7 +86,30 @@ export default function Notifications() {
       });
   }, [groups, userTz]);
 
-  const notifs = useMemo(() => [...meetingNotifs, ...STATIC_NOTIFS], [meetingNotifs]);
+  // A REAL, derived reminder — shown only when today's check-in isn't done yet.
+  // Date-scoped id so dismissing today's doesn't suppress tomorrow's.
+  const today = todayLocal();
+  const checkinReminder = useMemo<Notif[]>(() => {
+    if (checkins.some((c) => c.date === today)) return [];
+    return [
+      {
+        id: `checkin-${today}`,
+        icon: 'flame',
+        color: '#FF9D4B',
+        title: 'Keep your streak alive',
+        body: "You haven't done today's check-in yet.",
+        time: 'today',
+        route: '/checkin',
+        unread: true,
+      },
+    ];
+  }, [checkins, today]);
+
+  // Dismissed notifications are filtered out entirely (cleared → gone).
+  const notifs = useMemo(
+    () => [...checkinReminder, ...meetingNotifs].filter((n) => !isNotifDismissed(n.id)),
+    [checkinReminder, meetingNotifs, isNotifDismissed],
+  );
   const anyUnread = notifs.some((n) => n.unread && !isNotifRead(n.id));
 
   const open = (n: Notif) => {
@@ -109,14 +127,45 @@ export default function Notifications() {
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
-            anyUnread ? (
-              <Pressable style={styles.markAll} onPress={() => markAllNotifsRead(notifs.map((n) => n.id))}>
-                <Ionicons name="checkmark-done" size={16} color={Colors.primary} />
-                <Txt variant="bodySmMedium" color={Colors.primary}>
-                  Mark all as read
-                </Txt>
-              </Pressable>
+            notifs.length ? (
+              <View style={styles.actions}>
+                {anyUnread ? (
+                  <Pressable
+                    style={styles.actionBtn}
+                    onPress={() => markAllNotifsRead(notifs.map((n) => n.id))}
+                    accessibilityRole="button"
+                    accessibilityLabel="Mark all as read">
+                    <Ionicons name="checkmark-done" size={16} color={Colors.primary} />
+                    <Txt variant="bodySmMedium" color={Colors.primary}>
+                      Mark all read
+                    </Txt>
+                  </Pressable>
+                ) : (
+                  <View />
+                )}
+                <Pressable
+                  style={styles.actionBtn}
+                  onPress={() => clearNotifs(notifs.map((n) => n.id))}
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear all notifications">
+                  <Ionicons name="trash-outline" size={16} color={Colors.textSub} />
+                  <Txt variant="bodySmMedium" color={Colors.textSub}>
+                    Clear all
+                  </Txt>
+                </Pressable>
+              </View>
             ) : null
+          }
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Ionicons name="notifications-off-outline" size={32} color={Colors.textSub} />
+              <Txt variant="bodyMedium" color={Colors.textMain} center style={{ marginTop: Spacing.md }}>
+                You're all caught up
+              </Txt>
+              <Txt variant="bodySm" color={Colors.textSub} center style={{ marginTop: 4 }}>
+                New reminders and updates will show up here.
+              </Txt>
+            </View>
           }
           ItemSeparatorComponent={() => <View style={{ height: Spacing.sm }} />}
           renderItem={({ item }) => {
@@ -133,12 +182,19 @@ export default function Notifications() {
                   <Txt variant="bodySm" color={Colors.textSub} numberOfLines={2}>
                     {item.body}
                   </Txt>
-                </View>
-                <View style={{ alignItems: 'flex-end', gap: 4 }}>
                   <Txt variant="caption" color={Colors.textSub}>
                     {item.time}
                   </Txt>
-                  {unread ? <View style={styles.dot} /> : <Ionicons name="chevron-forward" size={16} color={Colors.textSub} />}
+                </View>
+                <View style={styles.rowRight}>
+                  {unread ? <View style={styles.dot} /> : null}
+                  <Pressable
+                    onPress={() => dismissNotif(item.id)}
+                    hitSlop={10}
+                    accessibilityRole="button"
+                    accessibilityLabel="Dismiss notification">
+                    <Ionicons name="close" size={18} color={Colors.textSub} />
+                  </Pressable>
                 </View>
               </Pressable>
             );
@@ -164,12 +220,14 @@ const styles = StyleSheet.create({
   },
   unread: { borderColor: Colors.highlightBorder, backgroundColor: Colors.highlight },
   icon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  markAll: {
+  rowRight: { alignItems: 'center', gap: Spacing.sm, paddingLeft: Spacing.xs },
+  actions: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: Spacing.xs,
+    justifyContent: 'space-between',
     paddingBottom: Spacing.md,
   },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+  empty: { alignItems: 'center', paddingTop: 48 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.orange },
 });
