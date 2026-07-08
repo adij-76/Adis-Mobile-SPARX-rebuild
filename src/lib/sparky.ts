@@ -33,10 +33,19 @@ export async function askSparky(
   history: SparkyTurn[],
   userId: string | null,
   authUid: string | null,
+  accessToken: string | null,
 ): Promise<SparkyReply> {
+  // Authenticate the webhook call as the signed-in user: send the Supabase
+  // session JWT as a Bearer token so the n8n flow can verify it (Supabase JWKS)
+  // and derive the caller's identity server-side rather than trusting the
+  // userId/authUid in the body (audit S-H1). The body ids stay for the
+  // transition until the flow enforces the token; once it does they're
+  // advisory only.
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
   const res = await fetch(WEBHOOK, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     // n8n's Chat Trigger node expects `chatInput` + `sessionId` (and an
     // `action`). We also send `message`/`history` so a plain Webhook node
     // still works — harmless extra fields either way. `userId`/`authUid`/

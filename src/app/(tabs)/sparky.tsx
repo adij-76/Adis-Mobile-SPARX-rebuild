@@ -93,7 +93,7 @@ function VideoCard({ video, onPress }: { video: SparkyVideo; onPress: () => void
 }
 
 export default function Sparky() {
-  const { user } = useAuth();
+  const { user, accessToken } = useAuth();
   const [messages, setMessages] = useState<Msg[]>([WELCOME]);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -128,7 +128,14 @@ export default function Sparky() {
     if (sparkyConfigured) {
       setBusy(true);
       try {
-        answer = await askSparky(content, sessionId, history, user?.appUserId ?? null, user?.id ?? null);
+        answer = await askSparky(
+          content,
+          sessionId,
+          history,
+          user?.appUserId ?? null,
+          user?.id ?? null,
+          accessToken,
+        );
       } catch {
         answer = {
           text: "I couldn't reach my brain just now — please check your connection and try again in a moment.",

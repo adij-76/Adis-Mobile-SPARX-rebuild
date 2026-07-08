@@ -11,19 +11,41 @@
 
 ## 0. How Sparxy is called today
 
-The app POSTs to the n8n webhook (`EXPO_PUBLIC_SPARKY_WEBHOOK`) with:
+The app POSTs to the n8n webhook (`EXPO_PUBLIC_SPARKY_WEBHOOK`) with an
+`Authorization: Bearer <supabase-jwt>` header and this body:
 
 ```json
 { "action": "sendMessage", "chatInput": "<user message>", "sessionId": "<per-chat id>",
-  "userId": "<mobile_me.app_user_id>", "timestamp": "<iso>", "message": "...", "history": [...] }
+  "userId": "<mobile_me.app_user_id>", "authUid": "<supabase auth user id>",
+  "timestamp": "<iso>", "message": "...", "history": [...] }
 ```
 
-**Prerequisite change (small, app-side — ask the devs, or I can do it):** also send
-`authUid` (the Supabase auth user id). All the app-owned tables below are keyed by
-`auth_uid`; `app_user_id` is only present for users who have a production `users`
-row (existing users + converted testers). Sending `authUid` lets the flow read
-every user's data reliably, testers included. Until then, use `userId`
-(`app_user_id`) where present.
+`authUid` (the Supabase auth user id) is now always sent. All the app-owned
+tables below are keyed by `auth_uid`; `app_user_id` is only present for users who
+have a production `users` row (existing users + converted testers). Use `authUid`
+to read every user's data reliably, testers included; fall back to `userId`
+(`app_user_id`) where you need the production id.
+
+### Authenticate the call — do NOT trust the body ids (audit S-H1)
+
+The webhook is a public URL, so the `userId`/`authUid` in the body are
+**client-supplied and spoofable** — anyone could POST that URL claiming to be
+another user and pull their clinical data back. The app now sends the caller's
+**Supabase session JWT** as `Authorization: Bearer <jwt>`. The flow must:
+
+1. **Verify the JWT** at the front of the flow — validate the signature against
+   Supabase's JWKS (`https://<project>.supabase.co/auth/v1/.well-known/jwks.json`,
+   ES256) or the project's JWT secret (HS256), and check `exp`. Reject
+   (401) if it's missing, expired, or invalid — fail closed.
+2. **Derive identity from the token, not the body.** The verified JWT's `sub`
+   claim IS the Supabase `auth.users.id` — use that as `authUid`. Look up
+   `app_user_id` server-side by joining `auth.users.email → users.email`. Treat
+   the body `userId`/`authUid` as advisory only; if they disagree with the token,
+   the token wins.
+
+Until the flow enforces step 1, the body ids remain the source of identity and
+the endpoint is unauthenticated — this is the open half of S-H1 and lives on the
+n8n side. The app change (sending the Bearer token) has shipped.
 
 ## 1. Access model for n8n
 
