@@ -23,6 +23,7 @@ import { AssessmentGateProvider, useAssessmentGate } from '@/lib/assessment-gate
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { OnboardingProvider, useOnboarding } from '@/lib/onboarding';
 import { AppStoreProvider, useStore } from '@/lib/store';
+import { PresenceProvider } from '@/lib/presence';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -257,8 +258,10 @@ export default function RootLayout() {
           <OnboardingProvider>
             <AssessmentGateProvider>
               <AppStoreProvider>
-                <StatusBar style="auto" />
-                <Shell />
+                <PresenceProvider>
+                  <StatusBar style="auto" />
+                  <Shell />
+                </PresenceProvider>
               </AppStoreProvider>
             </AssessmentGateProvider>
           </OnboardingProvider>
