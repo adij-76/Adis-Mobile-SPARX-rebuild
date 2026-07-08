@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -12,6 +12,7 @@ import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { wheelAreas } from '@/data/content';
+import { useAsync } from '@/hooks/use-async';
 import { useAuth } from '@/lib/auth';
 import { useStore } from '@/lib/store';
 
@@ -21,11 +22,32 @@ export default function WheelAssessment() {
   const { user: authUser } = useAuth();
   const [step, setStep] = useState(0);
   const [done, setDone] = useState(false);
+
+  // The user's REAL current per-area scores. Sliders start here, not from the
+  // static seed defaults — otherwise a retake where the user moves 2 sliders
+  // would persist 8 fabricated seed scores that then win as newest-per-area and
+  // pollute the averages, permanently (mobile_wheel_entries is insert-only —
+  // audit D-H3). While it loads, fall back to the seed so a slider always renders.
+  const realAreas = useAsync(() => api.insights.wheelAreas(), []);
+  // Areas the user actually moved — only these are persisted on Finish.
+  const touched = useRef<Set<string>>(new Set());
   const [values, setValues] = useState<Record<string, number>>(() => {
     const init: Record<string, number> = {};
     wheelAreas.forEach((a) => (init[a.id] = a.current));
     return init;
   });
+
+  // Once the real scores load, seed the sliders from them — but never clobber an
+  // area the user has already adjusted.
+  useEffect(() => {
+    const areas = realAreas.data;
+    if (!areas) return;
+    setValues((prev) => {
+      const next = { ...prev };
+      for (const a of areas) if (!touched.current.has(a.id)) next[a.id] = a.current;
+      return next;
+    });
+  }, [realAreas.data]);
 
   const cat = wheelAreas[step];
   const isLast = step === wheelAreas.length - 1;
@@ -83,7 +105,10 @@ export default function WheelAssessment() {
             maximumValue={100}
             step={5}
             value={values[cat.id]}
-            onValueChange={(v) => setValues((s) => ({ ...s, [cat.id]: v }))}
+            onValueChange={(v) => {
+              touched.current.add(cat.id);
+              setValues((s) => ({ ...s, [cat.id]: v }));
+            }}
             minimumTrackTintColor={cat.color}
             maximumTrackTintColor={Colors.soft}
             thumbTintColor={cat.color}
@@ -115,12 +140,24 @@ export default function WheelAssessment() {
             iconRight={isLast ? undefined : 'chevron-forward'}
             onPress={() => {
               if (isLast) {
-                saveWheel(values);
-                // Persist to the backend too. life_area_id 1..10 maps by order
-                // to the seed wheelAreas; best-effort so a write failure never
-                // blocks the local save / success screen.
-                const entries = wheelAreas.map((a, i) => ({ lifeAreaId: i + 1, score: values[a.id] }));
-                api.insights.saveWheel(entries, authUser?.appUserId ?? null).catch(() => {});
+                // Persist ONLY the areas the user actually moved — never write
+                // back untouched baselines as if they were freshly entered (D-H3).
+                // life_area_id 1..10 maps by order to the seed wheelAreas.
+                const changed = wheelAreas
+                  .map((a, i) => ({ id: a.id, lifeAreaId: i + 1, score: values[a.id] }))
+                  .filter((e) => touched.current.has(e.id));
+                if (changed.length) {
+                  const localScores: Record<string, number> = {};
+                  changed.forEach((e) => (localScores[e.id] = e.score));
+                  saveWheel(localScores);
+                  // Best-effort so a write failure never blocks the success screen.
+                  api.insights
+                    .saveWheel(
+                      changed.map((e) => ({ lifeAreaId: e.lifeAreaId, score: e.score })),
+                      authUser?.appUserId ?? null,
+                    )
+                    .catch(() => {});
+                }
                 setDone(true);
               } else {
                 setStep((s) => s + 1);
