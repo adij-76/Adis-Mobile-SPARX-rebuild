@@ -20,7 +20,7 @@ import { buildTrendSeries } from '@/lib/trend';
 
 export default function DataScreen() {
   const router = useRouter();
-  const { checkins } = useStore();
+  const { checkins, hasUnsyncedCheckins } = useStore();
   const today = todayLocal();
   const checkedInToday = checkins.some((c) => c.date === today);
   const wheelAreas = useAsync(() => api.insights.wheelAreas(), []).data ?? [];
@@ -81,6 +81,14 @@ export default function DataScreen() {
           <Txt variant="bodySm" color={Colors.textSub}>
             Track your progress and check-ins over time
           </Txt>
+          {hasUnsyncedCheckins && (
+            <View style={styles.syncNote}>
+              <Ionicons name="cloud-offline-outline" size={14} color={Colors.textSub} />
+              <Txt variant="caption" color={Colors.textSub}>
+                A check-in hasn&apos;t synced yet — we&apos;ll retry automatically.
+              </Txt>
+            </View>
+          )}
           <SourceBadge />
         </View>
 
@@ -254,6 +262,7 @@ export default function DataScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.screen },
   content: { padding: Spacing.lg, gap: Spacing.lg, paddingBottom: Spacing.xxl },
+  syncNote: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginTop: 4 },
   cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   balancePill: {
     backgroundColor: Colors.primary,

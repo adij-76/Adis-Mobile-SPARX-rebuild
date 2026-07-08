@@ -40,7 +40,7 @@ const TOTAL = 5;
 
 export default function CheckinScreen() {
   const router = useRouter();
-  const { addCheckin, checkins, creditStreak } = useStore();
+  const { addCheckin, checkins, creditStreak, markCheckinUnsynced, markCheckinSynced } = useStore();
   const { user: authUser } = useAuth();
   const checkinAward = useCheckinXpAward();
   const struggle = addictionStruggle(authUser?.addictionLabel);
@@ -71,8 +71,13 @@ export default function CheckinScreen() {
       affirmation,
     };
     addCheckin(entry); // optimistic local save
-    // Persist to the server too (best-effort — local save already succeeded).
-    api.checkins.save(entry, authUser?.appUserId ?? null).catch(() => {});
+    // Persist to the server. On failure, flag the date as unsynced so it's
+    // retried on next launch instead of silently living only on this device
+    // (audit D-M1); clear the flag once the write confirms.
+    api.checkins
+      .save(entry, authUser?.appUserId ?? null)
+      .then(() => markCheckinSynced(entry.date))
+      .catch(() => markCheckinUnsynced(entry.date));
     // Streak from the real history (today + all hydrated check-in dates).
     const r = await recordCheckin(checkins.map((c) => c.date));
     // Credit any streak milestones newly reached today (badge + chunky bonus).
