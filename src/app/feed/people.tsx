@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { api } from '@/api';
 import { Avatar } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
@@ -20,8 +21,11 @@ export default function People() {
   const [starting, setStarting] = useState(false);
 
   // Server-side search; the directory excludes anyone who has blocked me.
-  const { data, loading } = useAsync(() => api.messages.directory(query), [query]);
-  const people = data ?? [];
+  // Not wrapped in AsyncBoundary: this re-queries on every keystroke, so we keep
+  // the current results visible while the next page loads (useAsync retains prior
+  // data) instead of flashing a full-screen spinner. Error/empty handled below.
+  const directory = useAsync(() => api.messages.directory(query), [query]);
+  const people = directory.data ?? [];
   const chosen = useMemo(() => Object.values(selected), [selected]);
   const isGroup = chosen.length > 1;
 
@@ -120,7 +124,14 @@ export default function People() {
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={() => <View style={styles.divider} />}
         ListEmptyComponent={
-          loading ? null : (
+          directory.loading ? null : directory.error ? (
+            <View style={styles.emptyState}>
+              <Txt variant="bodySm" color={Colors.textSub} center>
+                Couldn&apos;t load people.
+              </Txt>
+              <Button title="Try again" variant="outline" onPress={directory.reload} />
+            </View>
+          ) : (
             <Txt variant="bodySm" color={Colors.textSub} center style={{ paddingTop: Spacing.xxl }}>
               {query ? 'No one matches that search.' : 'No people to message yet.'}
             </Txt>
@@ -207,6 +218,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   list: { padding: Spacing.lg, flexGrow: 1 },
+  emptyState: { alignItems: 'center', gap: Spacing.md, paddingTop: Spacing.xxl },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.md },
   divider: { height: 1, backgroundColor: Colors.stroke },
   footer: { padding: Spacing.lg, borderTopWidth: 1, borderTopColor: Colors.stroke, backgroundColor: Colors.white },

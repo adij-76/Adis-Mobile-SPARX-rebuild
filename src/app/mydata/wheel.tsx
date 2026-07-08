@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 
 import { api } from '@/api';
+import { AsyncBoundary } from '@/components/ui/async-boundary';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ScreenHeader } from '@/components/ui/screen-header';
@@ -29,7 +30,8 @@ export default function WheelOfLife() {
   const [period, setPeriod] = useState<Period>('recent');
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const wheelAreas = useAsync(() => api.insights.wheelAreas(), []).data ?? [];
+  const wheelAreasQuery = useAsync(() => api.insights.wheelAreas(), []);
+  const wheelAreas = wheelAreasQuery.data ?? [];
   const scored = wheelAreas.map((a) => {
     const current = wheelScores[a.id] ?? a.current;
     return { ...a, current, value: current };
@@ -60,21 +62,21 @@ export default function WheelOfLife() {
   }, [history]);
   const periodLabel = PERIODS.find((p) => p.key === period)!.label;
 
-  if (scored.length === 0) {
-    return (
-      <SafeAreaView style={[styles.safe, { alignItems: 'center', justifyContent: 'center' }]} edges={['top']}>
-        <ActivityIndicator color={Colors.primary} />
-      </SafeAreaView>
-    );
-  }
-
-  const best = scored.reduce((a, b) => (b.value > a.value ? b : a));
-  const worst = scored.reduce((a, b) => (b.value < a.value ? b : a));
-  const improved = scored.reduce((a, b) => (b.current - b.last > a.current - a.last ? b : a));
-
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScreenHeader title="Back" largeTitle="SPARx Wheel of Life" />
+      <AsyncBoundary
+        query={wheelAreasQuery}
+        errorLabel="your wheel"
+        empty={{
+          icon: 'pie-chart-outline',
+          text: 'Your Wheel of Life will appear here once you complete the assessment.',
+        }}>
+        {() => {
+          const best = scored.reduce((a, b) => (b.value > a.value ? b : a));
+          const worst = scored.reduce((a, b) => (b.value < a.value ? b : a));
+          const improved = scored.reduce((a, b) => (b.current - b.last > a.current - a.last ? b : a));
+          return (
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         <Card style={{ alignItems: 'center', paddingVertical: Spacing.xl }}>
           <WheelChart data={scored} size={320} />
@@ -195,6 +197,9 @@ export default function WheelOfLife() {
           </Txt>
         </Pressable>
       </ScrollView>
+          );
+        }}
+      </AsyncBoundary>
     </SafeAreaView>
   );
 }

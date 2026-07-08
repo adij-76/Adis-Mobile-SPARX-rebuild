@@ -5,6 +5,7 @@ import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { api } from '@/api';
+import { AsyncBoundary } from '@/components/ui/async-boundary';
 import { GroupCard } from '@/components/ui/group-card';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
@@ -33,7 +34,9 @@ export default function ManageMeetings() {
   const params = useLocalSearchParams<{ tab?: MeetingStatus }>();
   const [tab, setTab] = useState<MeetingStatus>(params.tab ?? 'upcoming');
 
-  const { data: groupData, reload: reloadGroups } = useAsync(() => api.groups.list(), []);
+  const groupsQuery = useAsync(() => api.groups.list(), []);
+  const groupData = groupsQuery.data;
+  const reloadGroups = groupsQuery.reload;
   useFocusEffect(useCallback(() => void reloadGroups(), [])); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Signed-up groups, soonest occurrence first. (Past/Canceled aren't tracked for
@@ -87,25 +90,29 @@ export default function ManageMeetings() {
         })}
       </View>
 
-      <FlatList
-        data={data}
-        keyExtractor={(g) => g.id}
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-        ItemSeparatorComponent={() => <View style={{ height: Spacing.lg }} />}
-        ListEmptyComponent={
-          <Txt variant="bodySm" color={Colors.textSub} center style={{ marginTop: Spacing.xxl, paddingHorizontal: Spacing.lg }}>
-            {EMPTY_COPY[tab]}
-          </Txt>
-        }
-        renderItem={({ item }) => (
-          <GroupCard
-            group={item}
-            userTz={userTz}
-            onToggleSignup={(on) => !on && cancelGroup(item.id)}
+      <AsyncBoundary query={groupsQuery} errorLabel="your groups">
+        {() => (
+          <FlatList
+            data={data}
+            keyExtractor={(g) => g.id}
+            contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
+            ItemSeparatorComponent={() => <View style={{ height: Spacing.lg }} />}
+            ListEmptyComponent={
+              <Txt variant="bodySm" color={Colors.textSub} center style={{ marginTop: Spacing.xxl, paddingHorizontal: Spacing.lg }}>
+                {EMPTY_COPY[tab]}
+              </Txt>
+            }
+            renderItem={({ item }) => (
+              <GroupCard
+                group={item}
+                userTz={userTz}
+                onToggleSignup={(on) => !on && cancelGroup(item.id)}
+              />
+            )}
           />
         )}
-      />
+      </AsyncBoundary>
     </SafeAreaView>
   );
 }

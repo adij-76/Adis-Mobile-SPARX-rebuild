@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AsyncBoundary } from '@/components/ui/async-boundary';
 import { Card } from '@/components/ui/card';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
@@ -50,10 +51,36 @@ function buildReports(checkins: CheckinEntry[]): ReportCard[] {
   ];
 }
 
+/** One report summary card (shared by the locally-generated reports and the
+ *  server-supplied ones). */
+function ReportCardView({ r }: { r: ReportCard }) {
+  return (
+    <Card style={{ gap: Spacing.sm }}>
+      <View style={styles.head}>
+        <View style={styles.icon}>
+          <Ionicons name="document-text" size={20} color={Colors.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Txt variant="bodyMedium">{r.title}</Txt>
+          <Txt variant="caption" color={Colors.textSub}>
+            {r.date}
+          </Txt>
+        </View>
+      </View>
+      <Txt variant="bodySm" color={Colors.textSub}>
+        {r.summary}
+      </Txt>
+    </Card>
+  );
+}
+
 export default function Reports() {
   const { checkins } = useStore();
   const generated = buildReports(checkins);
-  const reports = useAsync(() => api.insights.reports(), []).data ?? [];
+  // Locally-generated reports (from the user's check-ins) always render; the
+  // server reports below are wrapped so they get a spinner while loading and a
+  // retry on failure instead of silently disappearing.
+  const reportsQuery = useAsync(() => api.insights.reports(), []);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -69,24 +96,19 @@ export default function Reports() {
           </Card>
         ) : null}
 
-        {[...generated, ...reports].map((r) => (
-          <Card key={r.id} style={{ gap: Spacing.sm }}>
-            <View style={styles.head}>
-              <View style={styles.icon}>
-                <Ionicons name="document-text" size={20} color={Colors.primary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Txt variant="bodyMedium">{r.title}</Txt>
-                <Txt variant="caption" color={Colors.textSub}>
-                  {r.date}
-                </Txt>
-              </View>
-            </View>
-            <Txt variant="bodySm" color={Colors.textSub}>
-              {r.summary}
-            </Txt>
-          </Card>
+        {generated.map((r) => (
+          <ReportCardView key={r.id} r={r} />
         ))}
+
+        <AsyncBoundary query={reportsQuery} errorLabel="reports">
+          {(reports) => (
+            <>
+              {reports.map((r) => (
+                <ReportCardView key={r.id} r={r} />
+              ))}
+            </>
+          )}
+        </AsyncBoundary>
       </ScrollView>
     </SafeAreaView>
   );
