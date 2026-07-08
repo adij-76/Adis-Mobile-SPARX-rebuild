@@ -77,6 +77,22 @@ type QuoteRow = { id: number | string; text: string; author: string | null; mood
 const BASE = (process.env.EXPO_PUBLIC_SUPABASE_URL ?? '').replace(/\/$/, '');
 const ANON = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
+/**
+ * Where GoTrue should send the user after they click the email-confirmation
+ * link. On the web build this is the app's own root — origin + the GitHub Pages
+ * base path (EXPO_PUBLIC_BASE_URL) — so confirmation returns to the live app and
+ * auth.tsx picks up the `#access_token` from the hash. Without this, GoTrue falls
+ * back to the dashboard's Site URL; if that's the default localhost (or the bare
+ * github.io root, which has no app), the link lands on an unreachable page.
+ * NOTE: this URL must be in the Supabase Auth "Redirect URLs" allow-list.
+ * Returns null on native (deep-link flow) / SSR.
+ */
+function emailRedirectTo(): string | null {
+  if (typeof window === 'undefined' || !window.location?.origin) return null;
+  const base = (process.env.EXPO_PUBLIC_BASE_URL ?? '').replace(/\/$/, '');
+  return `${window.location.origin}${base}/`;
+}
+
 // Set after login; until auth lands we fall back to the anon key.
 let authToken: string | null = null;
 export function setSupabaseToken(token: string | null) {
@@ -1292,7 +1308,11 @@ export const supabaseAuth: AuthApi = {
     return toSession(await goTrue('token?grant_type=password', { email, password }));
   },
   async signUp(email, password) {
-    return toSession(await goTrue('signup', { email, password }));
+    // Pin the confirmation-email redirect to the live app URL so it never lands
+    // on the dashboard's default (localhost / bare github.io) unreachable page.
+    const redirect = emailRedirectTo();
+    const path = redirect ? `signup?redirect_to=${encodeURIComponent(redirect)}` : 'signup';
+    return toSession(await goTrue(path, { email, password }));
   },
   async refresh(refreshToken) {
     return toSession(await goTrue('token?grant_type=refresh_token', { refresh_token: refreshToken }));
