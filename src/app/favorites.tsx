@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { api } from '@/api';
 import { Screen } from '@/components/layout/screen';
+import { AsyncBoundary } from '@/components/ui/async-boundary';
 import { Segmented } from '@/components/ui/segmented';
 import { Txt } from '@/components/ui/text';
 import { VideoThumb } from '@/components/ui/video-thumb';
@@ -30,10 +31,8 @@ export default function Favorites() {
   const videoIds = favoriteIds('video');
   // Lessons + workshops share the 'lesson' favorite kind (workshops are lessons
   // with lesson_type='workshop'); split them by type for the two tabs.
-  const savedContent = useAsync(() => api.content.lessonsByIds(lessonIds), [lessonIds.join(',')]).data ?? [];
-  const savedLessons = savedContent.filter((l) => l.lessonType !== 'workshop');
-  const savedWorkshops = savedContent.filter((l) => l.lessonType === 'workshop');
-  const savedVideos = useAsync(() => api.content.videosByIds(videoIds), [videoIds.join(',')]).data ?? [];
+  const contentQuery = useAsync(() => api.content.lessonsByIds(lessonIds), [lessonIds.join(',')]);
+  const videosQuery = useAsync(() => api.content.videosByIds(videoIds), [videoIds.join(',')]);
 
   return (
     <Screen variant="modal" style={styles.safe}>
@@ -58,64 +57,75 @@ export default function Favorites() {
         </View>
 
         <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-          {tab === 'lessons' ? (
-            savedLessons.length === 0 ? (
-              <EmptyState text="No saved lessons yet. Tap the bookmark on any lesson to save it here." />
-            ) : (
-              savedLessons.map((l) => (
-                <ContentRow
-                  key={l.id}
-                  item={l}
-                  onOpen={() => router.push(`/lesson/${l.id}`)}
-                  onUnsave={() => toggleFav('lesson', l.id)}
-                />
-              ))
-            )
-          ) : tab === 'workshops' ? (
-            savedWorkshops.length === 0 ? (
-              <EmptyState text="No saved workshops yet. Tap the bookmark on any workshop to save it here." />
-            ) : (
-              savedWorkshops.map((w) => (
-                <ContentRow
-                  key={w.id}
-                  item={w}
-                  workshop
-                  onOpen={() => router.push(`/lesson/${w.id}`)}
-                  onUnsave={() => toggleFav('lesson', w.id)}
-                />
-              ))
-            )
-          ) : savedVideos.length === 0 ? (
-            <EmptyState text="No saved videos yet. Tap the bookmark on any video to save it here." />
+          {tab === 'videos' ? (
+            <AsyncBoundary query={videosQuery} errorLabel="saved videos">
+              {(savedVideos) =>
+                savedVideos.length === 0 ? (
+                  <EmptyState text="No saved videos yet. Tap the bookmark on any video to save it here." />
+                ) : (
+                  <>
+                    {savedVideos.map((v) => (
+                      <Pressable
+                        key={v.id}
+                        style={styles.lessonRow}
+                        onPress={() => router.push(`/videos/${v.id}`)}>
+                        <View>
+                          {v.image ? (
+                            <Image source={{ uri: v.image }} style={styles.lessonThumb} />
+                          ) : (
+                            <VideoThumb url={v.vimeoUrl ?? null} width={96} height={64} />
+                          )}
+                          <View style={styles.play}>
+                            <Ionicons name="play" size={14} color={Colors.primaryDark} />
+                          </View>
+                        </View>
+                        <View style={{ flex: 1, gap: 2 }}>
+                          <Txt variant="bodySmBold" numberOfLines={2}>
+                            {v.title}
+                          </Txt>
+                          <Txt variant="caption" color={Colors.textSub}>
+                            {v.presenter} · {v.duration}
+                          </Txt>
+                        </View>
+                        <Pressable onPress={() => toggleFav('video', v.id)} hitSlop={10}>
+                          <Ionicons name="bookmark" size={20} color={Colors.primary} />
+                        </Pressable>
+                      </Pressable>
+                    ))}
+                  </>
+                )
+              }
+            </AsyncBoundary>
           ) : (
-            savedVideos.map((v) => (
-              <Pressable
-                key={v.id}
-                style={styles.lessonRow}
-                onPress={() => router.push(`/videos/${v.id}`)}>
-                <View>
-                  {v.image ? (
-                    <Image source={{ uri: v.image }} style={styles.lessonThumb} />
-                  ) : (
-                    <VideoThumb url={v.vimeoUrl ?? null} width={96} height={64} />
-                  )}
-                  <View style={styles.play}>
-                    <Ionicons name="play" size={14} color={Colors.primaryDark} />
-                  </View>
-                </View>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Txt variant="bodySmBold" numberOfLines={2}>
-                    {v.title}
-                  </Txt>
-                  <Txt variant="caption" color={Colors.textSub}>
-                    {v.presenter} · {v.duration}
-                  </Txt>
-                </View>
-                <Pressable onPress={() => toggleFav('video', v.id)} hitSlop={10}>
-                  <Ionicons name="bookmark" size={20} color={Colors.primary} />
-                </Pressable>
-              </Pressable>
-            ))
+            <AsyncBoundary query={contentQuery} errorLabel="saved items">
+              {(savedContent) => {
+                const isWorkshop = tab === 'workshops';
+                const list = savedContent.filter((l) =>
+                  isWorkshop ? l.lessonType === 'workshop' : l.lessonType !== 'workshop',
+                );
+                return list.length === 0 ? (
+                  <EmptyState
+                    text={
+                      isWorkshop
+                        ? 'No saved workshops yet. Tap the bookmark on any workshop to save it here.'
+                        : 'No saved lessons yet. Tap the bookmark on any lesson to save it here.'
+                    }
+                  />
+                ) : (
+                  <>
+                    {list.map((item) => (
+                      <ContentRow
+                        key={item.id}
+                        item={item}
+                        workshop={isWorkshop}
+                        onOpen={() => router.push(`/lesson/${item.id}`)}
+                        onUnsave={() => toggleFav('lesson', item.id)}
+                      />
+                    ))}
+                  </>
+                );
+              }}
+            </AsyncBoundary>
           )}
         </ScrollView>
       </SafeAreaView>

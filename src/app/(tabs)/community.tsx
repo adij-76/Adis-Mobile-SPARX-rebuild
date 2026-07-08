@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback } from 'react';
-import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppHeader } from '@/components/app-header';
 import { Screen } from '@/components/layout/screen';
+import { Button } from '@/components/ui/button';
 import { PostCard } from '@/components/ui/post-card';
 import { Txt } from '@/components/ui/text';
 import { api } from '@/api';
@@ -81,6 +82,26 @@ export default function CommunityScreen() {
           </View>
         }
         ItemSeparatorComponent={() => <View style={{ height: Spacing.lg }} />}
+        ListEmptyComponent={
+          feed.loading ? (
+            <ActivityIndicator color={Colors.primary} style={{ marginTop: Spacing.xxl }} />
+          ) : feed.error ? (
+            <View style={styles.feedState}>
+              <Ionicons name="cloud-offline-outline" size={28} color={Colors.strokeStrong} />
+              <Txt variant="bodySm" color={Colors.textSub} center>
+                Couldn&apos;t load the feed.
+              </Txt>
+              <Button title="Try again" variant="outline" onPress={feed.reload} />
+            </View>
+          ) : (
+            <View style={styles.feedState}>
+              <Ionicons name="chatbubbles-outline" size={28} color={Colors.textSub} />
+              <Txt variant="bodySm" color={Colors.textSub} center>
+                No posts yet. Be the first to share.
+              </Txt>
+            </View>
+          )
+        }
         renderItem={({ item }) => (
           <PostCard post={item} onPress={() => router.push(`/feed/${item.id}`)} />
         )}
@@ -106,6 +127,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.stroke,
   },
   list: { padding: Spacing.lg, paddingBottom: 96 },
+  feedState: { alignItems: 'center', gap: Spacing.md, marginTop: Spacing.xxl },
   sectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   commChip: { alignItems: 'center', gap: Spacing.xs, width: 76 },
   commIcon: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },

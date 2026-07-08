@@ -5,6 +5,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { api } from '@/api';
+import { Button } from '@/components/ui/button';
 import { GroupCard } from '@/components/ui/group-card';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
@@ -16,7 +17,7 @@ import { deviceTz, nextOccurrence, parseMeetLengthMin } from '@/lib/groups';
 export default function BookGroup() {
   const { user } = useAuth();
   const userTz = user?.timeZone || deviceTz();
-  const { data, loading, reload } = useAsync(() => api.groups.list(), []);
+  const { data, loading, error, reload } = useAsync(() => api.groups.list(), []);
   // Optimistic sign-up overrides so the card flips instantly before the refetch.
   const [override, setOverride] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState<Record<string, boolean>>({});
@@ -60,7 +61,18 @@ export default function BookGroup() {
           link appears about an hour before it starts.
         </Txt>
 
-        {loading && !data ? (
+        {error && !data ? (
+          <View style={styles.empty}>
+            <Ionicons name="cloud-offline-outline" size={44} color={Colors.strokeStrong} />
+            <Txt variant="bodyMedium" center>
+              Couldn&apos;t load groups
+            </Txt>
+            <Txt variant="bodySm" color={Colors.textSub} center>
+              {error.message}
+            </Txt>
+            <Button title="Try again" variant="outline" onPress={reload} />
+          </View>
+        ) : loading && !data ? (
           <ActivityIndicator color={Colors.primary} style={{ marginTop: Spacing.xxl }} />
         ) : groups.length === 0 ? (
           <View style={styles.empty}>

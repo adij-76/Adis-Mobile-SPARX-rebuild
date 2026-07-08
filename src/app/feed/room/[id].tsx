@@ -5,6 +5,7 @@ import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { api } from '@/api';
+import { Button } from '@/components/ui/button';
 import { PostCard } from '@/components/ui/post-card';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
@@ -55,6 +56,14 @@ export default function CommunityRoom() {
         ListEmptyComponent={
           feed.loading ? (
             <ActivityIndicator color={Colors.primary} style={{ marginTop: Spacing.xxl }} />
+          ) : feed.error ? (
+            <View style={styles.empty}>
+              <Ionicons name="cloud-offline-outline" size={28} color={Colors.strokeStrong} />
+              <Txt variant="bodySm" color={Colors.textSub} center>
+                Couldn&apos;t load posts.
+              </Txt>
+              <Button title="Try again" variant="outline" onPress={feed.reload} />
+            </View>
           ) : (
             <View style={styles.empty}>
               <Ionicons name="chatbubbles-outline" size={28} color={Colors.textSub} />
