@@ -3,10 +3,12 @@ import { useState } from 'react';
 import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { api } from '@/api';
 import { Button } from '@/components/ui/button';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
+import { useAuth } from '@/lib/auth';
 
 function Field({
   label,
@@ -33,18 +35,37 @@ function Field({
 }
 
 export default function ChangePassword() {
+  const { user } = useAuth();
   const [cur, setCur] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
   const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const valid = cur.length > 0 && next.length >= 8 && next === confirm;
 
-  const submit = () => {
-    if (!valid) return;
-    // Local-only for now; wires to Supabase Auth updateUser when auth lands.
+  const submit = async () => {
+    if (!valid || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      // Re-verifies the current password, then updates it via GoTrue.
+      await api.auth.changePassword(user?.email ?? '', cur, next);
+    } catch (e) {
+      setBusy(false);
+      setError(
+        e instanceof Error && /invalid|credential|password/i.test(e.message)
+          ? 'Your current password is incorrect.'
+          : e instanceof Error
+            ? e.message
+            : "Couldn't update your password.",
+      );
+      return;
+    }
     setCur('');
     setNext('');
     setConfirm('');
+    setBusy(false);
     setDone(true);
   };
 
@@ -80,9 +101,19 @@ export default function ChangePassword() {
         <Txt variant="caption" color={Colors.textSub}>
           Use at least 8 characters with a mix of letters and numbers.
         </Txt>
+        {error ? (
+          <Txt variant="bodySm" color={Colors.danger}>
+            {error}
+          </Txt>
+        ) : null}
       </ScrollView>
       <View style={styles.footer}>
-        <Button title="Update password" variant="primary" disabled={!valid} onPress={submit} />
+        <Button
+          title={busy ? 'Updating…' : 'Update password'}
+          variant="primary"
+          disabled={!valid || busy}
+          onPress={submit}
+        />
       </View>
     </SafeAreaView>
   );
