@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { api } from '@/api';
@@ -57,6 +57,18 @@ export default function ManageMeetings() {
     api.groups.setSignup(id, false, user?.appUserId ?? null).catch(() => {}).finally(() => reloadGroups());
   };
 
+  // Pull-to-refresh: reload the groups list (F-M1).
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([reloadGroups()]);
+    } finally {
+      setRefreshing(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const data = tab === 'upcoming' ? myGroups : [];
 
   return (
@@ -97,6 +109,9 @@ export default function ManageMeetings() {
             keyExtractor={(g) => g.id}
             contentContainerStyle={styles.list}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+            }
             ItemSeparatorComponent={() => <View style={{ height: Spacing.lg }} />}
             ListEmptyComponent={
               <Txt variant="bodySm" color={Colors.textSub} center style={{ marginTop: Spacing.xxl, paddingHorizontal: Spacing.lg }}>

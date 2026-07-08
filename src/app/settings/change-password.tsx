@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { api } from '@/api';
@@ -94,27 +94,31 @@ export default function ChangePassword() {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <ScreenHeader title="Back" largeTitle="Change password" />
-      <ScrollView contentContainerStyle={styles.body}>
-        <Field label="Current password" value={cur} onChange={setCur} />
-        <Field label="New password" value={next} onChange={setNext} />
-        <Field label="Confirm new password" value={confirm} onChange={setConfirm} />
-        <Txt variant="caption" color={Colors.textSub}>
-          Use at least 8 characters with a mix of letters and numbers.
-        </Txt>
-        {error ? (
-          <Txt variant="bodySm" color={Colors.danger}>
-            {error}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+          <Field label="Current password" value={cur} onChange={setCur} />
+          <Field label="New password" value={next} onChange={setNext} />
+          <Field label="Confirm new password" value={confirm} onChange={setConfirm} />
+          <Txt variant="caption" color={Colors.textSub}>
+            Use at least 8 characters with a mix of letters and numbers.
           </Txt>
-        ) : null}
-      </ScrollView>
-      <View style={styles.footer}>
-        <Button
-          title={busy ? 'Updating…' : 'Update password'}
-          variant="primary"
-          disabled={!valid || busy}
-          onPress={submit}
-        />
-      </View>
+          {error ? (
+            <Txt variant="bodySm" color={Colors.danger}>
+              {error}
+            </Txt>
+          ) : null}
+        </ScrollView>
+        <View style={styles.footer}>
+          <Button
+            title={busy ? 'Updating…' : 'Update password'}
+            variant="primary"
+            disabled={!valid || busy}
+            onPress={submit}
+          />
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

@@ -175,6 +175,7 @@ export default function ChatThread() {
           ref={scrollRef}
           contentContainerStyle={styles.body}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
           onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}>
           {messages.length === 0 ? (
             <View style={styles.empty}>

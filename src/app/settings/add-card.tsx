@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
@@ -66,23 +66,27 @@ export default function AddCard() {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <ScreenHeader title="Back" largeTitle="Add card" />
-      <ScrollView contentContainerStyle={styles.body}>
-        <Field label="Name on card" value={name} onChange={setName} placeholder="Okei Joseph" />
-        <Field
-          label="Card number"
-          value={number}
-          onChange={setNumber}
-          placeholder="1234 5678 9012 3456"
-          keyboardType="number-pad"
-        />
-        <View style={styles.rowFields}>
-          <Field label="Expiry" value={exp} onChange={setExp} placeholder="MM/YY" flex={1} />
-          <Field label="CVC" value={cvc} onChange={setCvc} placeholder="123" keyboardType="number-pad" flex={1} />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+          <Field label="Name on card" value={name} onChange={setName} placeholder="Okei Joseph" />
+          <Field
+            label="Card number"
+            value={number}
+            onChange={setNumber}
+            placeholder="1234 5678 9012 3456"
+            keyboardType="number-pad"
+          />
+          <View style={styles.rowFields}>
+            <Field label="Expiry" value={exp} onChange={setExp} placeholder="MM/YY" flex={1} />
+            <Field label="CVC" value={cvc} onChange={setCvc} placeholder="123" keyboardType="number-pad" flex={1} />
+          </View>
+        </ScrollView>
+        <View style={styles.footer}>
+          <Button title="Save card" variant="primary" disabled={!valid} onPress={() => router.back()} />
         </View>
-      </ScrollView>
-      <View style={styles.footer}>
-        <Button title="Save card" variant="primary" disabled={!valid} onPress={() => router.back()} />
-      </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

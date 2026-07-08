@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Image,
   KeyboardAvoidingView,
@@ -18,6 +18,7 @@ import { VideoPlayerModal } from '@/components/video-player-modal';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/lib/auth';
+import { useStore } from '@/lib/store';
 import { CRISIS_REPLY, isCrisisMessage } from '@/lib/crisis';
 import {
   askSparky,
@@ -47,6 +48,19 @@ const WELCOME: Msg = {
   from: 'sparky',
   text: "Hey, I'm Sparky ✨ — your SPARx companion. I'm here whenever you want to talk things through, get a quick exercise, or make sense of your progress. What's on your mind?",
 };
+
+/** A fresh UUID for a chat session. Must be a real UUID: the chat pipeline logs
+ *  to ai_chat_responses whose session_id column is uuid-typed (non-uuid ids
+ *  silently fail to log). */
+function newSessionId(): string {
+  return (
+    globalThis.crypto?.randomUUID?.() ??
+    'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+    })
+  );
+}
 
 function reply(prompt: string): string {
   const p = prompt.toLowerCase();
@@ -95,19 +109,47 @@ function VideoCard({ video, onPress }: { video: SparkyVideo; onPress: () => void
 
 export default function Sparky() {
   const { user, accessToken } = useAuth();
+  const { ready, sparkyChat, setSparkyChat, resetSparkyChat } = useStore();
+  const userId = user?.id ?? null;
   const [messages, setMessages] = useState<Msg[]>([WELCOME]);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [activeVideo, setActiveVideo] = useState<SparkyVideo | null>(null);
-  // Must be a real UUID: the chat pipeline logs to ai_chat_responses whose
-  // session_id column is uuid-typed (non-uuid ids silently fail to log).
-  const sessionId = useRef(
-    globalThis.crypto?.randomUUID?.() ??
-      'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-        const r = (Math.random() * 16) | 0;
-        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
-      }),
-  ).current;
+  // Persisting the transcript lets the backend's memory span reloads. The
+  // sessionId is stateful so "New chat" can mint a fresh one (F-M4).
+  const [sessionId, setSessionId] = useState(newSessionId);
+  // Restore only once the store has loaded from storage, and only if the saved
+  // transcript belongs to the signed-in user — a sign-out / different user must
+  // never see the previous person's chat.
+  const hydrated = useRef(false);
+  useEffect(() => {
+    if (!ready || hydrated.current) return;
+    hydrated.current = true;
+    if (sparkyChat && sparkyChat.userId === userId && sparkyChat.messages.length) {
+      setSessionId(sparkyChat.sessionId);
+      setMessages(sparkyChat.messages);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
+
+  // Persist the transcript (minus the transient "typing" bubble) whenever it
+  // changes, keyed to the current user + session.
+  useEffect(() => {
+    if (!ready || !hydrated.current) return;
+    const persistable: Msg[] = messages
+      .filter((m) => !m.typing)
+      .map(({ id, from, text: t, videos }) => ({ id, from, text: t, videos }));
+    setSparkyChat({ userId, sessionId, messages: persistable });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, sessionId, ready]);
+
+  // Start a brand-new conversation: clears the persisted transcript and mints a
+  // fresh session so Sparky's memory starts over.
+  const startNewChat = () => {
+    resetSparkyChat();
+    setSessionId(newSessionId());
+    setMessages([WELCOME]);
+  };
 
   const send = async (value?: string) => {
     const content = (value ?? text).trim();
@@ -175,7 +217,7 @@ export default function Sparky() {
           <View style={styles.sparkAvatar}>
             <Ionicons name="sparkles" size={22} color={Colors.white} />
           </View>
-          <View>
+          <View style={{ flex: 1 }}>
             <Txt variant="titleSm" color={Colors.white}>
               Sparky
             </Txt>
@@ -183,6 +225,14 @@ export default function Sparky() {
               Your SPARx AI companion
             </Txt>
           </View>
+          <Pressable
+            onPress={startNewChat}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Start a new chat"
+            style={styles.newChatBtn}>
+            <Ionicons name="create-outline" size={20} color={Colors.white} />
+          </Pressable>
         </LinearGradient>
       </SafeAreaView>
 
@@ -264,6 +314,14 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
   },
   sparkAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  newChatBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,

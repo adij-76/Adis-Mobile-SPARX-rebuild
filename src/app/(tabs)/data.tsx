@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppHeader } from '@/components/app-header';
 import { Screen } from '@/components/layout/screen';
@@ -23,9 +23,12 @@ export default function DataScreen() {
   const { checkins, hasUnsyncedCheckins } = useStore();
   const today = todayLocal();
   const checkedInToday = checkins.some((c) => c.date === today);
-  const wheelAreas = useAsync(() => api.insights.wheelAreas(), []).data ?? [];
-  const reports = useAsync(() => api.insights.reports(), []).data ?? [];
-  const useTracking = useAsync(() => api.insights.useTracking(), []).data ?? [];
+  const wheelQuery = useAsync(() => api.insights.wheelAreas(), []);
+  const wheelAreas = wheelQuery.data ?? [];
+  const reportsQ = useAsync(() => api.insights.reports(), []);
+  const reports = reportsQ.data ?? [];
+  const useTrackingQ = useAsync(() => api.insights.useTracking(), []);
+  const useTracking = useTrackingQ.data ?? [];
   // How much: total amount used per period (0 on clean days). Sum, not average,
   // so a couple of uses in a month don't round away to nothing.
   const useAmountSeries = buildTrendSeries(
@@ -37,14 +40,16 @@ export default function DataScreen() {
     useTracking.map((p) => ({ at: p.at, value: p.used ? 100 : 0 })),
     { aggregate: 'avg', includeRecent: false },
   );
-  const assessments = useAsync(() => api.insights.assessments(), []).data ?? [];
+  const assessmentsQ = useAsync(() => api.insights.assessments(), []);
+  const assessments = assessmentsQ.data ?? [];
 
   // App-owned assessment history → a score trend for EVERY scored instrument:
   // the standard battery (GAD-7, PHQ-9, AUDIT-C, PCL-5) AND worksheet scores
   // (ACE, …). Lower is better for these, so a drop reads green. A trend card
   // only appears once there are at least TWO takes — one point isn't a
   // comparison. Oldest→newest is handled by buildTrendSeries.
-  const myAssessments = useAsync(() => api.assessments.list(), []).data ?? [];
+  const myAssessmentsQ = useAsync(() => api.assessments.list(), []);
+  const myAssessments = myAssessmentsQ.data ?? [];
   const assessmentTrends = useMemo(() => {
     const byInst = new Map<string, { at: string; value: number }[]>();
     for (const r of myAssessments) {
@@ -64,18 +69,43 @@ export default function DataScreen() {
   }, [myAssessments]);
 
   // Weekly points rank for the leaderboard banner teaser (most "contest"-like).
-  const weeklyBoard = useAsync(() => api.insights.leaderboard('points', 'week'), []).data ?? [];
+  const weeklyBoardQ = useAsync(() => api.insights.leaderboard('points', 'week'), []);
+  const weeklyBoard = weeklyBoardQ.data ?? [];
   const myRank = weeklyBoard.find((e) => e.you)?.rank ?? null;
   const scored = wheelAreas.map((c) => ({ ...c, score: c.current }));
   const balance = scored.length
     ? Math.round(scored.reduce((s, a) => s + a.score, 0) / scored.length)
     : 0;
 
+  // Pull-to-refresh: reload every metric source on this screen (F-M1).
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        wheelQuery.reload(),
+        reportsQ.reload(),
+        useTrackingQ.reload(),
+        assessmentsQ.reload(),
+        myAssessmentsQ.reload(),
+        weeklyBoardQ.reload(),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <Screen style={styles.root}>
       <AppHeader />
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+        }>
         <View style={{ gap: 2 }}>
           <Txt variant="titleLg">My Data</Txt>
           <Txt variant="bodySm" color={Colors.textSub}>
@@ -115,7 +145,9 @@ export default function DataScreen() {
               <Txt variant="titleSm">Wheel of Life</Txt>
               <View style={styles.balancePill}>
                 <Txt variant="caption" color={Colors.white}>
-                  {balance}% balance
+                  {/* Don't flash a fabricated "0% balance" while loading — show a
+                      muted placeholder until the real scores arrive (F-M6). */}
+                  {wheelQuery.loading && scored.length === 0 ? '— balance' : `${balance}% balance`}
                 </Txt>
               </View>
             </View>

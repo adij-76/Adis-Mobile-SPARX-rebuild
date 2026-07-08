@@ -24,6 +24,7 @@ import { computeStreak, todayLocal } from '@/lib/checkin';
 import { milestonesReached, type StreakMilestone } from '@/lib/streaks';
 import { videoPointsEarned } from '@/lib/video-points';
 import { XP_BASE, xpEarned, type XpActivity } from '@/lib/xp';
+import type { SparkyVideo } from '@/lib/sparky';
 
 const KEY = 'igntd.store.v1';
 
@@ -32,6 +33,13 @@ const favKey = (k: FavKind, id: string) => `${k}:${id}`;
 
 export type DmMessage = { id: string; from: 'me' | 'them'; text: string; time: string };
 export type DmThread = { id: string; name: string; avatar: string; messages: DmMessage[] };
+
+/** A persisted Sparky transcript turn — mirrors the screen's `Msg` minus the
+ *  transient "typing" bubble (F-M4). */
+export type SparkyChatMsg = { id: string; from: 'sparky' | 'me'; text: string; videos?: SparkyVideo[] };
+/** The persisted Sparky conversation. Keyed to the signed-in user so a different
+ *  user (or a sign-out) never restores the previous person's transcript. */
+export type SparkyChat = { userId: string | null; sessionId: string; messages: SparkyChatMsg[] };
 
 export type CheckinEntry = {
   date: string; // YYYY-MM-DD
@@ -88,6 +96,7 @@ type Persisted = {
   streakBonusPoints: number; // running total of one-time streak-milestone bonuses
   communityXpDay: { date: string; count: number }; // per-day community XP awards (anti-farm cap)
   pwaBannerDismissed: boolean; // hide the "Install app" home banner once dismissed
+  sparkyChat: SparkyChat | null; // persisted Sparky transcript + session (per user), null = fresh (F-M4)
 };
 
 const EMPTY: Persisted = {
@@ -120,6 +129,7 @@ const EMPTY: Persisted = {
   streakBonusPoints: 0,
   communityXpDay: { date: '', count: 0 },
   pwaBannerDismissed: false,
+  sparkyChat: null,
 };
 
 type StoreValue = {
@@ -242,6 +252,10 @@ type StoreValue = {
   // PWA install banner (home)
   pwaBannerDismissed: boolean;
   dismissPwaBanner: () => void;
+  // Sparky conversation (persisted per user — F-M4)
+  sparkyChat: SparkyChat | null;
+  setSparkyChat: (next: SparkyChat) => void;
+  resetSparkyChat: () => void;
   // account
   clearAll: () => void;
 };
@@ -640,6 +654,10 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
       pwaBannerDismissed: state.pwaBannerDismissed,
       dismissPwaBanner: () => update((s) => (s.pwaBannerDismissed ? s : { ...s, pwaBannerDismissed: true })),
+
+      sparkyChat: state.sparkyChat,
+      setSparkyChat: (next) => update((s) => ({ ...s, sparkyChat: next })),
+      resetSparkyChat: () => update((s) => (s.sparkyChat === null ? s : { ...s, sparkyChat: null })),
 
       clearAll: () => setState(EMPTY),
     };
