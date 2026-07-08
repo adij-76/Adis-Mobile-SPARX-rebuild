@@ -86,6 +86,10 @@ export default function ProfileScreen() {
 
   const onConfirm = async () => {
     if (confirm === 'delete') {
+      // Real server-side deletion of the caller's app-owned data + a queued
+      // request to complete auth/legacy removal (best-effort; local wipe + sign
+      // out still happen so the user isn't stuck if the request fails).
+      await api.auth.deleteAccount().catch(() => {});
       clearAll();
       try {
         await AsyncStorage.removeItem('igntd.checkin.v1');

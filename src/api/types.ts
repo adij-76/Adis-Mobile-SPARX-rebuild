@@ -379,6 +379,12 @@ export type AuthApi = {
   sessionFromTokens(accessToken: string, refreshToken: string): Promise<AuthSession>;
   /** Persist a new avatar (uploads when a backend exists) and return its URL. */
   updateAvatar(dataUrl: string, userId: string): Promise<string>;
+  /** Change the signed-in user's password. Re-verifies `current` first; throws
+   *  on a wrong current password or a failed update. */
+  changePassword(email: string, current: string, next: string): Promise<void>;
+  /** Delete the caller's app-owned data now and queue full account removal
+   *  (auth + legacy rows are completed server-side by an admin/cron). */
+  deleteAccount(): Promise<void>;
 };
 
 /** A saved daily check-in (mirrors the local store's CheckinEntry). */

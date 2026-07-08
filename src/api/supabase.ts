@@ -1292,6 +1292,30 @@ export const supabaseAuth: AuthApi = {
     }).catch(() => {});
     return publicUrl;
   },
+  async changePassword(email, current, next) {
+    // Reauthenticate: GoTrue has no dedicated reauth endpoint for password users,
+    // so verify the CURRENT password by exchanging it for a token (throws if
+    // wrong) before allowing the change.
+    await goTrue('token?grant_type=password', { email, password: current });
+    const res = await fetch(`${BASE}/auth/v1/user`, {
+      method: 'PUT',
+      headers: { apikey: ANON, Authorization: `Bearer ${authToken ?? ANON}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: next }),
+    });
+    if (res.status === 401) onUnauthorized?.();
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      throw new Error(d?.msg || d?.error_description || `Couldn't update password (${res.status}).`);
+    }
+  },
+  async deleteAccount() {
+    const res = await fetch(`${BASE}/rest/v1/rpc/mobile_request_account_deletion`, {
+      method: 'POST',
+      headers: { apikey: ANON, Authorization: `Bearer ${authToken ?? ANON}`, 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    if (!res.ok) throw new Error(`Account deletion failed (${res.status}).`);
+  },
 };
 
 type GameStateRow = {

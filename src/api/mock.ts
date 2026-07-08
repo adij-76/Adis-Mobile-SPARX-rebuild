@@ -193,6 +193,13 @@ export const mockAuth: AuthApi = {
   sessionFromTokens: (accessToken, refreshToken) =>
     Promise.resolve({ ...mockSession('okeijoseph@sparx.app'), accessToken, refreshToken }),
   updateAvatar: (dataUrl) => delay(dataUrl),
+  changePassword: (_email, current, next) =>
+    !current
+      ? Promise.reject(new Error('Enter your current password'))
+      : next.length < 8
+        ? Promise.reject(new Error('New password must be at least 8 characters'))
+        : delay(undefined),
+  deleteAccount: () => delay(undefined),
 };
 
 // Onboarding — offline/dev. Mirrors the DB-driven problem taxonomy so the flow
