@@ -93,20 +93,72 @@ export function setOnUnauthorized(cb: (() => void) | null) {
   onUnauthorized = cb;
 }
 
+/**
+ * A failed Supabase read/write. `missingView` distinguishes "this view/table
+ * doesn't exist yet" (a 404, or PostgREST's undefined-table / schema-cache
+ * codes) — where serving seed data is legitimate — from a REAL failure (RLS
+ * 403, 5xx, network) that must NOT be masked as "the user has no data" (C-H2).
+ */
+export type SupabaseError = Error & { status: number; code?: string; missingView: boolean };
+
+function supabaseError(view: string, status: number, code?: string): SupabaseError {
+  // 42P01 = undefined_table; PGRST202/PGRST205 = function/table not in the
+  // schema cache (view not created yet). A 404 is the same class over HTTP.
+  const missingView = status === 404 || code === '42P01' || code === 'PGRST205' || code === 'PGRST202';
+  return Object.assign(new Error(`Supabase ${view} → ${status}${code ? ` (${code})` : ''}`), {
+    status,
+    code,
+    missingView,
+  });
+}
+
+/** True when an error means the view/table simply isn't created yet (so a seed
+ *  fallback is legitimate), as opposed to a real backend/RLS/network failure. */
+export function isMissingView(e: unknown): boolean {
+  return !!(e && typeof e === 'object' && (e as { missingView?: boolean }).missingView === true);
+}
+
+/** Log (dev only) when a REAL backend failure is being served as sample data, so
+ *  an outage/RLS-misconfig is diagnosable instead of silently looking like "no
+ *  data". View-not-created-yet is expected and stays quiet. */
+export function seedFallbackWarn(label: string, e: unknown): void {
+  if (__DEV__ && !isMissingView(e)) {
+    console.warn(`[api] ${label}: backend error — showing sample data.`, e);
+  }
+}
+
 async function rest<T>(view: string, query: Record<string, string> = {}): Promise<T> {
   const qs = new URLSearchParams(query).toString();
-  const res = await fetch(`${BASE}/rest/v1/${view}${qs ? `?${qs}` : ''}`, {
-    headers: {
-      apikey: ANON,
-      Authorization: `Bearer ${authToken ?? ANON}`,
-      Accept: 'application/json',
-    },
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}/rest/v1/${view}${qs ? `?${qs}` : ''}`, {
+      headers: {
+        apikey: ANON,
+        Authorization: `Bearer ${authToken ?? ANON}`,
+        Accept: 'application/json',
+      },
+    });
+  } catch (e) {
+    // Network/DNS/TLS failure — a REAL error, never a missing view.
+    throw Object.assign(new Error(`Supabase ${view} → network`), {
+      status: 0,
+      missingView: false,
+      cause: e,
+    }) as SupabaseError;
+  }
   // A 401 only happens with a bad/expired bearer token; the anon key never
   // 401s. So a 401 here means a signed-in user's token died — signal the auth
   // layer rather than letting the caller swallow it into a seed fallback.
   if (res.status === 401 && authToken) onUnauthorized?.();
-  if (!res.ok) throw new Error(`Supabase ${view} → ${res.status}`);
+  if (!res.ok) {
+    let code: string | undefined;
+    try {
+      code = (await res.clone().json())?.code;
+    } catch {
+      /* non-JSON error body */
+    }
+    throw supabaseError(view, res.status, code);
+  }
   return (await res.json()) as T;
 }
 
@@ -317,7 +369,8 @@ export const supabaseContent: ContentApi = {
             vimeoUrl: vimeoUrlFrom(r.vimeo_url, r.vimeo_id) ?? undefined,
           }) satisfies VideoItem,
       );
-    } catch {
+    } catch (e) {
+      seedFallbackWarn('content.recommendedVideos', e);
       return snippetVideos();
     }
   },
@@ -363,7 +416,8 @@ export const supabaseContent: ContentApi = {
             mood: (r.mood as Quote['mood']) || 'steady',
           }) satisfies Quote,
       );
-    } catch {
+    } catch (e) {
+      seedFallbackWarn('content.quotes', e);
       return quotes;
     }
   },
@@ -666,7 +720,8 @@ export const supabaseInsights: InsightsApi = {
         if (!r || r.current_score == null) return base;
         return { ...base, current: r.current_score, last: r.last_score ?? r.current_score };
       });
-    } catch {
+    } catch (e) {
+      seedFallbackWarn('insights.wheelAreas', e);
       return wheelAreas;
     }
   },
@@ -698,14 +753,16 @@ export const supabaseInsights: InsightsApi = {
           ? await rpc<Row[]>('mobile_streak_leaderboard', { p_period: period })
           : await rpc<Row[]>('mobile_leaderboard_metric', { p_metric: board, p_period: period });
       return toEntries(rows);
-    } catch {
+    } catch (e) {
+      seedFallbackWarn(`leaderboard.${board}.${period}`, e);
       // RPCs not present yet (older DB): only the all-time points board can fall
       // back to the legacy view; every other board is empty until the DB lands.
       if (board !== 'points' || period !== 'all') return [];
       try {
         const rows = await rest<Row[]>('mobile_leaderboard', { order: 'points.desc', limit: '50' });
         return rows.length ? toEntries(rows) : leaderboard;
-      } catch {
+      } catch (e2) {
+        seedFallbackWarn('leaderboard.points.all (legacy view)', e2);
         return leaderboard;
       }
     }
@@ -883,18 +940,35 @@ export const supabaseFavorites: FavoritesApi = {
 
 /** Call a Postgres function over PostgREST (/rpc/<fn>) and return its result. */
 async function rpc<T>(fn: string, body: unknown): Promise<T> {
-  const res = await fetch(`${BASE}/rest/v1/rpc/${fn}`, {
-    method: 'POST',
-    headers: {
-      apikey: ANON,
-      Authorization: `Bearer ${authToken ?? ANON}`,
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    body: JSON.stringify(body),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}/rest/v1/rpc/${fn}`, {
+      method: 'POST',
+      headers: {
+        apikey: ANON,
+        Authorization: `Bearer ${authToken ?? ANON}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (e) {
+    throw Object.assign(new Error(`rpc ${fn} → network`), {
+      status: 0,
+      missingView: false,
+      cause: e,
+    }) as SupabaseError;
+  }
   if (res.status === 401 && authToken) onUnauthorized?.();
-  if (!res.ok) throw new Error(`rpc ${fn} → ${res.status}`);
+  if (!res.ok) {
+    let code: string | undefined;
+    try {
+      code = (await res.clone().json())?.code;
+    } catch {
+      /* non-JSON error body */
+    }
+    throw supabaseError(`rpc ${fn}`, res.status, code);
+  }
   return (await res.json()) as T;
 }
 

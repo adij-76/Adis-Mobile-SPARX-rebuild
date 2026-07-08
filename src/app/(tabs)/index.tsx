@@ -15,6 +15,7 @@ import { useVimeoMeta } from '@/hooks/use-vimeo-meta';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ProgressBar } from '@/components/ui/progress-bar';
+import { SourceBadge } from '@/components/ui/source-badge';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Shadow, Spacing } from '@/constants/theme';
 import {
@@ -479,6 +480,7 @@ export default function HomeScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
+        <SourceBadge />
         {isDesktop ? (
           <View style={styles.twoCol}>
             <View style={styles.mainCol}>

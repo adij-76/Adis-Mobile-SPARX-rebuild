@@ -43,7 +43,22 @@ import {
 } from '@/api/supabase';
 import type { Api } from '@/api/types';
 
-const useSupabase = !!process.env.EXPO_PUBLIC_SUPABASE_URL;
+// Require BOTH the URL and the anon key before using Supabase. Keying only off
+// the URL meant a missing/blank anon key silently ran the whole app on sample
+// data while `backend` still reported "supabase" (audit C-H2). Fail over to the
+// mock cleanly instead, and warn loudly in dev when exactly one is set (a
+// half-configured env is almost always a mistake).
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const SUPABASE_ANON = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+const useSupabase = !!SUPABASE_URL && !!SUPABASE_ANON;
+
+if (__DEV__ && !!SUPABASE_URL !== !!SUPABASE_ANON) {
+  console.warn(
+    `[api] Supabase is half-configured — URL ${SUPABASE_URL ? 'set' : 'MISSING'}, ` +
+      `ANON key ${SUPABASE_ANON ? 'set' : 'MISSING'}. Both EXPO_PUBLIC_SUPABASE_URL and ` +
+      'EXPO_PUBLIC_SUPABASE_ANON_KEY are required; running on sample data until both are set.',
+  );
+}
 
 export const api: Api = {
   backend: useSupabase ? 'supabase' : 'mock',
