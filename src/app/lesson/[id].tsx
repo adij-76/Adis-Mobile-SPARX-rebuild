@@ -120,7 +120,7 @@ export default function LessonScreen() {
             This {lesson.lessonType === 'workshop' ? 'workshop' : 'lesson'} is locked
           </Txt>
           <Txt variant="bodySm" color={Colors.textSub} center>
-            It's part of SPARx Premium. Upgrade to unlock every lesson, workshop and report.
+            It&apos;s part of SPARx Premium. Upgrade to unlock every lesson, workshop and report.
           </Txt>
           <Button title="Unlock with Premium" variant="primary" onPress={() => router.replace('/settings/premium')} />
         </View>

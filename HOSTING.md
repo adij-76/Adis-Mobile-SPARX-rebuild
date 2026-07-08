@@ -78,3 +78,35 @@ and install via the TestFlight app.
 - **Just want to look at it from your phone, no cost, right now** → Option A.
 - **Want the real native app on an Android phone, still free** → Option B.
 - **Want it on your iPhone like a shipped app** → Option C (needs Apple account).
+
+---
+
+## Migrating to Cloudflare Pages (the path to a PRIVATE repo)
+
+**Why:** GitHub Pages (the current production host) only works on public repos
+for free accounts — and the repo being public exposes course-content tooling,
+docs, and Actions logs. Cloudflare Pages is free, serves private repos, and is
+faster (global CDN). The workflow is already in place
+(`.github/workflows/deploy-cloudflare.yml`) and **skips silently until you add
+the two secrets** — so the order of operations is:
+
+1. **Create a free Cloudflare account** → https://dash.cloudflare.com/sign-up
+2. **Create an API token**: My Profile → API Tokens → Create Token → use the
+   "Edit Cloudflare Workers" template (includes Pages) → copy it.
+3. **Add two repo secrets** (Settings → Secrets and variables → Actions):
+   - `CLOUDFLARE_API_TOKEN` — the token from step 2
+   - `CLOUDFLARE_ACCOUNT_ID` — shown in the dashboard's right sidebar / URL
+4. **Run the workflow** (Actions → "Deploy web to Cloudflare Pages" → Run
+   workflow). First run creates the `sparx-app` project; the site appears at
+   **https://sparx-app.pages.dev**. (Custom domain attachable in the CF dash.)
+5. **Supabase** → Auth → URL Configuration → **add the new origin** to the
+   Redirect URLs (keep the old one during the transition). Skipping this
+   breaks sign-in on the new host.
+6. **Verify** the new site end-to-end (sign in, lesson, exercise, community).
+7. **Flip the repo private**: Settings → General → Danger Zone → Change
+   visibility. GitHub Pages stops serving; Cloudflare keeps deploying on every
+   merge to `main`. Tell users on the old URL to switch (or point a custom
+   domain at Cloudflare first so nobody has to change bookmarks).
+
+Note: the Cloudflare build serves from the domain ROOT (no
+`/Adis-Mobile-SPARX-rebuild` path), which is also nicer for the PWA install.

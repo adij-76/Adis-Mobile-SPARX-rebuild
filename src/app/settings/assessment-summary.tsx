@@ -22,7 +22,7 @@ export default function AssessmentSummary() {
       <ScreenHeader title="Back" largeTitle="Assessment summary" />
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         <Card style={{ gap: Spacing.md }}>
-          <Txt variant="titleSm">Where you're thriving</Txt>
+          <Txt variant="titleSm">Where you&apos;re thriving</Txt>
           {top.map((a) => (
             <View key={a.id} style={styles.row}>
               <Ionicons name="trending-up" size={18} color={Colors.success} />
@@ -52,7 +52,7 @@ export default function AssessmentSummary() {
         </Card>
 
         <Card style={{ gap: Spacing.sm }}>
-          <Txt variant="titleSm">Coach's note</Txt>
+          <Txt variant="titleSm">Coach&apos;s note</Txt>
           <Txt variant="body" color={Colors.textSub}>
             You&apos;ve shown real consistency with your daily check-ins. Your mood and cravings are
             trending in the right direction. Consider setting one small, specific goal for your

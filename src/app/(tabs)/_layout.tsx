@@ -9,9 +9,11 @@ import { useBreakpoint } from '@/hooks/use-breakpoint';
 type IconName = keyof typeof Ionicons.glyphMap;
 
 function tabIcon(name: IconName) {
-  return ({ color }: { color: ColorValue; size: number }) => (
+  const TabIcon = ({ color }: { color: ColorValue; size: number }) => (
     <Ionicons name={name} size={24} color={color} />
   );
+  TabIcon.displayName = `TabIcon(${name})`;
+  return TabIcon;
 }
 
 /** Center "Sparky" AI button — larger, gradient, slightly raised. */

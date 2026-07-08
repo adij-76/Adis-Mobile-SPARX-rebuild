@@ -6,7 +6,7 @@ import {
 } from '@expo-google-fonts/lato';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { type Href, Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
@@ -83,7 +83,10 @@ function Shell() {
     // On completion, land the user at the activation target (community composer
     // / community feed) rather than always the dashboard — set by markComplete.
     // Doing it HERE (one redirect) avoids racing a manual navigation.
-    else if (onboarding === 'done' && onOnboarding) router.replace(completeDestination ?? '/');
+    else if (onboarding === 'done' && onOnboarding)
+      // completeDestination is a dynamic string (set by markComplete), so it
+      // can't be statically checked against the typed-routes union.
+      router.replace((completeDestination ?? '/') as Href);
   }, [status, onboarding, onOnboarding, onLogin, completeDestination, router]);
 
   // Assessment soft-gate: while a day-1 assessment is owed, opening CONTENT

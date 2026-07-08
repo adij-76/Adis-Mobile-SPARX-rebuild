@@ -421,12 +421,12 @@ function mockWorksheets(lessonId: string): ExerciseWorksheet[] {
       // Mirrors the real expanded ACE sheet shape (Yes/No selects + intro
       // content) so the scored-worksheet flow is testable offline.
       lessonId,
-      profileId: `${lessonId}-w3`,
+      profileId: `${lessonId}-w4`,
       title: 'The Power of Adverse Childhood Experiences',
       order: 3,
       questions: [
         {
-          questionId: `${lessonId}-w3-q0`,
+          questionId: `${lessonId}-w4-q0`,
           order: 0,
           inputKind: 'content',
           title: 'Before you begin',
@@ -445,7 +445,7 @@ function mockWorksheets(lessonId: string): ExerciseWorksheet[] {
           'Were you ever bullied by a peer or classmate?',
           'Were your parents ever separated or divorced?',
         ].map((prompt, i) => ({
-          questionId: `${lessonId}-w3-q${i + 1}`,
+          questionId: `${lessonId}-w4-q${i + 1}`,
           order: i + 1,
           inputKind: 'select' as const,
           title: `${i + 1}.`,

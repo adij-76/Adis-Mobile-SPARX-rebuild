@@ -21,13 +21,16 @@ export default function Messages() {
   useFocusEffect(useCallback(() => void reload(), [])); // eslint-disable-line react-hooks/exhaustive-deps
 
   const open = (t: Thread) =>
-    router.push(
-      `/feed/chat?id=${t.conversationId}` +
-        `&name=${encodeURIComponent(t.name)}` +
-        `&avatar=${encodeURIComponent(t.avatar)}` +
-        `&group=${t.isGroup ? '1' : ''}` +
-        `&peer=${t.peerId ?? ''}`,
-    );
+    router.push({
+      pathname: '/feed/chat',
+      params: {
+        id: t.conversationId,
+        name: t.name,
+        avatar: t.avatar,
+        group: t.isGroup ? '1' : '',
+        peer: t.peerId ?? '',
+      },
+    });
 
   const newMessage = () => router.push('/feed/people');
 

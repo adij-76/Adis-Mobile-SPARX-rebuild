@@ -16,7 +16,7 @@ import type { ExerciseResponse, ExerciseWorksheet } from '@/api/types';
 import { Button } from '@/components/ui/button';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
-import { communityCtaQuestion, composeStatement, statementText } from '@/lib/exercises';
+import { composeStatement, statementText } from '@/lib/exercises';
 import { PRINT_LOOKS, printAvailable, printStatement } from '@/lib/print';
 
 /** In-app look picker + print trigger, shared with content-step printing. */
@@ -61,7 +61,6 @@ export function StatementView({
   const router = useRouter();
   const [shared, setShared] = useState(false);
   const segments = composeStatement(worksheet, byQuestion);
-  const cta = communityCtaQuestion(worksheet);
 
   const postToCommunity = () => {
     setShared(true);
@@ -117,15 +116,17 @@ export function StatementView({
       </ScrollView>
 
       <View style={styles.footer}>
-        {cta ? (
-          <Button
-            title={shared ? 'Posted — nice!' : 'Post in the community'}
-            variant="primary"
-            iconLeft="chatbubbles-outline"
-            onPress={postToCommunity}
-          />
-        ) : null}
-        <Button title="Done" variant={cta ? 'secondary' : 'primary'} onPress={onClose} />
+        {/* Sharing is standard on statement sheets (the legacy "Post to
+            Community" content block is retired — its old web link confused
+            more than it helped; composeStatement still excludes it if a
+            sheet carries one). */}
+        <Button
+          title={shared ? 'Posted — nice!' : 'Post in the community'}
+          variant="primary"
+          iconLeft="chatbubbles-outline"
+          onPress={postToCommunity}
+        />
+        <Button title="Done" variant="secondary" onPress={onClose} />
       </View>
     </SafeAreaView>
   );
