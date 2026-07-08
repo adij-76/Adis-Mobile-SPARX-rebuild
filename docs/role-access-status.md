@@ -66,16 +66,45 @@ Locked by default; a lesson is accessible when **any** holds:
 3. it's a lesson the role links via `subscription_role_lessons`, **or**
 4. the caller is a **Mobile Tester** (see §4) → everything unlocked.
 
-## 3. Divergence: the app's "Premium" toggle vs. the role system
+## 3. Subscription **tiers** — the app collapses them to a boolean
 
-Separate from `subscription_role_id`, the client computes
-`isPremium = user.subscribed || user.stripeActive` (from `mobile_me`, sourced from
-`users.subscribed` / the stripe flag) and uses it to show the **Premium** badge and
-the upgrade upsell (`src/app/settings/premium.tsx`, profile, lessons lock CTA). This
-is a **subscription-flag** notion of entitlement, not a role/`subscription_accesses`
-notion. Two parallel systems decide "can the user have this." Worth a decision on
-which is authoritative, or how they compose (e.g. role governs *access*, the flag
-governs *billing state / upsell copy*).
+The business model has three subscription **tiers** — **Standard / Premium /
+Unlimited** (Unlimited being renamed + capped now that AI is in play). The mobile
+layer does **not** represent tiers at all:
+
+- `mobile_me` exposes only two **booleans** — `subscribed` (← `users.subscribed`)
+  and `stripe_active` (← `users.stripe_subsctiption_active`). **No tier/plan name is
+  surfaced.**
+- The client computes `isPremium = user.subscribed || user.stripeActive` and uses
+  the word **"Premium"** as a generic "paid/unlocked" label
+  (`src/app/settings/premium.tsx`, profile, lessons lock CTA). That's a **naming
+  collision**: the app's "Premium" means *"has any paid subscription,"* not your
+  middle tier.
+
+**Consequences**
+- A **Standard** subscriber and an **Unlimited** subscriber are **indistinguishable**
+  to the app's UI.
+- The upsell copy ("Upgrade to unlock every lesson, workshop and report") is
+  **tier-blind** — it can't say "Upgrade to Unlimited" or acknowledge what a
+  Standard user already has.
+- Tier names are **hardcoded** in the client, so renaming "Unlimited" needs an app
+  redeploy.
+
+**Not a security problem.** Actual per-content **access is driven by the role
+system** (`mobile_lessons.accessible`, `mobile_groups`), *not* by this boolean — so
+gating is correct; only the **tier labeling / upsell** is wrong/missing. The boolean
+is cosmetic today.
+
+**Open question (needs CTO input):** where is the canonical tier stored? The mobile
+layer surfaces no `plan`/`tier` field. Candidates: `subscription_roles.name` (if
+roles *are* tiers), the Stripe subscription/product, or a `users` plan column. Note
+the roles in this doc read as **per-client / content-scoping**, which may be
+**orthogonal** to billing tier — so tier probably isn't simply the role.
+
+**Fix once known (small):** surface the tier in `mobile_me` (e.g. a `plan` column),
+have the app show the real tier and tailor the upsell, and source tier names from
+data so a rename needs no redeploy. Keep role-based `accessible` as the authoritative
+*access* signal; tier drives *labeling / billing state / upsell*, not gating.
 
 ---
 
@@ -131,7 +160,10 @@ permanent role in your access model. It touches no production tables. After July
    the user took) should be role-scoped, those three tables need wiring.
 4. **Programs:** confirm using `users.program_id` directly is acceptable vs.
    `subscription_role_programs`, or align them.
-5. **Premium vs role (§3):** decide the authoritative entitlement source.
+5. **Subscription tiers (§3):** tell us where the canonical tier (Standard/
+   Premium/Unlimited) lives so we can surface it in `mobile_me` and make the app
+   tier-aware (today it only knows a paid/not-paid boolean and mislabels it
+   "Premium"). Access stays role-driven; tier drives labeling/upsell.
 6. **Tester role (§4):** confirm the July 2026 window + teardown plan.
 
 Where a mapping is unclear (e.g. a `subscription_components` row with no app
