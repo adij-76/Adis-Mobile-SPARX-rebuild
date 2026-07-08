@@ -15,12 +15,14 @@ import { useStore } from '@/lib/store';
 
 export default function CommunityScreen() {
   const router = useRouter();
-  const { isHidden } = useStore();
+  const { isHidden, isAuthorBlocked } = useStore();
   const communities = useAsync(() => api.community.communities(), []).data ?? [];
   const feed = useAsync(() => api.posts.feed(), []);
   // Refetch when returning to the tab so a just-created post appears.
   useFocusEffect(useCallback(() => void feed.reload(), [])); // eslint-disable-line react-hooks/exhaustive-deps
-  const allPosts = (feed.data ?? []).filter((p) => !isHidden(p.id));
+  const allPosts = (feed.data ?? []).filter(
+    (p) => !isHidden(p.id) && !isAuthorBlocked(p.author),
+  );
 
   return (
     <Screen style={styles.root}>

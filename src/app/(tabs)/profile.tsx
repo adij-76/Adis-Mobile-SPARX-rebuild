@@ -172,6 +172,7 @@ export default function ProfileScreen() {
           <ListRow icon="color-palette-outline" label="Theme" value="Light" onPress={() => router.push('/settings/theme')} />
           <ListRow icon="language-outline" label="Language" value="English" onPress={() => router.push('/settings/languages')} />
           <ListRow icon="lock-closed-outline" label="Change password" onPress={() => router.push('/settings/change-password')} />
+          <ListRow icon="ban-outline" label="Blocked accounts" onPress={() => router.push('/settings/blocked')} />
           <ListRow
             icon="card-outline"
             label="Payment method"

@@ -66,7 +66,9 @@ type Persisted = {
   comments: Record<string, Comment[]>; // postId -> added comments
   commentReactions: Record<string, string>; // commentId -> reaction key
   replies: Record<string, Comment[]>; // parent commentId -> replies
-  hidden: string[]; // hidden/reported post ids
+  hidden: string[]; // hidden post ids
+  reportedPosts: string[]; // post ids the user has reported (recorded + hidden)
+  blockedAuthors: string[]; // blocked author keys (authorId when present, else name)
   dms: Record<string, { name: string; avatar: string; messages: DmMessage[] }>; // chatId -> thread
   checkins: CheckinEntry[]; // saved daily check-in answers (newest first)
   unsyncedCheckins: string[]; // dates whose server write failed — retried on next launch (D-M1)
@@ -97,6 +99,8 @@ const EMPTY: Persisted = {
   commentReactions: {},
   replies: {},
   hidden: [],
+  reportedPosts: [],
+  blockedAuthors: [],
   dms: {},
   checkins: [],
   unsyncedCheckins: [],
@@ -152,6 +156,12 @@ type StoreValue = {
   isHidden: (postId: string) => boolean;
   hidePost: (postId: string) => void;
   deletePost: (postId: string) => void;
+  isReported: (postId: string) => boolean;
+  reportPost: (postId: string) => void; // records the report AND hides the post
+  blockedAuthors: string[];
+  isAuthorBlocked: (authorKey: string) => boolean;
+  blockAuthor: (authorKey: string) => void;
+  unblockAuthor: (authorKey: string) => void;
   // direct messages
   chatFor: (id: string) => DmThread | null;
   chatThreads: () => DmThread[];
@@ -295,7 +305,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<StoreValue>(() => {
     const allPosts: Post[] = [...state.userPosts, ...basePosts]
-      .filter((p) => !state.hidden.includes(p.id))
+      .filter((p) => !state.hidden.includes(p.id) && !state.blockedAuthors.includes(p.author))
       .map((p) => ({
         ...p,
         comments: [...p.comments, ...(state.comments[p.id] ?? [])],
@@ -386,6 +396,26 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         update((s) => (s.hidden.includes(postId) ? s : { ...s, hidden: [...s.hidden, postId] })),
       deletePost: (postId) =>
         update((s) => ({ ...s, userPosts: s.userPosts.filter((p) => p.id !== postId) })),
+      isReported: (postId) => state.reportedPosts.includes(postId),
+      reportPost: (postId) =>
+        update((s) => ({
+          ...s,
+          reportedPosts: s.reportedPosts.includes(postId)
+            ? s.reportedPosts
+            : [...s.reportedPosts, postId],
+          // A reported post is also hidden from the reporter's feed.
+          hidden: s.hidden.includes(postId) ? s.hidden : [...s.hidden, postId],
+        })),
+      blockedAuthors: state.blockedAuthors,
+      isAuthorBlocked: (authorKey) => state.blockedAuthors.includes(authorKey),
+      blockAuthor: (authorKey) =>
+        update((s) =>
+          !authorKey || s.blockedAuthors.includes(authorKey)
+            ? s
+            : { ...s, blockedAuthors: [...s.blockedAuthors, authorKey] },
+        ),
+      unblockAuthor: (authorKey) =>
+        update((s) => ({ ...s, blockedAuthors: s.blockedAuthors.filter((k) => k !== authorKey) })),
 
       chatFor: (id) => {
         const t = state.dms[id];
