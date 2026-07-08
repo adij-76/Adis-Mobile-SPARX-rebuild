@@ -18,6 +18,7 @@ import { VideoPlayerModal } from '@/components/video-player-modal';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/lib/auth';
+import { CRISIS_REPLY, isCrisisMessage } from '@/lib/crisis';
 import {
   askSparky,
   sparkyConfigured,
@@ -137,17 +138,21 @@ export default function Sparky() {
           accessToken,
         );
       } catch {
+        // Webhook down: still surface the crisis net locally if the message
+        // signals acute risk (audit F-H3), rather than a generic error.
         answer = {
-          text: "I couldn't reach my brain just now — please check your connection and try again in a moment.",
+          text: isCrisisMessage(content)
+            ? CRISIS_REPLY
+            : "I couldn't reach my brain just now — please check your connection and try again in a moment.",
           videos: [],
         };
       } finally {
         setBusy(false);
       }
     } else {
-      // No webhook configured yet → local fallback.
+      // No webhook configured yet → local fallback (with its own crisis net).
       await new Promise((r) => setTimeout(r, 500));
-      answer = { text: reply(content), videos: [] };
+      answer = { text: isCrisisMessage(content) ? CRISIS_REPLY : reply(content), videos: [] };
     }
 
     setMessages((m) =>

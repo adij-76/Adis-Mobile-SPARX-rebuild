@@ -31,11 +31,23 @@ export function AppHeader({ hasNotifications = true }: AppHeaderProps) {
           accessibilityRole="button"
           accessibilityLabel="Open profile">
           <Image source={{ uri: authUser?.avatarUrl ?? user.avatar }} style={styles.avatar} />
-          <Txt variant="titleSm" color={Colors.white}>
+          <Txt variant="titleSm" color={Colors.white} numberOfLines={1} style={{ flexShrink: 1 }}>
             Hello {firstName} 👋
           </Txt>
         </Pressable>
         <View style={styles.icons}>
+          {/* Always-reachable crisis/safety affordance (audit F-H3). */}
+          <Pressable
+            style={styles.help}
+            hitSlop={8}
+            onPress={() => router.push('/crisis')}
+            accessibilityRole="button"
+            accessibilityLabel="Get help now — crisis and support resources">
+            <Ionicons name="heart" size={14} color={Colors.white} />
+            <Txt variant="caption" color={Colors.white}>
+              Get help
+            </Txt>
+          </Pressable>
           <IconBtn name="notifications-outline" dot={hasNotifications} onPress={() => router.push('/notifications')} />
           <IconBtn name="chatbubbles-outline" onPress={() => router.push('/feed/messages')} />
           <IconBtn name="bookmark-outline" onPress={() => router.push('/favorites')} />
@@ -71,9 +83,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
   },
-  left: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  left: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, flexShrink: 1 },
   avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.blue600 },
-  icons: { flexDirection: 'row', gap: Spacing.sm },
+  icons: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  help: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(214,69,69,0.9)',
+  },
   iconBtn: {
     width: 38,
     height: 38,
