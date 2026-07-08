@@ -536,3 +536,30 @@ the new cross-session Chat_History context. Fixed app-side on this branch:
 sessionId is now crypto.randomUUID() (with a Math.random RFC4122 fallback for
 runtimes without crypto). Ships to the live app when this branch (or the fix
 cherry-picked) merges to main. Test harnesses must also use uuid sessionIds.
+
+## Patch E — DONE (2026-07-08): context consolidation shipped
+
+Implemented in the green chatbot (now live). Seven serial DB nodes collapsed
+to two:
+- **Legacy_Context** (🔴 Postgres account): one query returning coach,
+  check-ins, wheel (v_wol), ai_notes, and cross-session ai_chat_responses as
+  json columns.
+- **App_Context** (🟢 Supabase): mobile_ai_context RPC + recent_videos +
+  lessons_progress + rail_recommended in one query.
+- **Code in JavaScript** rewritten to v3 (reads the two consolidated nodes;
+  parses json columns). Orphaned nodes (Recent_coaches, Checkin_Data,
+  wol_data, Session_Notes, Chat_History, Engagement) left parked/disconnected.
+
+Result: ~17-18s → ~9s execution; user-facing reply arrives before that
+(logging runs post-Respond). ~3-4s felt reduction confirmed in app.
+
+## Judge decision (2026-07-08): OUTPUT JUDGE DISABLED
+
+The output safety judge (AI Agent1) was placed in audit mode (post-Respond)
+but timed out ("This operation was aborted") — harmless (user already had the
+reply) but noisy, and Adi had previously removed the judge for being too
+restrictive. Decision: judge disabled. Input crisis guardrail (Guardrails,
+gpt-5.4-mini, threshold 0.75) remains the safety layer, plus the v2 main
+prompt's own crisis instructions. FUTURE (optional): run the judge as a
+SEPARATE workflow triggered off the ai_chat_responses insert — no timeout
+pressure on the live path, pure audit + coach-alert, never blocks.
