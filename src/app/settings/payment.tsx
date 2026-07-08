@@ -5,17 +5,30 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { ComingSoon } from '@/components/coming-soon';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
+import { BILLING_ENABLED } from '@/constants/flags';
 
-const CARDS = [
-  { id: 'visa', brand: 'Visa', last4: '4242', exp: '08/27', primary: true },
-  { id: 'mc', brand: 'Mastercard', last4: '5512', exp: '11/26' },
-];
+// Real saved cards come from the payment processor once billing is live; until
+// then there are none (no fabricated cards — audit F-M5).
+const CARDS: { id: string; brand: string; last4: string; exp: string; primary?: boolean }[] = [];
 
 export default function PaymentMethods() {
   const router = useRouter();
+  if (!BILLING_ENABLED) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <ScreenHeader title="Back" largeTitle="Payment methods" />
+        <ComingSoon
+          icon="card-outline"
+          title="Payments are coming soon"
+          message="Manage your payment methods here once billing is live. You have no cards on file and nothing is charged today."
+        />
+      </SafeAreaView>
+    );
+  }
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <ScreenHeader title="Back" largeTitle="Payment methods" />

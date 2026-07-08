@@ -4,9 +4,11 @@ import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
+import { ComingSoon } from '@/components/coming-soon';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
+import { BILLING_ENABLED } from '@/constants/flags';
 
 function Field({
   label,
@@ -45,6 +47,21 @@ export default function AddCard() {
   const [exp, setExp] = useState('');
   const [cvc, setCvc] = useState('');
   const valid = name && number.length >= 12 && exp && cvc.length >= 3;
+
+  // Never collect card numbers into a dead form: until a real payment processor
+  // is wired, show a coming-soon panel instead of the card fields (audit F-M5).
+  if (!BILLING_ENABLED) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <ScreenHeader title="Back" largeTitle="Add card" />
+        <ComingSoon
+          icon="card-outline"
+          title="Payments are coming soon"
+          message="You'll be able to add a payment method here once billing is live. Nothing is charged today."
+        />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
