@@ -36,18 +36,13 @@ export function AppHeader({ hasNotifications = true }: AppHeaderProps) {
           </Txt>
         </Pressable>
         <View style={styles.icons}>
-          {/* Always-reachable crisis/safety affordance (audit F-H3). */}
-          <Pressable
-            style={styles.help}
-            hitSlop={8}
+          {/* Always-reachable crisis/safety affordance (audit F-H3) — a discreet
+              lifebuoy that matches the other header icons rather than a loud pill. */}
+          <IconBtn
+            name="medkit-outline"
+            label="Get help — crisis and support resources"
             onPress={() => router.push('/crisis')}
-            accessibilityRole="button"
-            accessibilityLabel="Get help now — crisis and support resources">
-            <Ionicons name="heart" size={14} color={Colors.white} />
-            <Txt variant="caption" color={Colors.white}>
-              Get help
-            </Txt>
-          </Pressable>
+          />
           <IconBtn
             name="notifications-outline"
             label="Notifications"
@@ -98,15 +93,6 @@ const styles = StyleSheet.create({
   left: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, flexShrink: 1 },
   avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.blue600 },
   icons: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  help: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: Spacing.sm,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(214,69,69,0.9)',
-  },
   iconBtn: {
     width: 38,
     height: 38,
