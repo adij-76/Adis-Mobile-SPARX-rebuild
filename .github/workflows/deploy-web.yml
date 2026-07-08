@@ -48,6 +48,14 @@ jobs:
       - name: Disable Jekyll (serve _expo/ and _sitemap)
         run: touch dist/.nojekyll
 
+      # SPA deep-link fallback: the static export has no per-id HTML for dynamic
+      # routes (/lesson/[id], /videos/[id], /feed/[id], /meetings/[id]), so a
+      # refresh or a shared "copy link" URL 404s on GitHub Pages. Serving the
+      # root document as 404.html boots the app, which then routes client-side
+      # (audit F-H1).
+      - name: SPA 404 fallback for dynamic routes
+        run: cp dist/index.html dist/404.html
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:

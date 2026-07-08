@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -30,14 +31,13 @@ export default function PwaInstall() {
       <ScreenHeader title="Back" largeTitle="Install the app" />
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
-          <View style={styles.appIcon}>
-            <Txt variant="titleLg" color={Colors.white}>
-              IG
-            </Txt>
-          </View>
+          <Image
+            source={require('../../assets/images/icon.png')}
+            style={styles.appIcon}
+            contentFit="cover"
+          />
           <Txt variant="body" color={Colors.textSub} center>
-            Install SPARx to your home screen for faster access, offline support and a full-screen
-            experience.
+            Install SPARx to your home screen for faster access and a full-screen experience.
           </Txt>
         </View>
 
