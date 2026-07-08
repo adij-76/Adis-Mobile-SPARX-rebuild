@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { api } from '@/api';
@@ -22,6 +22,7 @@ import { VideoPlayerModal } from '@/components/video-player-modal';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { WORKSHOP_STEPS } from '@/data/content';
 import { lessonTitle } from '@/lib/content-format';
+import { runnerQuestions, worksheetProgress } from '@/lib/exercises';
 import { useAsync } from '@/hooks/use-async';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
 import { useGoBack } from '@/hooks/use-go-back';
@@ -61,7 +62,7 @@ export default function LessonScreen() {
   );
   const courseModule = moduleQ.data;
 
-  const { isFav, toggleFav, markLessonComplete } = useStore();
+  const { isFav, toggleFav, markLessonComplete, isLessonComplete, isLessonVideoWatched, markLessonVideoWatched } = useStore();
   const { user: authUser } = useAuth();
   const award = useXpAward();
   // Exercises + answers are shared by the Worksheet step (interactive runner)
@@ -140,6 +141,27 @@ export default function LessonScreen() {
   const saved = isFav('lesson', lesson.id);
   const last = WORKSHOP_STEPS.length - 1;
 
+  // "Complete" is EARNED, not pressed: the main video must be watched to the
+  // end AND every worksheet finished. Lessons without a video (or without
+  // exercises — module not rolled out / backend hiccup) waive that half, and
+  // an already-completed lesson is never re-gated on revisit.
+  const alreadyDone = isLessonComplete(lesson.id);
+  const videoDone = !lesson.vimeoUrl || isLessonVideoWatched(lesson.id);
+  const sheets = exercises.worksheets.filter((ws) => runnerQuestions(ws).length > 0);
+  const sheetsLeft = exercises.error
+    ? 0
+    : sheets.filter((ws) => !worksheetProgress(ws, exercises.byQuestion).complete).length;
+  const exercisesDone = !exercises.loading && sheetsLeft === 0;
+  const canComplete = alreadyDone || (videoDone && exercisesDone);
+  const missing = [
+    !videoDone ? 'watch the video' : null,
+    !exercisesDone
+      ? exercises.loading
+        ? 'exercises loading…'
+        : `finish ${sheetsLeft} worksheet${sheetsLeft === 1 ? '' : 's'}`
+      : null,
+  ].filter(Boolean);
+
   if (celebrate) {
     return (
       <LessonComplete
@@ -184,8 +206,20 @@ export default function LessonScreen() {
             <VideoPoster
               url={lesson.vimeoUrl}
               label="Tap to play"
-              onPlay={() => lesson.vimeoUrl && setPlaying({ url: lesson.vimeoUrl, title })}
+              onPlay={() => {
+                if (!lesson.vimeoUrl) return;
+                setPlaying({ url: lesson.vimeoUrl, title });
+                if (Platform.OS !== 'web') markLessonVideoWatched(lesson.id);
+              }}
             />
+            {videoDone && lesson.vimeoUrl ? (
+              <View style={styles.watchedRow}>
+                <Ionicons name="checkmark-circle" size={16} color={Colors.success} />
+                <Txt variant="caption" color={Colors.success}>
+                  Watched
+                </Txt>
+              </View>
+            ) : null}
             <Txt variant="title">{title}</Txt>
             {lesson.description ? (
               <Txt variant="body" color={Colors.textSub}>
@@ -227,6 +261,14 @@ export default function LessonScreen() {
         )}
       </ScrollView>
 
+      {step === last && !canComplete && missing.length ? (
+        <View style={styles.gateHint}>
+          <Ionicons name="lock-closed" size={13} color={Colors.textSub} />
+          <Txt variant="caption" color={Colors.textSub}>
+            To complete this {isWorkshop ? 'workshop' : 'lesson'}: {missing.join(' · ')}
+          </Txt>
+        </View>
+      ) : null}
       <View style={styles.footer}>
         <View style={{ flex: 1 }}>
           <Button
@@ -242,8 +284,10 @@ export default function LessonScreen() {
             title={step === last ? 'Complete' : 'Next'}
             variant={step === last ? 'primary' : 'secondary'}
             iconRight={step === last ? undefined : 'chevron-forward'}
+            disabled={step === last && !canComplete}
             onPress={() => {
               if (step === last) {
+                if (!canComplete) return;
                 const earned = markLessonComplete(lesson.id);
                 setCelebrate({ earned, workshop: isWorkshop, movement: null });
                 // Durable, cross-device completion record (server is the source
@@ -305,7 +349,13 @@ export default function LessonScreen() {
         </Modal>
       )}
 
-      <VideoPlayerModal video={playing} onClose={() => setPlaying(null)} />
+      <VideoPlayerModal
+        video={playing}
+        onClose={() => setPlaying(null)}
+        onEnded={() => {
+          if (playing?.url === lesson.vimeoUrl) markLessonVideoWatched(lesson.id);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -519,6 +569,15 @@ const styles = StyleSheet.create({
   },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.md, padding: Spacing.xl },
   footer: { flexDirection: 'row', gap: Spacing.md, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm },
+  gateHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
+  },
+  watchedRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   fill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   hero: { width: '100%', height: 190, borderRadius: Radius.md, backgroundColor: Colors.soft, overflow: 'hidden' },
   introMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
