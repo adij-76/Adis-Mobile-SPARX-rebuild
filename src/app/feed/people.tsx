@@ -58,13 +58,10 @@ export default function People() {
         setStarting(false);
         return; // blocked or failed — stay on the picker
       }
-      router.replace(
-        `/feed/chat?id=${convId}` +
-          `&name=${encodeURIComponent(name)}` +
-          `&avatar=${encodeURIComponent(avatar)}` +
-          `&group=${isGroup ? '1' : ''}` +
-          `&peer=${peer}`,
-      );
+      router.replace({
+        pathname: '/feed/chat',
+        params: { id: convId, name, avatar, group: isGroup ? '1' : '', peer },
+      });
     } catch {
       setStarting(false);
     }

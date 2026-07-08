@@ -12,6 +12,7 @@ import { api } from '@/api';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
 import { INSTRUMENTS, type AssessmentId } from '@/lib/assessments';
+import { SHEET_SCORING } from '@/lib/exercise-scores';
 import { useStore } from '@/lib/store';
 import { buildTrendSeries } from '@/lib/trend';
 
@@ -36,26 +37,27 @@ export default function DataScreen() {
   );
   const assessments = useAsync(() => api.insights.assessments(), []).data ?? [];
 
-  // App-owned assessment history → a score trend per scored instrument (GAD-7,
-  // PHQ-9, AUDIT-C, PCL-5). Lower is better for all of these, so a drop reads
-  // green. Oldest→newest is handled by buildTrendSeries.
+  // App-owned assessment history → a score trend for EVERY scored instrument:
+  // the standard battery (GAD-7, PHQ-9, AUDIT-C, PCL-5) AND worksheet scores
+  // (ACE, …). Lower is better for these, so a drop reads green. A trend card
+  // only appears once there are at least TWO takes — one point isn't a
+  // comparison. Oldest→newest is handled by buildTrendSeries.
   const myAssessments = useAsync(() => api.assessments.list(), []).data ?? [];
   const assessmentTrends = useMemo(() => {
     const byInst = new Map<string, { at: string; value: number }[]>();
     for (const r of myAssessments) {
       if (r.score == null) continue;
-      const inst = INSTRUMENTS[r.instrument as AssessmentId];
-      if (!inst || !inst.scored) continue;
       const arr = byInst.get(r.instrument) ?? [];
       arr.push({ at: r.takenAt, value: r.score });
       byInst.set(r.instrument, arr);
     }
+    const nameOf = (id: string) =>
+      INSTRUMENTS[id as AssessmentId]?.name ??
+      SHEET_SCORING.find((s) => s.instrument === id)?.name ??
+      id.toUpperCase();
     return [...byInst.entries()]
-      .map(([id, pts]) => ({
-        id,
-        name: INSTRUMENTS[id as AssessmentId].name,
-        series: buildTrendSeries(pts),
-      }))
+      .filter(([, pts]) => pts.length >= 2)
+      .map(([id, pts]) => ({ id, name: nameOf(id), series: buildTrendSeries(pts) }))
       .filter((t) => t.series.length > 0);
   }, [myAssessments]);
 

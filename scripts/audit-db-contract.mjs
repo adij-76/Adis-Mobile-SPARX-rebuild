@@ -7,19 +7,27 @@
  * Checks (anon key — always run):
  *   1. Catalog views return rows (mobile_programs / mobile_modules / mobile_lessons).
  *   2. NO lesson fan-out: every mobile_lessons id is unique (the duplicate-rows bug).
- *   3. Back-compat columns exist: mobile_lessons exposes module_id AND portion_id;
- *      mobile_me exposes avatar_url+avatar, addiction_label+addiction,
- *      days_updated_at+days_counter_updated_at (renames that once broke the live app).
+ *   3. Back-compat columns exist on ANON-readable views: mobile_lessons exposes
+ *      module_id AND portion_id (renames that once broke the live app).
  *   3b. Base-table lockdown holds: sensitive production tables (users,
  *      daily_assessments, wheel_of_life_scores) are NOT readable with the anon key.
  *      Regresses if a re-import re-applies Supabase's permissive default grants
  *      without re-running db/lockdown-base-tables.sql.
+ *   3c. Per-user surfaces (mobile_me, mobile_lesson_exercises,
+ *      mobile_exercise_responses) are NOT anon-readable — they're granted to
+ *      `authenticated` only, so anon must get 401/403. (An earlier version
+ *      column-checked mobile_me with the anon key and misread that 401 as a
+ *      rename — the audit failed on every push while real signal was lost.)
  *
  * Checks (with AUDIT_USER_EMAIL/PASSWORD — per-user views):
- *   4. mobile_me returns exactly one row with a non-null name.
+ *   4. mobile_me returns exactly one row with a non-null name, and exposes the
+ *      back-compat columns (avatar_url+avatar, addiction_label+addiction,
+ *      days_updated_at+days_counter_updated_at).
  *   5. mobile_recommended_videos: every row has a real title (never empty and never
  *      the "No description available" placeholder).
  *   6. mobile_lessons (as the user) has no duplicate ids and unlocks program content.
+ *   7. Lesson exercises: mobile_lesson_exercises serves the rolled-out modules
+ *      with its contract columns; mobile_exercise_responses is readable (RLS-scoped).
  *
  * Env: SUPABASE_URL, SUPABASE_ANON_KEY (required); AUDIT_USER_EMAIL, AUDIT_USER_PASSWORD
  * (optional — enables the per-user checks). Exits non-zero on any failure.
@@ -103,9 +111,17 @@ async function run() {
     }
   }
 
-  // 3. Back-compat columns
+  // 3. Back-compat columns (anon-readable views only — per-user views are
+  //    column-checked in the authenticated tier below)
   await assertColumns('mobile_lessons', ['module_id', 'portion_id']);
-  await assertColumns('mobile_me', ['avatar_url', 'avatar', 'addiction_label', 'addiction', 'days_updated_at', 'days_counter_updated_at']);
+
+  // 3c. Per-user surfaces must NOT be anon-readable (authenticated-only grants).
+  for (const view of ['mobile_me', 'mobile_lesson_exercises', 'mobile_exercise_responses']) {
+    const { status } = await get(`${view}?select=*&limit=1`);
+    if (status === 401 || status === 403 || status === 404)
+      ok(`${view} is not anon-readable (HTTP ${status})`);
+    else fail(`${view} is exposed to the anon key (HTTP ${status}) — expected 401/403`);
+  }
 
   // 3b. Base-table lockdown: the anon role must NOT be able to read sensitive
   //     production tables directly (db/lockdown-base-tables.sql). A 200 here means
@@ -131,11 +147,16 @@ async function run() {
       fail(String(e.message || e));
     }
     if (token) {
-      // 4. mobile_me
+      // 4. mobile_me — one row, and the back-compat columns the deployed app reads
       const me = await get('mobile_me?limit=2', token);
       if (me.status === 200 && Array.isArray(me.rows) && me.rows.length === 1 && me.rows[0].name)
         ok('mobile_me returns exactly one row with a name');
       else fail(`mobile_me expected 1 named row, got HTTP ${me.status} / ${JSON.stringify(me.rows)?.slice(0, 120)}`);
+      await assertColumns(
+        'mobile_me',
+        ['avatar_url', 'avatar', 'addiction_label', 'addiction', 'days_updated_at', 'days_counter_updated_at'],
+        token,
+      );
 
       // 5. Recommended video titles (no empty / placeholder)
       const rec = await get('mobile_recommended_videos?select=id,title&limit=50', token);
@@ -156,6 +177,24 @@ async function run() {
         if (ul.rows.some((r) => r.accessible)) ok('user can access at least one lesson');
         else fail('user has ZERO accessible lessons (gating too strict / me not resolving)');
       } else fail(`mobile_lessons (as user) fetch failed (HTTP ${ul.status})`);
+
+      // 7. Lesson exercises — the rolled-out modules serve content with the
+      //    contract columns; responses are readable (RLS scopes to the caller).
+      await assertColumns(
+        'mobile_lesson_exercises',
+        ['lesson_id', 'profile_id', 'profile_title', 'profile_order', 'question_id',
+         'question_order', 'input_kind', 'prompt_html', 'prompt_title',
+         'min_value', 'max_value', 'required', 'options'],
+        token,
+      );
+      const exDefs = await get('mobile_lesson_exercises?select=lesson_id&limit=1', token);
+      if (exDefs.status === 200 && Array.isArray(exDefs.rows) && exDefs.rows.length)
+        ok('mobile_lesson_exercises serves rolled-out content');
+      else fail(`mobile_lesson_exercises returned nothing (HTTP ${exDefs.status}) — rollout table empty or view broken`);
+      const exResp = await get('mobile_exercise_responses?select=question_id&limit=1', token);
+      if (exResp.status === 200 && Array.isArray(exResp.rows))
+        ok('mobile_exercise_responses is readable for the signed-in user');
+      else fail(`mobile_exercise_responses fetch failed (HTTP ${exResp.status})`);
     }
   }
 
