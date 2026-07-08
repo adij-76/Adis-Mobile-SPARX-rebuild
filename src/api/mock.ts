@@ -22,6 +22,8 @@ import type {
   AuthApi,
   AuthSession,
   ChatMessage,
+  Connection,
+  ConnectionsApi,
   CheckinsApi,
   CommunityApi,
   ContentApi,
@@ -609,6 +611,32 @@ export const mockCheckins: CheckinsApi = {
 export const mockFavorites: FavoritesApi = {
   list: () => delay([]),
   set: () => delay(undefined),
+};
+
+// --- Mock connections: in-memory for the session (offline dev). ---
+const mockConns: Connection[] = [];
+let mockConnSeq = 1;
+export const mockConnections: ConnectionsApi = {
+  list: () => delay([...mockConns].reverse()),
+  request: (targetUserId) => {
+    if (!mockConns.some((c) => c.userId === targetUserId && c.direction === 'outgoing')) {
+      mockConns.push({
+        id: String(mockConnSeq++),
+        status: 'pending',
+        direction: 'outgoing',
+        userId: targetUserId,
+        name: 'Member',
+        avatar: '',
+        createdAt: new Date().toISOString(),
+      });
+    }
+    return delay(undefined);
+  },
+  respond: (connectionId, accept) => {
+    const c = mockConns.find((x) => x.id === connectionId);
+    if (c) c.status = accept ? 'accepted' : 'declined';
+    return delay(undefined);
+  },
 };
 
 // --- Mock chat: in-memory conversation model for the session (offline dev). ---

@@ -45,6 +45,25 @@ export default function Notifications() {
   const { checkins, isNotifRead, markNotifRead, markAllNotifsRead, isNotifDismissed, dismissNotif, clearNotifs } =
     useStore();
   const groups = useAsync(() => api.groups.list(), []).data ?? [];
+  const connections = useAsync(() => api.connections.list(), []).data ?? [];
+
+  // Real connection requests: someone asked to connect and it's still pending.
+  const connectionNotifs = useMemo<Notif[]>(
+    () =>
+      connections
+        .filter((c) => c.direction === 'incoming' && c.status === 'pending')
+        .map((c) => ({
+          id: `conn-${c.id}`,
+          icon: 'person-add' as const,
+          color: '#166890',
+          title: `${c.name} wants to connect`,
+          body: 'Tap to accept or decline in Connections.',
+          time: 'new',
+          route: '/connections',
+          unread: true,
+        })),
+    [connections],
+  );
 
   // Real meeting reminders: the next occurrence of each signed-up group, soonest
   // first. "Unread" (highlighted) when it's within 24h; a live meeting says join.
@@ -107,8 +126,8 @@ export default function Notifications() {
 
   // Dismissed notifications are filtered out entirely (cleared → gone).
   const notifs = useMemo(
-    () => [...checkinReminder, ...meetingNotifs].filter((n) => !isNotifDismissed(n.id)),
-    [checkinReminder, meetingNotifs, isNotifDismissed],
+    () => [...connectionNotifs, ...checkinReminder, ...meetingNotifs].filter((n) => !isNotifDismissed(n.id)),
+    [connectionNotifs, checkinReminder, meetingNotifs, isNotifDismissed],
   );
   const anyUnread = notifs.some((n) => n.unread && !isNotifRead(n.id));
 

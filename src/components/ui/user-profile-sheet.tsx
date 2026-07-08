@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { api } from '@/api';
+import { api, type Connection } from '@/api';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Txt } from '@/components/ui/text';
@@ -39,33 +39,66 @@ export function UserProfileSheet({
   const online = useOnline(target?.userId ?? null);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(false);
+  // undefined = still loading; null = no connection yet.
+  const [conn, setConn] = useState<Connection | null | undefined>(undefined);
+  const [connBusy, setConnBusy] = useState(false);
 
   const userId = target?.userId ?? null;
   useEffect(() => {
     if (!userId) {
       setStats(null);
+      setConn(undefined);
       return;
     }
     let alive = true;
     setLoading(true);
+    setConn(undefined);
     // Reuse the public leaderboards (no clinical data): weekly points → rank,
     // all-time streak board → streak length. Absent = user has no ranked
-    // activity yet, so we just omit that stat.
+    // activity yet, so we just omit that stat. Also load our connection state.
     Promise.all([
       api.insights.leaderboard('points', 'week').catch(() => []),
       api.insights.leaderboard('streak', 'all').catch(() => []),
+      api.connections.list().catch(() => []),
     ])
-      .then(([points, streaks]) => {
+      .then(([points, streaks, conns]) => {
         if (!alive) return;
         const rank = points.find((e) => e.id === userId)?.rank ?? null;
         const streak = streaks.find((e) => e.id === userId)?.points ?? null;
         setStats({ rank, streak });
+        setConn(conns.find((c) => c.userId === userId) ?? null);
       })
       .finally(() => alive && setLoading(false));
     return () => {
       alive = false;
     };
   }, [userId]);
+
+  const connect = async () => {
+    if (!userId || connBusy) return;
+    setConnBusy(true);
+    try {
+      await api.connections.request(userId);
+      setConn({ id: 'pending', status: 'pending', direction: 'outgoing', userId, name: target!.name, avatar: target!.avatar, createdAt: null });
+    } catch {
+      /* leave the button so they can retry */
+    } finally {
+      setConnBusy(false);
+    }
+  };
+
+  const acceptConn = async () => {
+    if (!conn || connBusy) return;
+    setConnBusy(true);
+    try {
+      await api.connections.respond(conn.id, true);
+      setConn({ ...conn, status: 'accepted' });
+    } catch {
+      /* ignore */
+    } finally {
+      setConnBusy(false);
+    }
+  };
 
   const message = async () => {
     onClose();
@@ -125,8 +158,22 @@ export function UserProfileSheet({
                   ) : null}
 
                   <View style={styles.actions}>
-                    <Button title="Message" variant="primary" iconLeft="chatbubble-ellipses-outline" onPress={message} />
-                    <Button title="Block" variant="outline" iconLeft="ban-outline" onPress={block} />
+                    {conn?.status === 'accepted' ? (
+                      <View style={styles.connected}>
+                        <Ionicons name="people" size={18} color={Colors.success} />
+                        <Txt variant="bodySmMedium" color={Colors.success}>
+                          Connected
+                        </Txt>
+                      </View>
+                    ) : conn?.status === 'pending' && conn.direction === 'incoming' ? (
+                      <Button title="Accept connection" variant="primary" iconLeft="person-add-outline" loading={connBusy} onPress={acceptConn} />
+                    ) : conn?.status === 'pending' && conn.direction === 'outgoing' ? (
+                      <Button title="Request sent" variant="outline" iconLeft="hourglass-outline" disabled onPress={() => {}} />
+                    ) : conn === undefined ? null : (
+                      <Button title="Connect" variant="primary" iconLeft="person-add-outline" loading={connBusy} onPress={connect} />
+                    )}
+                    <Button title="Message" variant={conn?.status === 'accepted' ? 'primary' : 'outline'} iconLeft="chatbubble-ellipses-outline" onPress={message} />
+                    <Button title="Block" variant="ghost" iconLeft="ban-outline" onPress={block} />
                   </View>
                 </>
               ) : null}
@@ -179,4 +226,5 @@ const styles = StyleSheet.create({
   stats: { flexDirection: 'row', gap: Spacing.xl, marginVertical: Spacing.md },
   stat: { alignItems: 'center', gap: 2 },
   actions: { alignSelf: 'stretch', gap: Spacing.sm },
+  connected: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: Spacing.sm },
 });

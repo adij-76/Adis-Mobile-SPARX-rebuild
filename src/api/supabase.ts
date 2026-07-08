@@ -9,6 +9,8 @@
 import type {
   AdminApi,
   AdminOverview,
+  Connection,
+  ConnectionsApi,
   AssessmentsApi,
   AuthApi,
   AuthSession,
@@ -648,6 +650,73 @@ async function postWrite(table: string, body: unknown): Promise<void> {
   });
   if (!res.ok) throw new Error(`${table} write failed (${res.status})`);
 }
+
+type ConnRow = {
+  id: number | string;
+  status: Connection['status'];
+  direction: Connection['direction'];
+  user_id: number | string;
+  name: string | null;
+  avatar: string | null;
+  created_at: string | null;
+};
+
+export const supabaseConnections: ConnectionsApi = {
+  async list() {
+    try {
+      const rows = await rest<ConnRow[]>('mobile_my_connections', { order: 'created_at.desc' });
+      return rows.map(
+        (r): Connection => ({
+          id: String(r.id),
+          status: r.status,
+          direction: r.direction,
+          userId: String(r.user_id),
+          name: r.name || 'Member',
+          avatar: r.avatar || '',
+          createdAt: r.created_at,
+        }),
+      );
+    } catch (e) {
+      // View not created yet → no connections; a REAL failure surfaces (C-H2).
+      if (isMissingView(e)) return [];
+      throw e;
+    }
+  },
+  async request(targetUserId) {
+    // on_conflict + ignore-duplicates makes a repeat request a no-op instead of
+    // a 409. auth_uid defaults to auth.uid(); app_user_id is trigger-bound.
+    const res = await fetch(
+      `${BASE}/rest/v1/mobile_connections?on_conflict=auth_uid,addressee_app_user_id`,
+      {
+        method: 'POST',
+        headers: {
+          apikey: ANON,
+          Authorization: `Bearer ${authToken ?? ANON}`,
+          'Content-Type': 'application/json',
+          Prefer: 'resolution=ignore-duplicates,return=minimal',
+        },
+        body: JSON.stringify({ addressee_app_user_id: Number(targetUserId) }),
+      },
+    );
+    if (!res.ok) throw new Error(`connection request failed (${res.status})`);
+  },
+  async respond(connectionId, accept) {
+    const res = await fetch(
+      `${BASE}/rest/v1/mobile_connections?id=eq.${encodeURIComponent(connectionId)}`,
+      {
+        method: 'PATCH',
+        headers: {
+          apikey: ANON,
+          Authorization: `Bearer ${authToken ?? ANON}`,
+          'Content-Type': 'application/json',
+          Prefer: 'return=minimal',
+        },
+        body: JSON.stringify({ status: accept ? 'accepted' : 'declined', updated_at: new Date().toISOString() }),
+      },
+    );
+    if (!res.ok) throw new Error(`connection respond failed (${res.status})`);
+  },
+};
 
 export const supabasePosts: PostsApi = {
   async feed(channelId) {
