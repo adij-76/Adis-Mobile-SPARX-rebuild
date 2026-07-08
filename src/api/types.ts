@@ -75,6 +75,9 @@ export type ContentApi = {
   modules(programId: string): Promise<Module[]>;
   module(id: string): Promise<Module | null>;
   moduleLessons(moduleId: string): Promise<Lesson[]>;
+  /** Lessons for several modules in ONE query (home "continue" walk — avoids an
+   *  N+1 of per-module fetches). Ordered by position; group by `moduleId`. */
+  moduleLessonsByIds(moduleIds: string[]): Promise<Lesson[]>;
   lesson(id: string): Promise<Lesson | null>;
   workshops(): Promise<Workshop[]>;
   snippets(): Promise<Snippet[]>;

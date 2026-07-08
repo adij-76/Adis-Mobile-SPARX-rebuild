@@ -69,6 +69,7 @@ type Persisted = {
   hidden: string[]; // hidden/reported post ids
   dms: Record<string, { name: string; avatar: string; messages: DmMessage[] }>; // chatId -> thread
   checkins: CheckinEntry[]; // saved daily check-in answers (newest first)
+  unsyncedCheckins: string[]; // dates whose server write failed — retried on next launch (D-M1)
   wheel: Record<string, number>; // wheel area id -> current score
   bookings: Meeting[]; // meetings booked via the booking flow
   bookedIds: string[]; // ids of existing meetings the user reserved
@@ -97,6 +98,7 @@ const EMPTY: Persisted = {
   hidden: [],
   dms: {},
   checkins: [],
+  unsyncedCheckins: [],
   wheel: {},
   bookings: [],
   bookedIds: [],
@@ -157,6 +159,13 @@ type StoreValue = {
   addCheckin: (e: CheckinEntry) => void;
   /** Merge server check-ins in (cross-device); local entries win for a shared date. */
   mergeRemoteCheckins: (remote: CheckinEntry[]) => void;
+  /** Whether any check-in write hasn't reached the server yet (drives a subtle
+   *  "not synced" hint; the store retries these on next launch — D-M1). */
+  hasUnsyncedCheckins: boolean;
+  /** Flag a date's check-in as failed-to-sync (persisted, retried on launch). */
+  markCheckinUnsynced: (date: string) => void;
+  /** Clear a date's unsynced flag once its server write confirms. */
+  markCheckinSynced: (date: string) => void;
   // wheel of life
   wheelScores: Record<string, number>;
   saveWheel: (scores: Record<string, number>) => void;
@@ -245,6 +254,37 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (ready) AsyncStorage.setItem(KEY, JSON.stringify(state));
   }, [state, ready]);
+
+  // Durable check-in writes (D-M1): a check-in whose server POST failed is flagged
+  // in `unsyncedCheckins` and stays only on-device. On launch (and whenever the
+  // flag set changes) retry each flagged date's write; clear the flag on success,
+  // keep it for the next launch on failure. A stale flag with no local entry is
+  // dropped. app_user_id is null here — the server derives auth_uid from the JWT.
+  useEffect(() => {
+    if (!ready || !state.unsyncedCheckins.length) return;
+    let cancelled = false;
+    (async () => {
+      for (const date of state.unsyncedCheckins) {
+        const entry = state.checkins.find((c) => c.date === date);
+        if (!entry) {
+          if (!cancelled)
+            setState((s) => ({ ...s, unsyncedCheckins: s.unsyncedCheckins.filter((d) => d !== date) }));
+          continue;
+        }
+        try {
+          await api.checkins.save(entry, null);
+          if (!cancelled)
+            setState((s) => ({ ...s, unsyncedCheckins: s.unsyncedCheckins.filter((d) => d !== date) }));
+        } catch {
+          /* still failing — keep the flag and retry on the next launch */
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, state.unsyncedCheckins]);
 
   const update = useCallback((fn: (s: Persisted) => Persisted) => setState(fn), []);
 
@@ -370,6 +410,19 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
           if (merged.length === s.checkins.length && merged.every((m, i) => m.date === s.checkins[i]?.date)) return s;
           return { ...s, checkins: merged };
         }),
+      hasUnsyncedCheckins: state.unsyncedCheckins.length > 0,
+      markCheckinUnsynced: (date) =>
+        update((s) =>
+          s.unsyncedCheckins.includes(date)
+            ? s
+            : { ...s, unsyncedCheckins: [...s.unsyncedCheckins, date] },
+        ),
+      markCheckinSynced: (date) =>
+        update((s) =>
+          s.unsyncedCheckins.includes(date)
+            ? { ...s, unsyncedCheckins: s.unsyncedCheckins.filter((d) => d !== date) }
+            : s,
+        ),
 
       wheelScores: state.wheel,
       saveWheel: (scores) => update((s) => ({ ...s, wheel: { ...s.wheel, ...scores } })),

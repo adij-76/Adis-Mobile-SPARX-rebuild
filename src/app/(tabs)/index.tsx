@@ -77,9 +77,18 @@ export default function HomeScreen() {
     const program = programs[0];
     if (!program) return null;
     const modules = await api.content.modules(program.id);
+    // One batched query for every module's lessons instead of a serial per-module
+    // round-trip (audit D-M3), then group and walk the modules in order locally.
+    const allLessons = await api.content.moduleLessonsByIds(modules.map((m) => m.id));
+    const byModule = new Map<string, { id: string }[]>();
+    for (const l of allLessons) {
+      const arr = byModule.get(l.moduleId) ?? [];
+      arr.push(l);
+      byModule.set(l.moduleId, arr);
+    }
     let firstLesson: { id: string } | null = null;
     for (const m of modules) {
-      const lessons = await api.content.moduleLessons(m.id);
+      const lessons = byModule.get(m.id) ?? [];
       if (!firstLesson && lessons.length) firstLesson = lessons[0];
       const next = lessons.find((l) => !completedLessonIds.includes(l.id));
       if (next) return { program: program.name, lessonId: next.id };

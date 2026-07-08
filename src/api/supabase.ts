@@ -271,6 +271,15 @@ export const supabaseContent: ContentApi = {
     });
     return rows.map(toLesson);
   },
+  async moduleLessonsByIds(moduleIds) {
+    if (!moduleIds.length) return [];
+    const rows = await rest<LessonRow[]>('mobile_lessons', {
+      module_id: `in.(${moduleIds.join(',')})`,
+      lesson_type: 'eq.lesson',
+      order: 'position',
+    });
+    return rows.map(toLesson);
+  },
   async lesson(id) {
     const rows = await rest<LessonRow[]>('mobile_lessons', { id: `eq.${id}`, limit: '1' });
     return rows.length ? toLesson(rows[0]) : null;
@@ -283,7 +292,10 @@ export const supabaseContent: ContentApi = {
     return rows.map(toLesson) as Workshop[];
   },
   async snippets() {
-    const rows = await rest<SnippetRow[]>('mobile_snippets', { order: 'created_at.desc' });
+    // Cap the fetch — mobile_snippets is otherwise unbounded and grows with the
+    // whole classified-video catalogue (audit D-M2). The videos list only needs
+    // the most recent; newest-first + a limit keeps the payload bounded.
+    const rows = await rest<SnippetRow[]>('mobile_snippets', { order: 'created_at.desc', limit: '200' });
     return rows.map(
       (r) =>
         ({

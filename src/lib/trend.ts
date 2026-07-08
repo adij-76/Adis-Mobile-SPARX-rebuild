@@ -20,6 +20,18 @@ export type BuildTrendOptions = {
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+/**
+ * Parse a dated value's `at`. A date-only `YYYY-MM-DD` is parsed as LOCAL
+ * midnight — `new Date('2026-03-01')` is UTC midnight, which is the *previous*
+ * day in any timezone west of UTC, so labels/buckets computed with the local
+ * getters below drift a day (and into the wrong month/week at boundaries — audit
+ * D-M5). Full timestamps (with a time component) parse normally.
+ */
+function parseAt(at: string): Date {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(at);
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(at);
+}
+
 /** Round to one decimal so small real values (e.g. 1.8 uses/month) survive. */
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
@@ -43,7 +55,7 @@ function bucket(
 ): TrendPoint[] {
   const groups = new Map<string, { label: string; sum: number; n: number; order: number }>();
   points.forEach((p, i) => {
-    const d = new Date(p.at);
+    const d = parseAt(p.at);
     if (isNaN(d.getTime())) return;
     const { key, label } = keyFn(d);
     const g = groups.get(key);
@@ -65,12 +77,12 @@ function bucket(
 export function buildTrendSeries(input: DatedValue[], opts: BuildTrendOptions = {}): TrendSeries[] {
   const { aggregate = 'avg', includeRecent = true } = opts;
   const points = [...input]
-    .filter((p) => p.value != null && !isNaN(new Date(p.at).getTime()))
-    .sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+    .filter((p) => p.value != null && !isNaN(parseAt(p.at).getTime()))
+    .sort((a, b) => parseAt(a.at).getTime() - parseAt(b.at).getTime());
   if (!points.length) return [];
 
   const recent: TrendPoint[] = points.slice(-6).map((p, i) => {
-    const d = new Date(p.at);
+    const d = parseAt(p.at);
     return { key: `${p.at}-${i}`, label: `${d.getMonth() + 1}/${d.getDate()}`, value: round1(p.value) };
   });
   const weekly = bucket(points, weekInfo, 8, aggregate);
