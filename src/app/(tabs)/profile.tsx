@@ -24,11 +24,12 @@ import { useStore } from '@/lib/store';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { clearAll, checkins, completedLessonIds, xp } = useStore();
+  const { clearAll, checkins, completedLessonIds, xp, claimAvatarReward } = useStore();
   const { user: authUser, signOut, updateAvatar } = useAuth();
   const [confirm, setConfirm] = useState<null | 'logout' | 'delete'>(null);
   const [uploading, setUploading] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [avatarNote, setAvatarNote] = useState<string | null>(null);
   // Admin allowlist is enforced server-side; this just decides whether to show
   // the hidden entry point (the /admin screen re-checks and denies non-admins).
   const { data: isAdmin } = useAsync(() => api.admin.isAdmin(), [authUser?.email]);
@@ -65,6 +66,9 @@ export default function ProfileScreen() {
           setAvatarError(null);
           try {
             await updateAvatar(dataUrl);
+            // Reward finishing your profile with a photo — once.
+            const earned = claimAvatarReward();
+            setAvatarNote(earned > 0 ? `Nice photo! +${earned} XP for completing your profile 🎉` : null);
           } catch (e) {
             // Surface the reason instead of silently doing nothing — the usual
             // cause is the `avatars` storage bucket/policies not existing yet.
@@ -125,6 +129,10 @@ export default function ProfileScreen() {
           {avatarError ? (
             <Txt variant="caption" color={Colors.danger} center style={{ marginTop: Spacing.xs, paddingHorizontal: Spacing.lg }}>
               {avatarError}
+            </Txt>
+          ) : avatarNote ? (
+            <Txt variant="caption" color={Colors.success} center style={{ marginTop: Spacing.xs, paddingHorizontal: Spacing.lg }}>
+              {avatarNote}
             </Txt>
           ) : null}
         </View>

@@ -44,12 +44,20 @@ export function Avatar({
       />
     );
   }
-  const initial = (name?.trim()?.[0] ?? '?').toUpperCase();
   return (
     <View style={[dim, { backgroundColor: colorFor(name || '?'), alignItems: 'center', justifyContent: 'center' }, style]}>
-      <Txt variant="bodySmBold" color={Colors.white} style={{ fontSize: Math.round(size * 0.42) }}>
-        {initial}
+      <Txt variant="bodySmBold" color={Colors.white} style={{ fontSize: Math.round(size * 0.38) }}>
+        {initials(name)}
       </Txt>
     </View>
   );
+}
+
+/** Up to two initials from a name: "Ada Lovelace" → "AL", "Maya" → "M". Shown
+ *  only when there's no uploaded avatar image. */
+function initials(name?: string | null): string {
+  const words = (name ?? '').trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return '?';
+  if (words.length === 1) return words[0][0].toUpperCase();
+  return (words[0][0] + words[words.length - 1][0]).toUpperCase();
 }

@@ -197,6 +197,7 @@ export const mockAuth: AuthApi = {
   sessionFromTokens: (accessToken, refreshToken) =>
     Promise.resolve({ ...mockSession('okeijoseph@sparx.app'), accessToken, refreshToken }),
   updateAvatar: (dataUrl) => delay(dataUrl),
+  updateName: () => delay(undefined),
   changePassword: (_email, current, next) =>
     !current
       ? Promise.reject(new Error('Enter your current password'))
