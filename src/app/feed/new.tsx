@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Image } from 'expo-image';
@@ -147,7 +147,10 @@ export default function NewPost() {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <ScreenHeader title="Back" largeTitle={isIntro ? 'Introduce yourself' : 'Make a post'} />
-      <ScrollView contentContainerStyle={styles.body}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         {isIntro && (
           <View style={styles.introBanner}>
             <Ionicons name="sparkles" size={18} color={Colors.orange} />
@@ -221,6 +224,7 @@ export default function NewPost() {
           onPress={submit}
         />
       </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

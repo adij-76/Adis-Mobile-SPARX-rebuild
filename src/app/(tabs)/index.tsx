@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Linking, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import { api } from '@/api';
 import { AppHeader } from '@/components/app-header';
@@ -99,11 +99,13 @@ export default function HomeScreen() {
   // Live workshops for the Workshop tab (top few; "See all" opens the full list).
   const workshopsQ = useAsync(() => api.content.workshops(), []);
   const workshops = workshopsQ.data ?? [];
-  const challenges = useAsync(() => api.content.challenges(), []).data ?? [];
+  const challengesQ = useAsync(() => api.content.challenges(), []);
+  const challenges = challengesQ.data ?? [];
   // Fetched once and kept stable for the session so the daily "video" task stays
   // the same video and simply gets a check when watched (don't refetch on focus,
   // which could reorder/exclude it and swap the task out from under the check).
-  const recommendedVideos = useAsync(() => api.content.recommendedVideos(), []).data ?? [];
+  const recommendedVideosQ = useAsync(() => api.content.recommendedVideos(), []);
+  const recommendedVideos = recommendedVideosQ.data ?? [];
   // Upcoming meetings = the user's signed-up coaching groups' next occurrences
   // (real, in the user's time zone), soonest first — no fake placeholders.
   // Reload on focus so a group signed up on another screen shows immediately.
@@ -135,8 +137,28 @@ export default function HomeScreen() {
       }));
   }, [groups, userTz]);
   // Featured quote, recommended from the latest check-in (falls back to a default).
-  const quotes = useAsync(() => api.content.quotes(), []).data ?? [];
+  const quotesQ = useAsync(() => api.content.quotes(), []);
+  const quotes = quotesQ.data ?? [];
   const featuredQuote = recommendQuote(quotes, checkins[0]) ?? dailyQuote;
+
+  // Pull-to-refresh: reload every data-backed section on this screen (F-M1).
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        continueQ.reload(),
+        workshopsQ.reload(),
+        challengesQ.reload(),
+        recommendedVideosQ.reload(),
+        reloadGroups(),
+        quotesQ.reload(),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Daily checklist — real targets + real completion state. Each item routes to
   // its actual destination and ticks off when the underlying action is done:
@@ -488,7 +510,10 @@ export default function HomeScreen() {
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+        }>
         <SourceBadge />
         {isDesktop ? (
           <View style={styles.twoCol}>

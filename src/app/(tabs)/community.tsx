@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { AppHeader } from '@/components/app-header';
 import { Screen } from '@/components/layout/screen';
@@ -16,13 +16,26 @@ import { useStore } from '@/lib/store';
 export default function CommunityScreen() {
   const router = useRouter();
   const { isHidden, isAuthorBlocked } = useStore();
-  const communities = useAsync(() => api.community.communities(), []).data ?? [];
+  const communitiesQ = useAsync(() => api.community.communities(), []);
+  const communities = communitiesQ.data ?? [];
   const feed = useAsync(() => api.posts.feed(), []);
   // Refetch when returning to the tab so a just-created post appears.
   useFocusEffect(useCallback(() => void feed.reload(), [])); // eslint-disable-line react-hooks/exhaustive-deps
   const allPosts = (feed.data ?? []).filter(
     (p) => !isHidden(p.id) && !isAuthorBlocked(p.author),
   );
+
+  // Pull-to-refresh: reload the feed and the community list (F-M1).
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([feed.reload(), communitiesQ.reload()]);
+    } finally {
+      setRefreshing(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <Screen style={styles.root}>
@@ -33,6 +46,9 @@ export default function CommunityScreen() {
         keyExtractor={(p) => p.id}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+        }
         ListHeaderComponent={
           <View style={{ gap: Spacing.md, marginBottom: Spacing.md }}>
             <View style={styles.sectionHead}>

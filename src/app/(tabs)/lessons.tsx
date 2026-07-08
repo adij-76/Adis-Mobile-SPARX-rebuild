@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import { api } from '@/api';
 import type { Module, Program } from '@/api/types';
@@ -17,10 +17,28 @@ import { useStore } from '@/lib/store';
 export default function LessonsScreen() {
   const programs = useAsync(() => api.content.programs(), []);
 
+  // Pull-to-refresh reloads the program list (F-M1). Each program's modules and
+  // lessons refetch on their own once the program list re-renders.
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([programs.reload()]);
+    } finally {
+      setRefreshing(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <Screen style={styles.root}>
       <AppHeader />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+        }>
         <View style={styles.titleWrap}>
           <Txt variant="titleLg">My Lessons</Txt>
           <SourceBadge />

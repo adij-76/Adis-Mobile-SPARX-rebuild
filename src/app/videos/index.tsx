@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { api } from '@/api';
@@ -49,6 +49,18 @@ export default function VideosList() {
   const query = useAsync(() => api.content.snippets(), []);
   const [playing, setPlaying] = useState<SparkyVideo | null>(null);
 
+  // Pull-to-refresh: reload the video list (F-M1).
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([query.reload()]);
+    } finally {
+      setRefreshing(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScreenHeader title="Back" largeTitle="Recommended Videos" />
@@ -65,6 +77,9 @@ export default function VideosList() {
             keyExtractor={(v) => v.id}
             contentContainerStyle={styles.list}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+            }
             renderItem={({ item }) => <SnippetCard snippet={item} onPlay={setPlaying} />}
           />
         )}
