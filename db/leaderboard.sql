@@ -34,7 +34,7 @@ create function public.mobile_leaderboard_period(p_period text)
   language sql stable security definer set search_path = public
 as $$
   select u.id::bigint,
-         coalesce(nullif(trim(u.first_name), ''), split_part(u.email, '@', 1)),
+         coalesce(nullif(trim(u.first_name), ''), nullif(u.user_handle, ''), 'Member'),
          u.avatar_link,
          coalesce(sum(up.points), 0)::int,
          (u.id = (select id from public.users where lower(email) = lower(auth.jwt() ->> 'email')))
@@ -112,7 +112,7 @@ as $$
     group by key
   )
   select c.key,
-         coalesce(nullif(trim(u.first_name), ''), split_part(u.email, '@', 1), 'Member'),
+         coalesce(nullif(trim(u.first_name), ''), nullif(u.user_handle, ''), 'Member'),
          u.avatar_link,
          c.score,
          (c.key = coalesce(
@@ -162,7 +162,7 @@ as $$
     select key, max(streak) as score from runs group by key
   )
   select b.key,
-         coalesce(nullif(trim(u.first_name), ''), split_part(u.email, '@', 1), 'Member'),
+         coalesce(nullif(trim(u.first_name), ''), nullif(u.user_handle, ''), 'Member'),
          u.avatar_link,
          b.score,
          (b.key = coalesce(

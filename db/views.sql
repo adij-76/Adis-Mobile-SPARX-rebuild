@@ -269,7 +269,7 @@ $wheel$;
 -- (a leaderboard is inherently multi-user); `you` flags the caller's own row.
 create or replace view mobile_leaderboard as
   select u.id                                                              as user_id,
-         coalesce(nullif(trim(u.first_name), ''), split_part(u.email, '@', 1)) as name,
+         coalesce(nullif(trim(u.first_name), ''), nullif(u.user_handle, ''), 'Member') as name,
          u.avatar_link                                                     as avatar,
          coalesce(sum(up.points), 0)::int                                  as points,
          (u.id = (select id from public.users where lower(email) = lower(auth.jwt() ->> 'email'))) as you
