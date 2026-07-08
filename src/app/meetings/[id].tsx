@@ -20,14 +20,31 @@ export default function MeetingDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { bookings, isBooked, bookMeeting } = useStore();
   const [showConfirm, setShowConfirm] = useState(false);
-  const meetings = useAsync(() => api.meetings.all(), []).data ?? [];
+  const meetingsQ = useAsync(() => api.meetings.all(), []);
+  const meetings = meetingsQ.data ?? [];
 
-  const meeting = [...bookings, ...meetings].find((m) => m.id === id) ?? meetings[0];
+  // Resolve the exact meeting by id — never fall through to meetings[0], or a
+  // bad/stale id would open a different meeting (audit C-H3).
+  const meeting = [...bookings, ...meetings].find((m) => m.id === id);
 
   if (!meeting) {
     return (
-      <SafeAreaView style={[styles.safe, { alignItems: 'center', justifyContent: 'center' }]} edges={['top']}>
-        <ActivityIndicator color={Colors.primary} />
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <View style={styles.header}>
+          <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back" style={styles.backBtn}>
+            <Ionicons name="arrow-back" size={22} color={Colors.textMain} />
+            <Txt variant="bodyMedium">Back</Txt>
+          </Pressable>
+        </View>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          {meetingsQ.loading ? (
+            <ActivityIndicator color={Colors.primary} />
+          ) : (
+            <Txt variant="bodySm" color={Colors.textSub}>
+              Meeting not found.
+            </Txt>
+          )}
+        </View>
       </SafeAreaView>
     );
   }

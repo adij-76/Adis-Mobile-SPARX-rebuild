@@ -21,12 +21,17 @@ import { useXpAward, type XpMovement } from '@/lib/xp-award';
 export default function VideoDetail() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const recommendedVideos = useAsync(() => api.content.recommendedVideos(), []).data ?? [];
+  const recQ = useAsync(() => api.content.recommendedVideos(), []);
+  const recommendedVideos = recQ.data ?? [];
   // Resolve the video by id from the recommendations (keeps the title identical
   // to the home checklist/rail); if it isn't in that list, fetch the exact video
-  // by id so a tap never lands on a different video. Only then fall back to [0].
-  const byId = useAsync(() => (id ? api.content.videosByIds([id]) : Promise.resolve([])), [id]).data ?? [];
-  const video = recommendedVideos.find((v) => v.id === id) ?? byId[0] ?? recommendedVideos[0];
+  // by id so a tap never lands on a different video. Never fall back to [0] — a
+  // bad/stale id (e.g. after a delete) must show "not found", not silently open
+  // a different video (audit C-H3).
+  const byIdQ = useAsync(() => (id ? api.content.videosByIds([id]) : Promise.resolve([])), [id]);
+  const byId = byIdQ.data ?? [];
+  const video = recommendedVideos.find((v) => v.id === id) ?? byId[0];
+  const loading = recQ.loading || byIdQ.loading;
 
   const { isFav, toggleFav, markVideoWatched, isVideoWatched, awardVideoProgress } = useStore();
   const { appUserId } = useCurrentAuthor();
@@ -85,8 +90,17 @@ export default function VideoDetail() {
 
   if (!video) {
     return (
-      <SafeAreaView style={[styles.safe, { alignItems: 'center', justifyContent: 'center' }]} edges={['top']}>
-        <ActivityIndicator color={Colors.primary} />
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <ScreenHeader title="Back" />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          {loading ? (
+            <ActivityIndicator color={Colors.primary} />
+          ) : (
+            <Txt variant="bodySm" color={Colors.textSub}>
+              Video not found.
+            </Txt>
+          )}
+        </View>
       </SafeAreaView>
     );
   }
