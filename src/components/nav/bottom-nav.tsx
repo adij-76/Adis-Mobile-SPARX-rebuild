@@ -6,15 +6,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors, Shadow } from '@/constants/theme';
 
-type Item = { href: string; icon: keyof typeof Ionicons.glyphMap; sparky?: boolean };
+type Item = { href: string; icon: keyof typeof Ionicons.glyphMap; label: string; sparky?: boolean };
 
 /** Mirrors the phone tab bar in (tabs)/_layout, in the same order. */
 const ITEMS: Item[] = [
-  { href: '/', icon: 'home' },
-  { href: '/data', icon: 'stats-chart' },
-  { href: '/sparky', icon: 'sparkles', sparky: true },
-  { href: '/community', icon: 'people' },
-  { href: '/lessons', icon: 'book' },
+  { href: '/', icon: 'home', label: 'Home' },
+  { href: '/data', icon: 'stats-chart', label: 'My Data' },
+  { href: '/sparky', icon: 'sparkles', label: 'Sparky AI', sparky: true },
+  { href: '/community', icon: 'people', label: 'Community' },
+  { href: '/lessons', icon: 'book', label: 'Lessons' },
 ];
 
 const isActive = (pathname: string, href: string) =>
@@ -46,7 +46,8 @@ export function BottomNav() {
               onPress={() => router.navigate(item.href as never)}
               style={styles.slot}
               accessibilityRole="button"
-              accessibilityLabel="Sparky AI">
+              accessibilityLabel={item.label}
+              accessibilityState={{ selected: active }}>
               <View style={styles.sparkWrap}>
                 <LinearGradient
                   colors={active ? ['#FFB879', '#FF9D4B'] : ['#FF9D4B', '#166890']}
@@ -65,6 +66,7 @@ export function BottomNav() {
             onPress={() => router.navigate(item.href as never)}
             style={styles.slot}
             accessibilityRole="link"
+            accessibilityLabel={item.label}
             accessibilityState={{ selected: active }}>
             <Ionicons
               name={item.icon}

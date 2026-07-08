@@ -167,6 +167,8 @@ export default function CheckinScreen() {
                   step={1}
                   value={mood}
                   onValueChange={setMood}
+                  accessibilityLabel="Mood"
+                  accessibilityValue={{ min: 0, max: 100, now: Math.round(mood) }}
                   minimumTrackTintColor={Colors.primary}
                   maximumTrackTintColor={Colors.soft}
                   thumbTintColor={Colors.primary}

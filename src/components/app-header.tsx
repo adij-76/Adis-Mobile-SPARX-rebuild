@@ -48,9 +48,14 @@ export function AppHeader({ hasNotifications = true }: AppHeaderProps) {
               Get help
             </Txt>
           </Pressable>
-          <IconBtn name="notifications-outline" dot={hasNotifications} onPress={() => router.push('/notifications')} />
-          <IconBtn name="chatbubbles-outline" onPress={() => router.push('/feed/messages')} />
-          <IconBtn name="bookmark-outline" onPress={() => router.push('/favorites')} />
+          <IconBtn
+            name="notifications-outline"
+            label="Notifications"
+            dot={hasNotifications}
+            onPress={() => router.push('/notifications')}
+          />
+          <IconBtn name="chatbubbles-outline" label="Messages" onPress={() => router.push('/feed/messages')} />
+          <IconBtn name="bookmark-outline" label="Saved" onPress={() => router.push('/favorites')} />
         </View>
       </View>
     </SafeAreaView>
@@ -59,15 +64,22 @@ export function AppHeader({ hasNotifications = true }: AppHeaderProps) {
 
 function IconBtn({
   name,
+  label,
   dot,
   onPress,
 }: {
   name: keyof typeof Ionicons.glyphMap;
+  label: string;
   dot?: boolean;
   onPress?: () => void;
 }) {
   return (
-    <Pressable style={styles.iconBtn} hitSlop={8} onPress={onPress}>
+    <Pressable
+      style={styles.iconBtn}
+      hitSlop={8}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}>
       <Ionicons name={name} size={20} color={Colors.white} />
       {dot ? <View style={styles.dot} /> : null}
     </Pressable>
