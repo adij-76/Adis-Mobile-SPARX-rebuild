@@ -720,12 +720,18 @@ export const supabaseInsights: InsightsApi = {
       usage_score: number | null;
     };
     try {
-      const rows = await rest<Row[]>('mobile_use_tracking', { order: 'recorded_at.asc', limit: '3000' });
-      return rows.map((r) => ({
-        at: r.recorded_at,
-        amount: r.amount ?? r.usage_score,
-        used: !!r.used,
-      }));
+      // Fetch newest-first so the limit keeps the MOST RECENT entries (asc + limit
+      // returned the oldest 3000 rows, dropping recent days for long-tenured users
+      // — audit D-H1), then reverse to oldest → newest for the trend chart, the
+      // same shape wheelHistory uses.
+      const rows = await rest<Row[]>('mobile_use_tracking', { order: 'recorded_at.desc', limit: '3000' });
+      return rows
+        .map((r) => ({
+          at: r.recorded_at,
+          amount: r.amount ?? r.usage_score,
+          used: !!r.used,
+        }))
+        .reverse();
     } catch {
       return [];
     }
