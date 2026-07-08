@@ -18,13 +18,15 @@ import { useStore } from '@/lib/store';
 export default function CommunityRoom() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { isHidden } = useStore();
+  const { isHidden, isAuthorBlocked } = useStore();
 
   const communities = useAsync(() => api.community.communities(), []).data ?? [];
   const channel = communities.find((c) => c.id === id);
   const feed = useAsync(() => api.posts.feed(id), [id]);
   useFocusEffect(useCallback(() => void feed.reload(), [id])); // eslint-disable-line react-hooks/exhaustive-deps
-  const posts = (feed.data ?? []).filter((p) => !isHidden(p.id));
+  const posts = (feed.data ?? []).filter(
+    (p) => !isHidden(p.id) && !isAuthorBlocked(p.author),
+  );
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>

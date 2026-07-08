@@ -23,13 +23,23 @@ export type PostCardProps = {
   full?: boolean;
 };
 
+const REPORT_REASONS = [
+  'Harassment or bullying',
+  'Hate speech',
+  'Spam or a scam',
+  'Self-harm or dangerous content',
+  'Inappropriate content',
+  'Something else',
+];
+
 export function PostCard({ post, onPress, full }: PostCardProps) {
   const router = useRouter();
-  const { reactionFor, setReaction, hidePost, deletePost } = useStore();
+  const { reactionFor, setReaction, hidePost, deletePost, reportPost, blockAuthor } = useStore();
   const author = useCurrentAuthor();
   const reaction = reactionFor(post.id) as ReactionKey | null;
   const count = post.likes + (reaction ? 1 : 0);
-  const [menu, setMenu] = useState(false);
+  // null = closed; otherwise which sheet is open.
+  const [sheet, setSheet] = useState<null | 'menu' | 'report' | 'block' | 'done-report' | 'done-block'>(null);
   const isOwn = post.author === author.name;
 
   const stop = (e?: GestureResponderEvent) =>
@@ -90,8 +100,32 @@ export function PostCard({ post, onPress, full }: PostCardProps) {
           : []),
         { label: 'Copy link', icon: 'link-outline', onPress: copyLink },
         { label: 'Hide post', icon: 'eye-off-outline', onPress: () => hidePost(post.id) },
-        { label: 'Report post', icon: 'flag-outline', destructive: true, onPress: () => hidePost(post.id) },
+        // Report → reason picker (records the report + hides). Distinct from Hide.
+        { label: 'Report post', icon: 'flag-outline', destructive: true, onPress: () => setSheet('report') },
+        // Block → confirm, then their content disappears from every feed.
+        { label: `Block ${post.author}`, icon: 'ban-outline', destructive: true, onPress: () => setSheet('block') },
       ];
+
+  const reportActions: SheetAction[] = REPORT_REASONS.map((reason) => ({
+    label: reason,
+    icon: 'flag-outline' as const,
+    onPress: () => {
+      reportPost(post.id);
+      setSheet('done-report');
+    },
+  }));
+
+  const blockActions: SheetAction[] = [
+    {
+      label: `Block ${post.author}`,
+      icon: 'ban-outline',
+      destructive: true,
+      onPress: () => {
+        blockAuthor(post.author);
+        setSheet('done-block');
+      },
+    },
+  ];
 
   const share = async (e?: GestureResponderEvent) => {
     stop(e);
@@ -131,7 +165,7 @@ export function PostCard({ post, onPress, full }: PostCardProps) {
           accessibilityLabel="Post options"
           onPress={(e) => {
             stop(e);
-            setMenu(true);
+            setSheet('menu');
           }}>
           <Ionicons name="ellipsis-horizontal" size={20} color={Colors.textSub} />
         </Pressable>
@@ -161,10 +195,34 @@ export function PostCard({ post, onPress, full }: PostCardProps) {
       </View>
 
       <ActionSheet
-        visible={menu}
-        onClose={() => setMenu(false)}
+        visible={sheet === 'menu'}
+        onClose={() => setSheet(null)}
         title={`${post.author} · ${post.community}`}
         actions={menuActions}
+      />
+      <ActionSheet
+        visible={sheet === 'report'}
+        onClose={() => setSheet(null)}
+        title="Why are you reporting this post?"
+        actions={reportActions}
+      />
+      <ActionSheet
+        visible={sheet === 'block'}
+        onClose={() => setSheet(null)}
+        title={`Block ${post.author}? You won't see their posts or comments.`}
+        actions={blockActions}
+      />
+      <ActionSheet
+        visible={sheet === 'done-report'}
+        onClose={() => setSheet(null)}
+        title="Thanks — this post is now hidden and flagged for our team to review."
+        actions={[{ label: 'Done', icon: 'checkmark-circle-outline', onPress: () => setSheet(null) }]}
+      />
+      <ActionSheet
+        visible={sheet === 'done-block'}
+        onClose={() => setSheet(null)}
+        title={`${post.author} is blocked. You can unblock them in Settings → Blocked accounts.`}
+        actions={[{ label: 'Done', icon: 'checkmark-circle-outline', onPress: () => setSheet(null) }]}
       />
     </Pressable>
   );
