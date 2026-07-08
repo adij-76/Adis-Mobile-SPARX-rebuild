@@ -249,6 +249,27 @@ export type MessagesApi = {
   startGroup(memberIds: string[], title?: string | null): Promise<string | null>;
 };
 
+/** A member connection ("ally"). `direction` is relative to the caller;
+ *  `userId`/`name`/`avatar` are the OTHER person (public identity only). */
+export type Connection = {
+  id: string;
+  status: 'pending' | 'accepted' | 'declined';
+  direction: 'incoming' | 'outgoing';
+  userId: string;
+  name: string;
+  avatar: string;
+  createdAt: string | null;
+};
+
+export type ConnectionsApi = {
+  /** The caller's connections (both directions), newest first. */
+  list(): Promise<Connection[]>;
+  /** Send a connection request to a member by their production id. */
+  request(targetUserId: string): Promise<void>;
+  /** Accept or decline a connection request by its id. */
+  respond(connectionId: string, accept: boolean): Promise<void>;
+};
+
 /** Leaderboard window: all-time, or a rolling last-30 / last-7 days. */
 export type LeaderboardPeriod = 'all' | 'month' | 'week';
 
@@ -638,6 +659,7 @@ export type Api = {
   groups: GroupsApi;
   game: GameApi;
   admin: AdminApi;
+  connections: ConnectionsApi;
 };
 
 // -- Admin backend (hidden /admin screen) ------------------------------------

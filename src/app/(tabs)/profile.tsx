@@ -168,6 +168,7 @@ export default function ProfileScreen() {
           ACCOUNT
         </Txt>
         <Card padded={false} style={styles.list}>
+          <ListRow icon="people-outline" label="Connections" onPress={() => router.push('/connections')} />
           <ListRow icon="notifications-outline" label="Notifications" onPress={() => router.push('/settings/notifications')} />
           <ListRow icon="color-palette-outline" label="Theme" value="Light" onPress={() => router.push('/settings/theme')} />
           <ListRow icon="language-outline" label="Language" value="English" onPress={() => router.push('/settings/languages')} />

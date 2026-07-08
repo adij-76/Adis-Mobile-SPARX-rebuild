@@ -11,6 +11,7 @@ import {
   mockAuth,
   mockCheckins,
   mockCommunity,
+  mockConnections,
   mockContent,
   mockExercises,
   mockFavorites,
@@ -29,6 +30,7 @@ import {
   supabaseAuth,
   supabaseCheckins,
   supabaseCommunity,
+  supabaseConnections,
   supabaseContent,
   supabaseExercises,
   supabaseFavorites,
@@ -78,6 +80,7 @@ export const api: Api = {
   groups: useSupabase ? supabaseGroups : mockGroups,
   game: useSupabase ? supabaseGame : mockGame,
   admin: useSupabase ? supabaseAdmin : mockAdmin,
+  connections: useSupabase ? supabaseConnections : mockConnections,
 };
 
 export { setSupabaseToken, setOnUnauthorized } from '@/api/supabase';
@@ -94,6 +97,8 @@ export type {
   AuthUser,
   ChatMessage,
   CommunityApi,
+  Connection,
+  ConnectionsApi,
   ContentApi,
   DirectoryUser,
   ExerciseAnswerInput,
