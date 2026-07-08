@@ -6,6 +6,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { AppHeader } from '@/components/app-header';
 import { Screen } from '@/components/layout/screen';
 import { Card } from '@/components/ui/card';
+import { SourceBadge } from '@/components/ui/source-badge';
 import { MetricTrend } from '@/components/ui/metric-trend';
 import { Txt } from '@/components/ui/text';
 import { api } from '@/api';
@@ -80,6 +81,7 @@ export default function DataScreen() {
           <Txt variant="bodySm" color={Colors.textSub}>
             Track your progress and check-ins over time
           </Txt>
+          <SourceBadge />
         </View>
 
         {/* Leaderboard — prominent, full-width banner up top */}
