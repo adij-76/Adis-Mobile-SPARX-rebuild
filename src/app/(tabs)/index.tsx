@@ -29,6 +29,7 @@ import { gradientFor } from '@/lib/gradient';
 import { deviceTz, formatOccurrence, joinOpen, nextOccurrence, parseMeetLengthMin, untilLabel } from '@/lib/groups';
 import { recommendQuote } from '@/lib/quote-pick';
 import { useStore } from '@/lib/store';
+import { todayLocal } from '@/lib/checkin';
 
 /** Minimal shape the home meeting stack renders (satisfied by a mapped group). */
 type UpcomingMeeting = { id: string; time: string; title: string; host: string; startsIn?: string };
@@ -130,7 +131,7 @@ export default function HomeScreen() {
   // Daily checklist — real targets + real completion state. Each item routes to
   // its actual destination and ticks off when the underlying action is done:
   // check-in saved today, the day's video watched, the day's workshop completed.
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocal();
   // Today's designated video. Stays put and gets a check when watched
   // (isVideoWatched is reactive, so the tick appears the moment it completes —
   // no refresh, and the task isn't swapped out for the next video).
@@ -161,7 +162,7 @@ export default function HomeScreen() {
   const prompted = useRef(false);
   useEffect(() => {
     if (!ready || prompted.current) return;
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = todayLocal();
     if (checkins.some((c) => c.date === todayStr)) {
       prompted.current = true;
       return;

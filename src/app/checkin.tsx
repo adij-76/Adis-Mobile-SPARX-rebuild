@@ -28,7 +28,7 @@ import {
 } from '@/data/content';
 import { api } from '@/api';
 import { RankMovement } from '@/components/ui/rank-movement';
-import { recordCheckin, pointsForStreak, type CheckinResult } from '@/lib/checkin';
+import { recordCheckin, pointsForStreak, todayLocal, type CheckinResult } from '@/lib/checkin';
 import { type StreakMilestone } from '@/lib/streaks';
 import { useCheckinXpAward, type XpMovement } from '@/lib/xp-award';
 import { useAsync } from '@/hooks/use-async';
@@ -61,7 +61,7 @@ export default function CheckinScreen() {
 
   const finish = async () => {
     const entry = {
-      date: new Date().toISOString().slice(0, 10),
+      date: todayLocal(),
       mood,
       positive,
       negative,
