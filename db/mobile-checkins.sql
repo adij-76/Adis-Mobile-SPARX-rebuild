@@ -16,6 +16,12 @@ create table if not exists public.mobile_checkins (
   id           bigint generated always as identity primary key,
   auth_uid     uuid        not null default auth.uid(),
   app_user_id  integer,                         -- production users.id, for later sync
+  -- The client ALWAYS writes this as the user's LOCAL calendar date (see
+  -- todayLocal() in src/lib/checkin.ts) — that's what the (auth_uid, date) upsert
+  -- key and the streak logic key on. The default below is only a last-resort
+  -- fallback for a row inserted without a date; it can't be truly "local" because
+  -- the DB doesn't know the caller's timezone, so it must never be relied upon
+  -- for a real check-in (audit D-H4).
   date         date        not null default (now() at time zone 'utc')::date,
   mood         integer,                         -- 0-100
   positive     text[]      not null default '{}',

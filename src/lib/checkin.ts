@@ -20,8 +20,21 @@ export type CheckinState = {
 
 const EMPTY: CheckinState = { lastDate: null, streak: 0, totalPoints: 0 };
 
-function dayStr(d: Date): string {
+/** A date as a LOCAL YYYY-MM-DD calendar key (no UTC drift). */
+export function dayStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Today's LOCAL calendar date as YYYY-MM-DD. Use this for every check-in date
+ * key — the streak/points logic (computeStreak, recordCheckin) is all local, and
+ * the mobile_checkins upsert key is (auth_uid, date). Using `toISOString()` here
+ * keys on the UTC date instead: west-of-UTC an evening check-in lands on
+ * "tomorrow", so two local days collapse into one upserted row and one day's
+ * answers overwrite the other's (audit D-H4). Always key on the local day.
+ */
+export function todayLocal(): string {
+  return dayStr(new Date());
 }
 
 export async function getCheckinState(): Promise<CheckinState> {

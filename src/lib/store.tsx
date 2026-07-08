@@ -20,7 +20,7 @@ import { api } from '@/api';
 import type { GameState } from '@/api/types';
 import { posts as basePosts, type Comment, type Meeting, type Post } from '@/data/content';
 import { activeBonusMultiplier } from '@/lib/bonus-events';
-import { computeStreak } from '@/lib/checkin';
+import { computeStreak, todayLocal } from '@/lib/checkin';
 import { milestonesReached, type StreakMilestone } from '@/lib/streaks';
 import { videoPointsEarned } from '@/lib/video-points';
 import { XP_BASE, xpEarned, type XpActivity } from '@/lib/xp';
@@ -449,7 +449,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         return p;
       },
       awardCommunityXp: (kind) => {
-        const todayStr = new Date().toISOString().slice(0, 10);
+        const todayStr = todayLocal();
         const CAP = 5; // max community XP awards counted per day (anti-farm)
         const day = state.communityXpDay.date === todayStr ? state.communityXpDay : { date: todayStr, count: 0 };
         if (day.count >= CAP) return 0;
@@ -481,7 +481,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       creditStreak: () => {
         // Streak from the real history (today may not be in the snapshot yet if
         // the check-in that triggered this only just saved — prepend it).
-        const today = new Date().toISOString().slice(0, 10);
+        const today = todayLocal();
         const streak = computeStreak([today, ...state.checkins.map((c) => c.date)]);
         // Identify the run by its start date so crediting is idempotent across
         // devices: a milestone is credited once per run. A different start = a new

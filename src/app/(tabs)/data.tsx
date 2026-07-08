@@ -14,12 +14,13 @@ import { useAsync } from '@/hooks/use-async';
 import { INSTRUMENTS, type AssessmentId } from '@/lib/assessments';
 import { SHEET_SCORING } from '@/lib/exercise-scores';
 import { useStore } from '@/lib/store';
+import { todayLocal } from '@/lib/checkin';
 import { buildTrendSeries } from '@/lib/trend';
 
 export default function DataScreen() {
   const router = useRouter();
   const { checkins } = useStore();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocal();
   const checkedInToday = checkins.some((c) => c.date === today);
   const wheelAreas = useAsync(() => api.insights.wheelAreas(), []).data ?? [];
   const reports = useAsync(() => api.insights.reports(), []).data ?? [];
