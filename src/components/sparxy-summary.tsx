@@ -49,7 +49,7 @@ function localSummary(name: string | null, title: string, answers: string): stri
 }
 
 export function SparxySummary({ lesson, ex }: { lesson: Lesson; ex: LessonExercisesState }) {
-  const { user } = useAuth();
+  const { user, accessToken } = useAuth();
   const [text, setText] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -85,6 +85,7 @@ export function SparxySummary({ lesson, ex }: { lesson: Lesson; ex: LessonExerci
           [],
           user?.appUserId ?? null,
           user?.id ?? null,
+          accessToken,
         ).then((r) => r.text || fallback)
       : Promise.resolve(fallback);
     request

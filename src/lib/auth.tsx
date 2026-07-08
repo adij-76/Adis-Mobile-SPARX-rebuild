@@ -28,6 +28,9 @@ type Status = 'loading' | 'authed' | 'guest';
 type AuthValue = {
   status: Status;
   user: AuthUser | null;
+  /** The Supabase session JWT, for authenticating server calls (e.g. the Sparky
+   *  webhook) as this user. null when signed out. */
+  accessToken: string | null;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signInWithProvider: (provider: OAuthProvider) => void;
@@ -222,7 +225,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [session]);
 
   const value = useMemo<AuthValue>(
-    () => ({ status, user: session?.user ?? null, signIn, signUp, signInWithProvider, signOut, updateAvatar }),
+    () => ({ status, user: session?.user ?? null, accessToken: session?.accessToken ?? null, signIn, signUp, signInWithProvider, signOut, updateAvatar }),
     [status, session, signIn, signUp, signInWithProvider, signOut, updateAvatar],
   );
 
