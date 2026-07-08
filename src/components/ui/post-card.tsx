@@ -9,6 +9,7 @@ import { ActionSheet, type SheetAction } from '@/components/ui/action-sheet';
 import { Avatar } from '@/components/ui/avatar';
 import { ReactionBar, type ReactionKey } from '@/components/ui/reaction-bar';
 import { RichText } from '@/components/ui/rich-text';
+import { UserProfileSheet, type UserProfileTarget } from '@/components/ui/user-profile-sheet';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { type Post } from '@/data/content';
@@ -40,7 +41,15 @@ export function PostCard({ post, onPress, full }: PostCardProps) {
   const count = post.likes + (reaction ? 1 : 0);
   // null = closed; otherwise which sheet is open.
   const [sheet, setSheet] = useState<null | 'menu' | 'report' | 'block' | 'done-report' | 'done-block'>(null);
+  const [profile, setProfile] = useState<UserProfileTarget | null>(null);
   const isOwn = post.author === author.name;
+
+  // Tapping the author opens their quick profile (own post → your own profile).
+  const openAuthor = (e?: GestureResponderEvent) => {
+    stop(e);
+    if (isOwn) router.push('/profile');
+    else setProfile({ userId: post.authorId ?? null, name: post.author, avatar: post.avatar });
+  };
 
   const stop = (e?: GestureResponderEvent) =>
     (e as unknown as { stopPropagation?: () => void } | undefined)?.stopPropagation?.();
@@ -152,13 +161,19 @@ export function PostCard({ post, onPress, full }: PostCardProps) {
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && onPress && { opacity: 0.95 }]}>
       <View style={styles.head}>
-        <Avatar uri={post.avatar} name={post.author} size={40} />
-        <View style={{ flex: 1 }}>
-          <Txt variant="bodySmBold">{post.author}</Txt>
-          <Txt variant="caption" color={Colors.textSub}>
-            {post.community} · {post.time}
-          </Txt>
-        </View>
+        <Pressable
+          style={styles.author}
+          onPress={openAuthor}
+          accessibilityRole="button"
+          accessibilityLabel={`View ${post.author}'s profile`}>
+          <Avatar uri={post.avatar} name={post.author} size={40} />
+          <View style={{ flex: 1 }}>
+            <Txt variant="bodySmBold">{post.author}</Txt>
+            <Txt variant="caption" color={Colors.textSub}>
+              {post.community} · {post.time}
+            </Txt>
+          </View>
+        </Pressable>
         <Pressable
           hitSlop={10}
           accessibilityRole="button"
@@ -224,6 +239,7 @@ export function PostCard({ post, onPress, full }: PostCardProps) {
         title={`${post.author} is blocked. You can unblock them in Settings → Blocked accounts.`}
         actions={[{ label: 'Done', icon: 'checkmark-circle-outline', onPress: () => setSheet(null) }]}
       />
+      <UserProfileSheet target={profile} onClose={() => setProfile(null)} />
     </Pressable>
   );
 }
@@ -238,6 +254,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   head: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  author: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.soft },
   image: { width: '100%', height: 180, borderRadius: Radius.md, backgroundColor: Colors.soft },
   actions: { flexDirection: 'row', gap: Spacing.xl, paddingTop: Spacing.xs },

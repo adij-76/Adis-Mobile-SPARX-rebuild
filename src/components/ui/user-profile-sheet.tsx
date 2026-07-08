@@ -1,0 +1,182 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { api } from '@/api';
+import { Avatar } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Txt } from '@/components/ui/text';
+import { Colors, Radius, Spacing } from '@/constants/theme';
+import { useOnline } from '@/lib/presence';
+import { useStore } from '@/lib/store';
+
+export type UserProfileTarget = {
+  /** Production users.id — needed for stats + messaging. Null for seed authors. */
+  userId: string | null;
+  name: string;
+  avatar: string;
+};
+
+type Stats = { rank: number | null; streak: number | null };
+
+/**
+ * A tap-a-member quick profile: avatar, name, live-online status, public stats
+ * (streak + weekly rank — the same data the leaderboard already makes public;
+ * NO clinical info), and Message / Block actions. Reachable from post authors
+ * and other member touchpoints.
+ */
+export function UserProfileSheet({
+  target,
+  onClose,
+}: {
+  target: UserProfileTarget | null;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const { blockAuthor } = useStore();
+  const online = useOnline(target?.userId ?? null);
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const userId = target?.userId ?? null;
+  useEffect(() => {
+    if (!userId) {
+      setStats(null);
+      return;
+    }
+    let alive = true;
+    setLoading(true);
+    // Reuse the public leaderboards (no clinical data): weekly points → rank,
+    // all-time streak board → streak length. Absent = user has no ranked
+    // activity yet, so we just omit that stat.
+    Promise.all([
+      api.insights.leaderboard('points', 'week').catch(() => []),
+      api.insights.leaderboard('streak', 'all').catch(() => []),
+    ])
+      .then(([points, streaks]) => {
+        if (!alive) return;
+        const rank = points.find((e) => e.id === userId)?.rank ?? null;
+        const streak = streaks.find((e) => e.id === userId)?.points ?? null;
+        setStats({ rank, streak });
+      })
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, [userId]);
+
+  const message = async () => {
+    onClose();
+    if (!userId) {
+      router.push('/feed/messages');
+      return;
+    }
+    const convId = await api.messages.startDirect(userId);
+    router.push(
+      convId
+        ? `/feed/chat?id=${convId}&name=${encodeURIComponent(target!.name)}&avatar=${encodeURIComponent(target!.avatar)}&peer=${userId}`
+        : '/feed/messages',
+    );
+  };
+
+  const block = () => {
+    if (target) blockAuthor(target.name);
+    onClose();
+  };
+
+  return (
+    <Modal visible={!!target} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.backdrop} onPress={onClose}>
+        <Pressable style={styles.sheetWrap} onPress={(e) => e.stopPropagation?.()}>
+          <SafeAreaView edges={['bottom']}>
+            <View style={styles.sheet}>
+              <View style={styles.handle} />
+              {target ? (
+                <>
+                  <View style={styles.avatarWrap}>
+                    <Avatar uri={target.avatar} name={target.name} size={72} />
+                    {online ? <View style={styles.onlineDot} /> : null}
+                  </View>
+                  <Txt variant="titleSm" center>
+                    {target.name}
+                  </Txt>
+                  {online ? (
+                    <View style={styles.onlineRow}>
+                      <View style={styles.onlineDotSm} />
+                      <Txt variant="caption" color={Colors.success}>
+                        Online now
+                      </Txt>
+                    </View>
+                  ) : null}
+
+                  {loading ? (
+                    <ActivityIndicator color={Colors.primary} style={{ marginVertical: Spacing.md }} />
+                  ) : stats && (stats.streak != null || stats.rank != null) ? (
+                    <View style={styles.stats}>
+                      {stats.streak != null ? (
+                        <Stat icon="flame" color={Colors.orange} label="day streak" value={String(stats.streak)} />
+                      ) : null}
+                      {stats.rank != null ? (
+                        <Stat icon="trophy" color={Colors.primary} label="this week" value={`#${stats.rank}`} />
+                      ) : null}
+                    </View>
+                  ) : null}
+
+                  <View style={styles.actions}>
+                    <Button title="Message" variant="primary" iconLeft="chatbubble-ellipses-outline" onPress={message} />
+                    <Button title="Block" variant="outline" iconLeft="ban-outline" onPress={block} />
+                  </View>
+                </>
+              ) : null}
+            </View>
+          </SafeAreaView>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+function Stat({ icon, color, label, value }: { icon: keyof typeof Ionicons.glyphMap; color: string; label: string; value: string }) {
+  return (
+    <View style={styles.stat}>
+      <Ionicons name={icon} size={22} color={color} />
+      <Txt variant="titleSm">{value}</Txt>
+      <Txt variant="caption" color={Colors.textSub}>
+        {label}
+      </Txt>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  sheetWrap: { width: '100%' },
+  sheet: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: Radius.lg,
+    borderTopRightRadius: Radius.lg,
+    padding: Spacing.xl,
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.stroke, marginBottom: Spacing.md },
+  avatarWrap: { position: 'relative' },
+  onlineDot: {
+    position: 'absolute',
+    right: 2,
+    bottom: 2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: Colors.success,
+    borderWidth: 2,
+    borderColor: Colors.white,
+  },
+  onlineRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  onlineDotSm: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.success },
+  stats: { flexDirection: 'row', gap: Spacing.xl, marginVertical: Spacing.md },
+  stat: { alignItems: 'center', gap: 2 },
+  actions: { alignSelf: 'stretch', gap: Spacing.sm },
+});
