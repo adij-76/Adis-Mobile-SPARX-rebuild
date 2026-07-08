@@ -28,9 +28,39 @@ Supabase dashboard (it is an Auth setting, not code):
 2. Turn **"Confirm email" ON**. With it on, a new sign-up gets **no session**
    until the address is confirmed from its real inbox — so registering a victim's
    email yields nothing, because the attacker can't open the victim's mail.
-3. **Authentication → URL Configuration:** make sure the **Site URL** and
-   **Redirect URLs** include the live app origin (`https://adij-76.github.io/...`)
-   so the confirmation link lands users back in the app.
+3. **Authentication → URL Configuration** — this is REQUIRED, not optional (see
+   the gotcha below). Set exactly:
+   - **Site URL:**
+     ```
+     https://adij-76.github.io/Adis-Mobile-SPARX-rebuild
+     ```
+     Include the `/Adis-Mobile-SPARX-rebuild` sub-path — the app is served there
+     on GitHub Pages; the bare `adij-76.github.io` root has no app.
+   - **Redirect URLs** (allow-list, wildcards ok):
+     ```
+     https://adij-76.github.io/Adis-Mobile-SPARX-rebuild/**
+     http://localhost:8081/**
+     ```
+     (the localhost entry is only for local dev testing.)
+
+### GOTCHA: confirmation link → "unreachable page" (already hit once)
+
+If Site URL / Redirect URLs are wrong or unset, the confirmation email verifies
+the user and then redirects them to the **default Site URL** — Supabase's stock
+`http://localhost:3000`, or the bare `github.io` root with no app — so the tester
+lands on an **unreachable page** and can never finish signing up. Symptoms:
+"I click the link in the email and get an unreachable/site-can't-be-reached page."
+
+Fixes, both needed:
+- **Dashboard:** set Site URL + Redirect URLs exactly as above.
+- **App (shipped):** `signUp` now sends its own `redirect_to = origin +
+  EXPO_PUBLIC_BASE_URL` (`src/api/supabase.ts`), so confirmation returns to the
+  live app and `auth.tsx` picks up the `#access_token` from the hash. Supabase
+  only honors that redirect if it matches the **Redirect URLs** allow-list — so
+  the dashboard step is still required.
+- **Old emails stay broken:** the redirect is baked into each email at send time.
+  After fixing the dashboard, the affected tester must request a **fresh**
+  confirmation email (resend / sign up again); the old link keeps failing.
 
 ### Why this does NOT lock out existing users
 
@@ -111,7 +141,13 @@ own focused, validated change when convenient.
 ## Checklist
 
 - [ ] Dashboard: **Confirm email = ON** (Authentication → Providers → Email).
-- [ ] Dashboard: Site URL + Redirect URLs include the live origin.
+- [ ] Dashboard: **Site URL** = `https://adij-76.github.io/Adis-Mobile-SPARX-rebuild`
+      (with the sub-path).
+- [ ] Dashboard: **Redirect URLs** include `https://adij-76.github.io/Adis-Mobile-SPARX-rebuild/**`
+      (+ `http://localhost:8081/**` for dev). Required or confirmation links go to
+      the default unreachable page.
+- [ ] After fixing URLs, affected testers request a **fresh** confirmation email
+      (old links have the broken redirect baked in).
 - [ ] Verify `select count(*) from auth.users where email_confirmed_at is null` is
       0 (or only genuinely-unconfirmed accounts you're fine locking out).
 - [ ] (Optional) confirm any known-good tester emails left unverified.
