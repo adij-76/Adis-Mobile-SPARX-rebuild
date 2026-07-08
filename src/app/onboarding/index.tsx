@@ -28,7 +28,7 @@ import { useStore } from '@/lib/store';
  *  a brand-new user has no streak, so it lands as a flat +25). */
 const ONBOARD_XP = 25;
 
-const STEPS = ['welcome', 'dob', 'gender', 'primary', 'secondary', 'details'] as const;
+const STEPS = ['welcome', 'name', 'dob', 'gender', 'primary', 'secondary', 'details'] as const;
 type Step = (typeof STEPS)[number];
 
 const GENDERS: { key: OnboardingGender; label: string }[] = [
@@ -101,7 +101,7 @@ function matchLabel(gender: OnboardingGender | null, age: number | null): string
 
 export default function OnboardingScreen() {
   const firstName = useFirstName();
-  const { user: authUser } = useAuth();
+  const { user: authUser, updateName } = useAuth();
   const { markComplete } = useOnboarding();
   const { awardXp } = useStore();
 
@@ -112,6 +112,13 @@ export default function OnboardingScreen() {
 
   // answers
   const [accepted, setAccepted] = useState(false);
+  // Prefill the name from any existing auth metadata (e.g. Google sign-in).
+  const [nameFirst, setNameFirst] = useState(() => (authUser?.name?.trim().split(/\s+/)[0] ?? ''));
+  const [nameLast, setNameLast] = useState(() => {
+    const parts = authUser?.name?.trim().split(/\s+/) ?? [];
+    return parts.length > 1 ? parts.slice(1).join(' ') : '';
+  });
+  const fullName = [nameFirst.trim(), nameLast.trim()].filter(Boolean).join(' ');
   const [month, setMonth] = useState('');
   const [day, setDay] = useState('');
   const [year, setYear] = useState('');
@@ -143,6 +150,8 @@ export default function OnboardingScreen() {
   const canAdvance =
     step === 'welcome'
       ? accepted
+      : step === 'name'
+      ? nameFirst.trim().length > 0
       : step === 'dob'
         ? dobValid
         : step === 'primary'
@@ -155,6 +164,9 @@ export default function OnboardingScreen() {
     if (busy) return;
     setBusy(true);
     const nowIso = new Date().toISOString();
+    // Persist the name to the user's auth identity so it's their display name +
+    // avatar initials everywhere (best-effort; the gate still fails open).
+    if (fullName) await updateName(fullName).catch(() => {});
     try {
       await api.onboarding.save(
         {
@@ -264,6 +276,40 @@ export default function OnboardingScreen() {
                     I agree to SPARx&apos;s Terms of Service and Privacy Policy.
                   </Txt>
                 </Pressable>
+              </View>
+            )}
+
+            {step === 'name' && (
+              <View style={{ gap: Spacing.lg }}>
+                <StepTitle
+                  title="What should we call you?"
+                  subtitle="Your name (and initials) show on your posts and profile in the community. First name is enough — a last name is optional."
+                />
+                <View style={{ gap: Spacing.md }}>
+                  <View style={{ gap: Spacing.xs }}>
+                    <Txt variant="bodySmMedium">First name</Txt>
+                    <TextInput
+                      value={nameFirst}
+                      onChangeText={setNameFirst}
+                      placeholder="Alex"
+                      placeholderTextColor={Colors.textSub}
+                      style={styles.input}
+                      autoCapitalize="words"
+                      returnKeyType="next"
+                    />
+                  </View>
+                  <View style={{ gap: Spacing.xs }}>
+                    <Txt variant="bodySmMedium">Last name (optional)</Txt>
+                    <TextInput
+                      value={nameLast}
+                      onChangeText={setNameLast}
+                      placeholder="Rivera"
+                      placeholderTextColor={Colors.textSub}
+                      style={styles.input}
+                      autoCapitalize="words"
+                    />
+                  </View>
+                </View>
               </View>
             )}
 

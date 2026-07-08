@@ -97,6 +97,7 @@ type Persisted = {
   communityXpDay: { date: string; count: number }; // per-day community XP awards (anti-farm cap)
   pwaBannerDismissed: boolean; // hide the "Install app" home banner once dismissed
   sparkyChat: SparkyChat | null; // persisted Sparky transcript + session (per user), null = fresh (F-M4)
+  avatarRewarded: boolean; // one-time "profile photo added" XP already granted
 };
 
 const EMPTY: Persisted = {
@@ -130,6 +131,7 @@ const EMPTY: Persisted = {
   communityXpDay: { date: '', count: 0 },
   pwaBannerDismissed: false,
   sparkyChat: null,
+  avatarRewarded: false,
 };
 
 type StoreValue = {
@@ -222,6 +224,9 @@ type StoreValue = {
    *  activation rewards like the onboarding "introduce yourself" bonus. Returns
    *  the points added. */
   awardBonus: (points: number) => number;
+  /** One-time bonus for adding a profile photo; returns points earned (0 if
+   *  already claimed). */
+  claimAvatarReward: () => number;
   /** Award community XP for a post/reply, capped per day to deter farming; returns earned. */
   awardCommunityXp: (kind: 'community_post' | 'community_reply') => number;
   // video watches (local until auth)
@@ -561,6 +566,12 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         const p = Math.max(0, Math.round(points));
         if (p > 0) update((s) => ({ ...s, xp: s.xp + p }));
         return p;
+      },
+      claimAvatarReward: () => {
+        if (state.avatarRewarded) return 0;
+        const PROFILE_AVATAR_XP = 25;
+        update((s) => ({ ...s, avatarRewarded: true, xp: s.xp + PROFILE_AVATAR_XP }));
+        return PROFILE_AVATAR_XP;
       },
       awardCommunityXp: (kind) => {
         const todayStr = todayLocal();

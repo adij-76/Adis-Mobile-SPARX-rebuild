@@ -1473,6 +1473,18 @@ export const supabaseAuth: AuthApi = {
     }).catch(() => {});
     return publicUrl;
   },
+  async updateName(name) {
+    const clean = name.trim();
+    const res = await fetch(`${BASE}/auth/v1/user`, {
+      method: 'PUT',
+      headers: { apikey: ANON, Authorization: `Bearer ${authToken ?? ANON}`, 'Content-Type': 'application/json' },
+      // GoTrue user_metadata has precedence for the app's display name (see
+      // auth.tsx apply()), so this becomes the user's name everywhere at once.
+      body: JSON.stringify({ data: { name: clean, full_name: clean } }),
+    });
+    if (res.status === 401) onUnauthorized?.();
+    if (!res.ok) throw new Error(`Couldn't save your name (${res.status}).`);
+  },
   async changePassword(email, current, next) {
     // Reauthenticate: GoTrue has no dedicated reauth endpoint for password users,
     // so verify the CURRENT password by exchanging it for a token (throws if

@@ -36,6 +36,7 @@ type AuthValue = {
   signInWithProvider: (provider: OAuthProvider) => void;
   signOut: () => Promise<void>;
   updateAvatar: (dataUrl: string) => Promise<void>;
+  updateName: (name: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -216,6 +217,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [session],
   );
 
+  const updateName = useCallback(
+    async (name: string) => {
+      if (!session) return;
+      const clean = name.trim();
+      await api.auth.updateName(clean);
+      const next: AuthSession = { ...session, user: { ...session.user, name: clean } };
+      await persist(next);
+      setSession(next);
+    },
+    [session],
+  );
+
   const signOut = useCallback(async () => {
     await api.auth.signOut(session?.accessToken ?? null).catch(() => {});
     setSupabaseToken(null);
@@ -225,8 +238,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [session]);
 
   const value = useMemo<AuthValue>(
-    () => ({ status, user: session?.user ?? null, accessToken: session?.accessToken ?? null, signIn, signUp, signInWithProvider, signOut, updateAvatar }),
-    [status, session, signIn, signUp, signInWithProvider, signOut, updateAvatar],
+    () => ({ status, user: session?.user ?? null, accessToken: session?.accessToken ?? null, signIn, signUp, signInWithProvider, signOut, updateAvatar, updateName }),
+    [status, session, signIn, signUp, signInWithProvider, signOut, updateAvatar, updateName],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
