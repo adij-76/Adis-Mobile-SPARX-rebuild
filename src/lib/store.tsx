@@ -50,6 +50,7 @@ export type CheckinEntry = {
   amount: 'less' | 'same' | 'more' | null;
   count: string;
   affirmation: string;
+  at?: string; // ISO timestamp logged (new check-ins) — drives Early Bird / Night Owl badges
 };
 
 /** `date` (YYYY-MM-DD) minus `n` days, in local time (no UTC drift). */
@@ -227,6 +228,8 @@ type StoreValue = {
   /** One-time bonus for adding a profile photo; returns points earned (0 if
    *  already claimed). */
   claimAvatarReward: () => number;
+  /** Aggregate activity counts used by the badge engine. */
+  badgeStats: { posts: number; comments: number; reactions: number; lessonsCompleted: number };
   /** Award community XP for a post/reply, capped per day to deter farming; returns earned. */
   awardCommunityXp: (kind: 'community_post' | 'community_reply') => number;
   // video watches (local until auth)
@@ -572,6 +575,14 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         const PROFILE_AVATAR_XP = 25;
         update((s) => ({ ...s, avatarRewarded: true, xp: s.xp + PROFILE_AVATAR_XP }));
         return PROFILE_AVATAR_XP;
+      },
+      badgeStats: {
+        posts: state.userPosts.length,
+        comments:
+          Object.values(state.comments).reduce((n, arr) => n + arr.length, 0) +
+          Object.values(state.replies).reduce((n, arr) => n + arr.length, 0),
+        reactions: Object.keys(state.reactions).length + Object.keys(state.commentReactions).length,
+        lessonsCompleted: state.completedLessons.length,
       },
       awardCommunityXp: (kind) => {
         const todayStr = todayLocal();
