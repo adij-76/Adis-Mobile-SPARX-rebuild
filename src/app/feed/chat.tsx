@@ -28,8 +28,8 @@ const POLL_MS = 5000;
 export default function ChatThread() {
   const goBack = useGoBack('/feed/messages');
   const router = useRouter();
-  const { id, name, avatar, group, peer } = useLocalSearchParams<{
-    id: string;
+  const { id: idParam, name, avatar, group, peer } = useLocalSearchParams<{
+    id?: string;
     name?: string;
     avatar?: string;
     group?: string;
@@ -44,7 +44,27 @@ export default function ChatThread() {
   // only a direct thread carries. Groups have no single "other person".
   const peerId = !isGroup && peer ? peer : null;
 
-  const { data, reload } = useAsync(() => api.messages.messages(id), [id]);
+  // The conversation to load/post to. Callers may open this screen with just a
+  // `peer` (e.g. from a member's quick profile) and no conversation yet — in that
+  // case we find-or-create the 1:1 thread here, so the window always opens with
+  // that person instead of dead-ending on the messages list.
+  const [convId, setConvId] = useState<string | undefined>(idParam || undefined);
+  useEffect(() => {
+    if (convId || !peerId) return;
+    let alive = true;
+    api.messages
+      .startDirect(peerId)
+      .then((cid) => alive && cid && setConvId(cid))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [convId, peerId]);
+
+  const { data, reload } = useAsync(
+    () => (convId ? api.messages.messages(convId) : Promise.resolve<ChatMessage[]>([])),
+    [convId],
+  );
   // Optimistic messages we've sent but haven't seen echoed back by a reload yet.
   const [pending, setPending] = useState<ChatMessage[]>([]);
   const [text, setText] = useState('');
@@ -90,21 +110,31 @@ export default function ChatThread() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
-  // Mark the conversation read on open, and poll for new messages.
+  // Mark the conversation read on open, and poll for new messages. Waits until we
+  // have a conversation id (it may be resolving from `peer`).
   useEffect(() => {
-    api.messages.markRead(id).catch(() => {});
     if (peerId) api.messages.blockedIds().then((ids) => setBlocked(ids.includes(peerId))).catch(() => {});
+    if (!convId) return;
+    api.messages.markRead(convId).catch(() => {});
     const t = setInterval(() => {
       reload();
-      api.messages.markRead(id).catch(() => {});
+      api.messages.markRead(convId).catch(() => {});
     }, POLL_MS);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [convId, peerId]);
 
-  const send = () => {
+  const send = async () => {
     const body = text.trim();
     if (!body) return;
+    // If we opened straight from a profile, the conversation may not exist yet —
+    // create it now so the first message lands.
+    let cid = convId;
+    if (!cid && peerId) {
+      cid = (await api.messages.startDirect(peerId).catch(() => null)) ?? undefined;
+      if (cid) setConvId(cid);
+    }
+    if (!cid) return;
     setText('');
     const optimistic: ChatMessage = {
       id: `pending-${Date.now()}`,
@@ -118,7 +148,7 @@ export default function ChatThread() {
     };
     setPending((p) => [...p, optimistic]);
     api.messages
-      .send(id, body, appUserId)
+      .send(cid, body, appUserId)
       .then(() => reload())
       .catch(() => {});
   };

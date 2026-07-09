@@ -28,12 +28,10 @@ export default function Connections() {
     });
   };
 
-  const message = async (c: Connection) => {
-    const convId = await api.messages.startDirect(c.userId);
+  const message = (c: Connection) => {
+    // The chat screen finds-or-creates the 1:1 thread from `peer`.
     router.push(
-      convId
-        ? `/feed/chat?id=${convId}&name=${encodeURIComponent(c.name)}&avatar=${encodeURIComponent(c.avatar)}&peer=${c.userId}`
-        : '/feed/messages',
+      `/feed/chat?peer=${c.userId}&name=${encodeURIComponent(c.name)}&avatar=${encodeURIComponent(c.avatar)}`,
     );
   };
 

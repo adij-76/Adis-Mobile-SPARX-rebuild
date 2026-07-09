@@ -100,17 +100,14 @@ export function UserProfileSheet({
     }
   };
 
-  const message = async () => {
+  const message = () => {
+    if (!userId || !target) return; // no id → can't DM (seed/legacy author); button disabled
+    const { name, avatar } = target;
     onClose();
-    if (!userId) {
-      router.push('/feed/messages');
-      return;
-    }
-    const convId = await api.messages.startDirect(userId);
+    // Open the thread addressed to this member; the chat screen finds-or-creates
+    // the 1:1 conversation from `peer`, so it never dead-ends on the list.
     router.push(
-      convId
-        ? `/feed/chat?id=${convId}&name=${encodeURIComponent(target!.name)}&avatar=${encodeURIComponent(target!.avatar)}&peer=${userId}`
-        : '/feed/messages',
+      `/feed/chat?peer=${userId}&name=${encodeURIComponent(name)}&avatar=${encodeURIComponent(avatar)}`,
     );
   };
 
@@ -172,7 +169,7 @@ export function UserProfileSheet({
                     ) : conn === undefined ? null : (
                       <Button title="Connect" variant="primary" iconLeft="person-add-outline" loading={connBusy} onPress={connect} />
                     )}
-                    <Button title="Message" variant={conn?.status === 'accepted' ? 'primary' : 'outline'} iconLeft="chatbubble-ellipses-outline" onPress={message} />
+                    <Button title="Message" variant={conn?.status === 'accepted' ? 'primary' : 'outline'} iconLeft="chatbubble-ellipses-outline" disabled={!userId} onPress={message} />
                     <Button title="Block" variant="ghost" iconLeft="ban-outline" onPress={block} />
                   </View>
                 </>
