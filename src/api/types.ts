@@ -410,6 +410,11 @@ export type AuthApi = {
    *  `stampChange` records the change time (for the rename cooldown) — set it for
    *  edits, omit it for the initial onboarding set. */
   updateName(name: string, opts?: { stampChange?: boolean }): Promise<void>;
+  /** Submit a name-correction request for admin review (used after the free
+   *  first correction has been used). */
+  requestNameChange(name: string): Promise<void>;
+  /** The caller's pending name-change request (the requested name), or null. */
+  pendingNameChange(): Promise<string | null>;
   /** Change the signed-in user's password. Re-verifies `current` first; throws
    *  on a wrong current password or a failed update. */
   changePassword(email: string, current: string, next: string): Promise<void>;
@@ -698,9 +703,23 @@ export type AdminOverview = {
   active_testers: AdminActiveTester[];
 };
 
+/** A pending name-correction request, as an admin sees it. */
+export type NameChangeRequest = {
+  id: string;
+  requestedName: string;
+  currentName: string | null;
+  email: string | null;
+  createdAt: string | null;
+};
+
 export type AdminApi = {
   /** True if the signed-in user is on the server-side admin allowlist. */
   isAdmin(): Promise<boolean>;
   /** The full admin overview payload. Throws for non-admins. */
   overview(days?: number): Promise<AdminOverview>;
+  /** Pending name-change requests to review. Throws for non-admins. */
+  nameRequests(): Promise<NameChangeRequest[]>;
+  /** Approve or deny a name-change request. Approving writes the new name to the
+   *  member's identity. Throws for non-admins. */
+  reviewNameRequest(id: string, approve: boolean): Promise<void>;
 };

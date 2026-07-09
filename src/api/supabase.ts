@@ -9,6 +9,7 @@
 import type {
   AdminApi,
   AdminOverview,
+  NameChangeRequest,
   Connection,
   ConnectionsApi,
   AssessmentsApi,
@@ -1490,6 +1491,36 @@ export const supabaseAuth: AuthApi = {
     if (res.status === 401) onUnauthorized?.();
     if (!res.ok) throw new Error(`Couldn't save your name (${res.status}).`);
   },
+  async requestNameChange(name) {
+    const clean = name.trim();
+    if (!clean) return;
+    const res = await fetch(`${BASE}/rest/v1/mobile_name_requests`, {
+      method: 'POST',
+      headers: {
+        apikey: ANON,
+        Authorization: `Bearer ${authToken ?? ANON}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({ requested_name: clean }),
+    });
+    if (res.status === 401) onUnauthorized?.();
+    // 409 = a pending request already exists (partial unique index) — treat as ok.
+    if (!res.ok && res.status !== 409) throw new Error(`Couldn't submit your request (${res.status}).`);
+  },
+  async pendingNameChange() {
+    try {
+      const rows = await rest<{ requested_name: string }[]>('mobile_name_requests', {
+        status: 'eq.pending',
+        select: 'requested_name',
+        limit: '1',
+      });
+      return rows[0]?.requested_name ?? null;
+    } catch (e) {
+      if (isMissingView(e)) return null;
+      throw e;
+    }
+  },
   async changePassword(email, current, next) {
     // Reauthenticate: GoTrue has no dedicated reauth endpoint for password users,
     // so verify the CURRENT password by exchanging it for a token (throws if
@@ -1922,5 +1953,19 @@ export const supabaseAdmin: AdminApi = {
   },
   async overview(days = 30): Promise<AdminOverview> {
     return rpc<AdminOverview>('mobile_admin_overview', { p_days: days });
+  },
+  async nameRequests(): Promise<NameChangeRequest[]> {
+    type Row = { id: number | string; requested_name: string; current_name: string | null; email: string | null; created_at: string | null };
+    const rows = await rpc<Row[]>('mobile_admin_name_requests', {});
+    return (rows ?? []).map((r) => ({
+      id: String(r.id),
+      requestedName: r.requested_name,
+      currentName: r.current_name,
+      email: r.email,
+      createdAt: r.created_at,
+    }));
+  },
+  async reviewNameRequest(id, approve) {
+    await rpc<void>('mobile_review_name_request', { p_id: Number(id), p_approve: approve });
   },
 };

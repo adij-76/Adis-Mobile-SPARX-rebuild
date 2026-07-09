@@ -199,6 +199,8 @@ export const mockAuth: AuthApi = {
     Promise.resolve({ ...mockSession('okeijoseph@sparx.app'), accessToken, refreshToken }),
   updateAvatar: (dataUrl) => delay(dataUrl),
   updateName: (_name, _opts) => delay(undefined),
+  requestNameChange: () => delay(undefined),
+  pendingNameChange: () => delay(null),
   changePassword: (_email, current, next) =>
     !current
       ? Promise.reject(new Error('Enter your current password'))
@@ -847,4 +849,6 @@ export const mockAdmin: AdminApi = {
         },
       ],
     }),
+  nameRequests: () => delay([]),
+  reviewNameRequest: () => delay(undefined),
 };

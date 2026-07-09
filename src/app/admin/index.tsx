@@ -1,13 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { api } from '@/api';
+import { Button } from '@/components/ui/button';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
-import type { AdminActiveTester, AdminOverview } from '@/api';
+import type { AdminActiveTester, AdminOverview, NameChangeRequest } from '@/api';
 
 /**
  * Hidden admin backend — reachable only by navigating to `/admin` (no tab, no
@@ -75,6 +77,8 @@ function Overview({ data }: { data: AdminOverview }) {
         <View style={styles.tileSpacer} />
       </View>
 
+      <NameRequests />
+
       <Section title={`Active testers (${data.active_testers.length})`}>
         {data.active_testers.length === 0 ? (
           <Txt variant="bodySm" color={Colors.textSub}>
@@ -109,6 +113,54 @@ function Overview({ data }: { data: AdminOverview }) {
         </Txt>
       </Section>
     </>
+  );
+}
+
+/** Pending member name-correction requests: approve (writes the new name) or deny. */
+function NameRequests() {
+  const query = useAsync<NameChangeRequest[]>(() => api.admin.nameRequests(), []);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const rows = query.data ?? [];
+
+  const review = async (id: string, approve: boolean) => {
+    setBusyId(id);
+    try {
+      await api.admin.reviewNameRequest(id, approve);
+      query.reload();
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <Section title={`Name requests${rows.length ? ` (${rows.length})` : ''}`}>
+      {query.loading ? (
+        <Txt variant="bodySm" color={Colors.textSub}>
+          Loading…
+        </Txt>
+      ) : rows.length === 0 ? (
+        <Txt variant="bodySm" color={Colors.textSub}>
+          No pending name-change requests.
+        </Txt>
+      ) : (
+        rows.map((r) => (
+          <View key={r.id} style={styles.reqRow}>
+            <View style={{ flex: 1 }}>
+              <Txt variant="bodySmMedium" color={Colors.textMain} numberOfLines={1}>
+                {r.currentName || '—'} → {r.requestedName}
+              </Txt>
+              <Txt variant="caption" color={Colors.textSub} numberOfLines={1}>
+                {r.email}
+              </Txt>
+            </View>
+            <View style={styles.reqActions}>
+              <Button title="Approve" variant="primary" fullWidth={false} loading={busyId === r.id} onPress={() => review(r.id, true)} />
+              <Button title="Deny" variant="ghost" fullWidth={false} disabled={busyId === r.id} onPress={() => review(r.id, false)} />
+            </View>
+          </View>
+        ))
+      )}
+    </Section>
   );
 }
 
@@ -226,6 +278,15 @@ const styles = StyleSheet.create({
   },
   metaRow: { flexDirection: 'row', gap: Spacing.xs, marginTop: Spacing.xs },
   counts: { flexDirection: 'row', gap: Spacing.md },
+  reqRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.soft,
+    gap: Spacing.md,
+  },
+  reqActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   count: { alignItems: 'center', minWidth: 34 },
   chip: { paddingHorizontal: Spacing.sm, paddingVertical: 2, borderRadius: Radius.pill },
   dayRow: {
