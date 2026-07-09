@@ -6,20 +6,23 @@ import { htmlToText, sanitizeHtml } from '@/lib/html';
 
 // Scoped styles for the rendered HTML so it reads in the app's type/colour and
 // prod inline styling (giant headers, grey spans) is normalised. Injected once.
+// Colours reference the theme CSS variables (see +html.tsx / theme.ts) with the
+// light hex as fallback, so post bodies stay readable in dark mode instead of
+// rendering dark ink on a dark surface.
 const RICH_CSS = `
-.sparx-rich { font-family: Lato_400Regular, system-ui, sans-serif; font-size: 14px; line-height: 20px; color: #1A2B3B; word-break: break-word; }
+.sparx-rich { font-family: Lato_400Regular, system-ui, sans-serif; font-size: 14px; line-height: 20px; color: var(--c-textMain, #1A2B3B); word-break: break-word; }
 .sparx-rich p { margin: 0 0 8px; }
 .sparx-rich p:last-child { margin-bottom: 0; }
 .sparx-rich h1, .sparx-rich h2, .sparx-rich h3, .sparx-rich h4 { font-family: Lato_700Bold; font-size: 15px; line-height: 22px; margin: 10px 0 4px; }
 .sparx-rich strong, .sparx-rich b { font-family: Lato_700Bold; }
-.sparx-rich a { color: #166890; text-decoration: underline; }
+.sparx-rich a { color: var(--c-link, #166890); text-decoration: underline; }
 .sparx-rich ul, .sparx-rich ol { margin: 4px 0 8px; padding-left: 20px; }
 .sparx-rich li { margin: 2px 0; }
-.sparx-rich blockquote { margin: 6px 0; padding-left: 12px; border-left: 3px solid #E3E8EF; color: #55636F; }
+.sparx-rich blockquote { margin: 6px 0; padding-left: 12px; border-left: 3px solid var(--c-stroke, #E3E8EF); color: var(--c-textSub, #55636F); }
 .sparx-rich img { max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0; display: block; }
 .sparx-rich table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 13px; display: block; overflow-x: auto; }
-.sparx-rich td, .sparx-rich th { border: 1px solid #E3E8EF; padding: 6px 8px; text-align: left; vertical-align: top; }
-.sparx-rich th { background: #F4F7FA; font-family: Lato_700Bold; }
+.sparx-rich td, .sparx-rich th { border: 1px solid var(--c-stroke, #E3E8EF); padding: 6px 8px; text-align: left; vertical-align: top; }
+.sparx-rich th { background: var(--c-soft, #F4F7FA); font-family: Lato_700Bold; }
 `;
 
 let cssInjected = false;
