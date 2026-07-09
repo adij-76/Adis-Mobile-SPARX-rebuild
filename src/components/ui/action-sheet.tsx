@@ -69,7 +69,7 @@ export function ActionSheet({
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   sheetWrap: { padding: Spacing.md, gap: Spacing.sm },
-  sheet: { backgroundColor: Colors.white, borderRadius: Radius.lg, overflow: 'hidden' },
+  sheet: { backgroundColor: Colors.surface, borderRadius: Radius.lg, overflow: 'hidden' },
   title: { paddingTop: Spacing.md, paddingBottom: Spacing.sm },
   row: {
     flexDirection: 'row',
@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
   },
   rowDivider: { borderBottomWidth: 1, borderBottomColor: Colors.stroke },
   cancel: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
     paddingVertical: Spacing.lg,
     alignItems: 'center',

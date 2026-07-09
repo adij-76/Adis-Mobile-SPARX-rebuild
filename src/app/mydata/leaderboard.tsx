@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.stroke,
     borderRadius: Radius.md,
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     borderWidth: 1.5,
     borderRadius: Radius.md,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
   },
   youRank: {
     minWidth: 34,

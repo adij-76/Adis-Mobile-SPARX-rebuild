@@ -131,7 +131,7 @@ function OutlineModule({
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.white },
+  root: { flex: 1, backgroundColor: Colors.surface },
   heading: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.md, paddingBottom: Spacing.sm },
   module: { borderTopWidth: 1, borderTopColor: Colors.stroke },
   moduleHead: {

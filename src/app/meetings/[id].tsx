@@ -147,7 +147,7 @@ export default function MeetingDetail() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.white },
+  safe: { flex: 1, backgroundColor: Colors.surface },
   header: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   body: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xl, gap: Spacing.lg },
@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
   },
   modalCard: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderRadius: Radius.xl,
     padding: Spacing.xl,
     gap: Spacing.md,

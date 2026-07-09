@@ -133,7 +133,7 @@ export function StatementView({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.white },
+  safe: { flex: 1, backgroundColor: Colors.surface },
   top: {
     flexDirection: 'row',
     alignItems: 'center',

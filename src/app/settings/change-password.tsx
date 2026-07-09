@@ -124,7 +124,7 @@ export default function ChangePassword() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.white },
+  safe: { flex: 1, backgroundColor: Colors.surface },
   body: { padding: Spacing.lg, gap: Spacing.lg },
   input: {
     backgroundColor: Colors.screen,

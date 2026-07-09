@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     gap: Spacing.md,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.stroke,
     borderRadius: Radius.md,

@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.stroke,
     borderRadius: Radius.md,
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
   quick: { flexDirection: 'row', gap: Spacing.lg },
   quickItem: {
     flex: 1,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.stroke,
     borderRadius: Radius.lg,

@@ -133,7 +133,7 @@ export default function ManageMeetings() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.white },
+  safe: { flex: 1, backgroundColor: Colors.surface },
   header: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, gap: Spacing.md },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   segment: {

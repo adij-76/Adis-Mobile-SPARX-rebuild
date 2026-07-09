@@ -108,7 +108,7 @@ export default function Messages() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.white },
+  safe: { flex: 1, backgroundColor: Colors.surface },
   compose: { padding: Spacing.xs },
   list: { padding: Spacing.lg, flexGrow: 1 },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.md },

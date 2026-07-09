@@ -349,7 +349,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
   },
   bubbleSparky: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.stroke,
     borderBottomLeftRadius: 4,
@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
     maxWidth: '86%',
     borderRadius: Radius.lg,
     overflow: 'hidden',
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.stroke,
   },
@@ -403,7 +403,7 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     borderTopWidth: 1,
     borderTopColor: Colors.stroke,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
   },
   input: {
     flex: 1,

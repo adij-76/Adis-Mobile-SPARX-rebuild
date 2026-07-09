@@ -213,7 +213,7 @@ export default function AssessmentsHub() {
 
 const styles = StyleSheet.create({
   gutter: { backgroundColor: Colors.screen },
-  safe: { flex: 1, backgroundColor: Colors.white },
+  safe: { flex: 1, backgroundColor: Colors.surface },
   body: { padding: Spacing.lg, gap: Spacing.lg },
   banner: {
     flexDirection: 'row',
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Colors.stroke,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
   },
   cardDone: { backgroundColor: Colors.screen },
   cardIcon: {

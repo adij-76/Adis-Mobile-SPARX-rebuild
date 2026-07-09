@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.screen },
   body: { padding: Spacing.lg, gap: Spacing.md },
   item: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.stroke,
     borderRadius: 12,

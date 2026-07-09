@@ -268,12 +268,12 @@ function ResultView({
 
 const styles = StyleSheet.create({
   gutter: { backgroundColor: Colors.screen },
-  safe: { flex: 1, backgroundColor: Colors.white },
+  safe: { flex: 1, backgroundColor: Colors.surface },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   titleWrap: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.md, gap: 4 },
   body: { padding: Spacing.lg, gap: Spacing.lg, paddingBottom: Spacing.xxl },
   qCard: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Colors.stroke,
@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
   optionRowActive: { borderColor: Colors.primary, backgroundColor: 'rgba(22,104,144,0.06)' },
   footer: { padding: Spacing.lg },
   // result
-  resultRoot: { flex: 1, backgroundColor: Colors.white },
+  resultRoot: { flex: 1, backgroundColor: Colors.surface },
   resultBody: { padding: Spacing.xl, gap: Spacing.md, alignItems: 'center', flexGrow: 1, justifyContent: 'center' },
   resultBadge: {
     width: 88,

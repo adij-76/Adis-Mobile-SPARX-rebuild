@@ -123,7 +123,7 @@ export function GroupCard({ group, userTz, onToggleSignup, busy }: GroupCardProp
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
     borderWidth: 1,
     borderColor: Colors.stroke,

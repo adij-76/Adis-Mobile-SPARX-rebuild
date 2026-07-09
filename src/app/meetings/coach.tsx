@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.screen },
   body: { padding: Spacing.lg, gap: Spacing.md },
   card: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
     borderWidth: 1,
     borderColor: Colors.stroke,
@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     borderTopWidth: 1,
     borderTopColor: Colors.stroke,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
   },
   secure: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.xs },
 });

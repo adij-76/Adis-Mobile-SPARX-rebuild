@@ -47,7 +47,7 @@ export function Segmented<T extends string>({
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: Spacing.sm },
   inset: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Colors.stroke,

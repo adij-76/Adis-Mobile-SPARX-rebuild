@@ -91,7 +91,7 @@ export default function VideosList() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.white },
+  safe: { flex: 1, backgroundColor: Colors.surface },
   sourceRow: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.sm },
   list: { padding: Spacing.lg, gap: Spacing.lg },
   card: { flexDirection: 'row', gap: Spacing.md, alignItems: 'center' },

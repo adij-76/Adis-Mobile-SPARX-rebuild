@@ -50,7 +50,7 @@ export function ConfirmSheet({
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: Colors.overlay },
   sheet: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderTopLeftRadius: Radius.xl,
     borderTopRightRadius: Radius.xl,
     padding: Spacing.xl,

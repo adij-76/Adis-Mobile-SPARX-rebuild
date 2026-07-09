@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   sheetWrap: { width: '100%' },
   sheet: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderTopLeftRadius: Radius.lg,
     borderTopRightRadius: Radius.lg,
     padding: Spacing.xl,

@@ -611,7 +611,7 @@ function CheckinSummary({
 
 const styles = StyleSheet.create({
   gutter: { backgroundColor: Colors.screen },
-  safe: { flex: 1, backgroundColor: Colors.white },
+  safe: { flex: 1, backgroundColor: Colors.surface },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -647,7 +647,7 @@ const styles = StyleSheet.create({
   sliderWrap: { gap: Spacing.sm, paddingTop: Spacing.xl },
   tooltip: {
     alignSelf: 'flex-start',
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.stroke,
     borderRadius: Radius.sm,

@@ -696,7 +696,7 @@ function Finish({
 
 const styles = StyleSheet.create({
   gutter: { backgroundColor: Colors.screen },
-  safe: { flex: 1, backgroundColor: Colors.white },
+  safe: { flex: 1, backgroundColor: Colors.surface },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -1,6 +1,8 @@
 import { ScrollViewStyleReset } from 'expo-router/html';
 import { type PropsWithChildren } from 'react';
 
+import { THEME_DARK, THEME_LIGHT } from '@/constants/theme';
+
 /**
  * Custom HTML shell for the web export (static). Adds a Content-Security-Policy
  * (S-H2): the app can't set response headers on GitHub Pages, so the policy
@@ -34,6 +36,21 @@ const CSP = [
 // export time (this shell renders in Node during the static export).
 const BASE = (process.env.EXPO_PUBLIC_BASE_URL ?? '').replace(/\/$/, '');
 
+// Dark-mode CSS variables. The themeable neutral tokens (theme.ts) resolve to
+// these `--c-*` vars on web, so flipping `data-theme` on <html> re-themes the
+// whole app. Default = light; follow the OS when no explicit choice is stored;
+// `data-theme="light|dark"` (set by the Theme setting) forces one.
+const vars = (map: Record<string, string>) =>
+  Object.entries(map)
+    .map(([k, v]) => `--c-${k}:${v};`)
+    .join('');
+const THEME_CSS = `
+:root{color-scheme:light;${vars(THEME_LIGHT)}}
+:root[data-theme="dark"]{color-scheme:dark;${vars(THEME_DARK)}}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;${vars(THEME_DARK)}}}
+html,body,#root{background-color:var(--c-screen);}
+`;
+
 export default function Root({ children }: PropsWithChildren) {
   return (
     <html lang="en">
@@ -46,6 +63,18 @@ export default function Root({ children }: PropsWithChildren) {
         />
         <meta httpEquiv="Content-Security-Policy" content={CSP} />
         <meta name="referrer" content="strict-origin-when-cross-origin" />
+
+        {/* Dark-mode CSS variables (see theme.ts). Inline so they apply before
+            first paint — no flash. Allowed by the CSP's style-src 'unsafe-inline'. */}
+        <style dangerouslySetInnerHTML={{ __html: THEME_CSS }} />
+        {/* Apply the saved theme choice before React mounts, to avoid a flash of
+            the wrong theme on load. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{var m=localStorage.getItem('igntd.theme');if(m==='dark'||m==='light')document.documentElement.setAttribute('data-theme',m);}catch(e){}",
+          }}
+        />
 
         {/* PWA: installable, standalone, themed status bar (F-H1). */}
         <link rel="manifest" href={`${BASE}/manifest.webmanifest`} />

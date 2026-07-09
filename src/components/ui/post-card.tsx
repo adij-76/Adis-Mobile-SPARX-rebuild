@@ -246,7 +246,7 @@ export function PostCard({ post, onPress, full }: PostCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
     borderWidth: 1,
     borderColor: Colors.stroke,

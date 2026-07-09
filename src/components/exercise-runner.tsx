@@ -742,7 +742,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.stroke,
     borderRadius: Radius.md,
     padding: Spacing.lg,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
   },
   sheetIcon: {
     width: 40,
@@ -754,7 +754,7 @@ const styles = StyleSheet.create({
   },
   sheetIconDone: { backgroundColor: Colors.success },
   // runner
-  runnerSafe: { flex: 1, backgroundColor: Colors.white },
+  runnerSafe: { flex: 1, backgroundColor: Colors.surface },
   runnerTop: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -793,7 +793,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.stroke,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
   },
   scaleDotOn: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   scaleEnds: { flexDirection: 'row', gap: Spacing.md },
