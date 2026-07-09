@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState } from 'react';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Txt } from '@/components/ui/text';
-import { Colors, Spacing } from '@/constants/theme';
+import { Colors, Radius, Shadow, Spacing } from '@/constants/theme';
 import { user } from '@/data/content';
 import { useAuth } from '@/lib/auth';
 import { todayLocal } from '@/lib/checkin';
@@ -17,14 +18,28 @@ export type AppHeaderProps = {
   hasNotifications?: boolean;
 };
 
+/** Secondary quick-jumps that live behind the "⋯" menu. These are useful from any
+ *  tab but aren't primary comms (bell/messages) or safety (help), and they're
+ *  otherwise buried (reachable from only one screen). Account/settings live on
+ *  the Profile screen behind the avatar, so they deliberately stay out of here. */
+const MENU: { label: string; icon: keyof typeof Ionicons.glyphMap; route: string }[] = [
+  { label: 'Saved', icon: 'bookmark-outline', route: '/favorites' },
+  { label: 'Achievements', icon: 'trophy-outline', route: '/achievements' },
+  { label: 'Meetings', icon: 'calendar-outline', route: '/meetings' },
+  { label: 'Leaderboard', icon: 'podium-outline', route: '/mydata/leaderboard' },
+];
+
 /**
- * Global app header used across all tabs for consistency:
- * avatar + greeting on the left, bell / chat / bookmark on the right.
+ * Global app header used across all tabs for consistency: avatar + greeting on
+ * the left; on the right the primary actions stay visible (help / bell / chat)
+ * and everything secondary folds into a "⋯" menu.
  */
 export function AppHeader({ hasNotifications }: AppHeaderProps) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user: authUser } = useAuth();
   const { checkins, isNotifDismissed } = useStore();
+  const [menuOpen, setMenuOpen] = useState(false);
   const firstName = (authUser?.name?.trim() || authUser?.email?.split('@')[0] || 'there').split(' ')[0];
   // Real unread signal (replaces the always-on dot): today's check-in is still
   // outstanding and its reminder hasn't been dismissed. Callers can still force
@@ -33,6 +48,12 @@ export function AppHeader({ hasNotifications }: AppHeaderProps) {
   const checkinOutstanding =
     !checkins.some((c) => c.date === today) && !isNotifDismissed(`checkin-${today}`);
   const showDot = hasNotifications ?? checkinOutstanding;
+
+  const go = (route: string) => {
+    setMenuOpen(false);
+    router.push(route as never);
+  };
+
   return (
     <SafeAreaView edges={['top']} style={styles.safe}>
       <View style={styles.row}>
@@ -64,9 +85,31 @@ export function AppHeader({ hasNotifications }: AppHeaderProps) {
             onPress={() => router.push('/notifications')}
           />
           <IconBtn name="chatbubbles-outline" label="Messages" onPress={() => router.push('/feed/messages')} />
-          <IconBtn name="bookmark-outline" label="Saved" onPress={() => router.push('/favorites')} />
+          <IconBtn name="ellipsis-horizontal" label="More" onPress={() => setMenuOpen(true)} />
         </View>
       </View>
+
+      {/* Overflow menu: secondary quick-jumps. A light dropdown anchored under the
+          icon row; tapping the backdrop or an item closes it. */}
+      <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
+        <Pressable style={styles.menuBackdrop} onPress={() => setMenuOpen(false)}>
+          <View style={[styles.menuCard, { top: insets.top + 54 }]}>
+            {MENU.map((item, i) => (
+              <Pressable
+                key={item.route}
+                style={[styles.menuRow, i < MENU.length - 1 && styles.menuDivider]}
+                onPress={() => go(item.route)}
+                accessibilityRole="button"
+                accessibilityLabel={item.label}>
+                <Ionicons name={item.icon} size={20} color={Colors.primary} />
+                <Txt variant="bodyMedium" color={Colors.textMain}>
+                  {item.label}
+                </Txt>
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -135,4 +178,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.primaryDark,
   },
+  menuBackdrop: { flex: 1, backgroundColor: 'transparent' },
+  menuCard: {
+    position: 'absolute',
+    right: Spacing.lg,
+    minWidth: 200,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.stroke,
+    paddingVertical: Spacing.xs,
+    ...Shadow.card,
+  },
+  menuRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+  },
+  menuDivider: { borderBottomWidth: 1, borderBottomColor: Colors.stroke },
 });
