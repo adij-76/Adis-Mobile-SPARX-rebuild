@@ -23,6 +23,7 @@ export const THEME_LIGHT = {
   textSub: '#525866', // text/sub-500
   highlight: '#FFF1E7', // soft peach surface (selected / "you" / banners)
   highlightBorder: '#FFD9B8',
+  link: '#166890', // inline links in rendered community HTML (brand teal)
 } as const;
 
 /** Dark-mode values for the same tokens. */
@@ -36,6 +37,7 @@ export const THEME_DARK = {
   textSub: '#9AA2AE',
   highlight: '#2A2117',
   highlightBorder: '#4A3722',
+  link: '#5AB0D6', // brighter teal — reads on the dark surface
 } as const;
 
 type ThemeToken = keyof typeof THEME_LIGHT;

@@ -772,7 +772,12 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     padding: Spacing.lg,
   },
-  checklist: { padding: Spacing.lg, gap: Spacing.sm },
+  checklist: {
+    padding: Spacing.lg,
+    gap: Spacing.sm,
+    borderWidth: 1.5,
+    borderColor: Colors.orange, // orange accent so the daily checklist stands out (esp. in dark)
+  },
   checklistHead: {
     flexDirection: 'row',
     alignItems: 'center',
