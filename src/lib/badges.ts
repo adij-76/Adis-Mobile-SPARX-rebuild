@@ -8,9 +8,12 @@
  * All rules are pure functions of the snapshot, so counts are idempotent and
  * survive recompute. Thresholds are meant to be tuned.
  *
- * Phase 1 covers everything computable from check-ins, community activity, XP and
- * profile. Assessment / connection / meeting / tenure / time-window learning
- * badges land in phase 2 (they need extra data plumbing).
+ * Phase 1 covered everything computable from check-ins, community activity, XP
+ * and profile. Phase 2 adds the client-side categories that only needed a little
+ * extra data the app already has: connection (accepted allies), assessment
+ * (screener battery + improvement), and tenure (days since joining). Meeting
+ * (needs attendance tracking) and time-window learning (needs per-completion
+ * timestamps) still await plumbing — see GitHub #195.
  */
 export type BadgeCategory = 'streaks' | 'recovery' | 'learning' | 'community' | 'profile';
 
@@ -22,6 +25,14 @@ export type BadgeCheckin = {
   at?: string; // ISO timestamp of when it was logged (new check-ins only)
 };
 
+/** One completed assessment take, for the assessment badges (lower score = better
+ *  on the wellbeing screeners, so a drop over time is improvement). */
+export type BadgeAssessment = {
+  instrument: string; // AssessmentId ('gad7' | 'phq9' | …)
+  score: number | null;
+  takenAt: string; // ISO
+};
+
 export type BadgeContext = {
   checkins: BadgeCheckin[];
   xp: number;
@@ -30,6 +41,13 @@ export type BadgeContext = {
   reactions: number;
   lessonsCompleted: number;
   profileComplete: boolean;
+  /** Accepted member connections ("allies"). */
+  connections: number;
+  /** The user's completed assessment takes (for Self-Aware / On the Upswing). */
+  assessments: BadgeAssessment[];
+  /** Whole days since the user joined (earliest of onboarding completion / first
+   *  check-in). 0 when unknown. */
+  tenureDays: number;
 };
 
 export type BadgeDef = {
@@ -126,6 +144,28 @@ function hourOf(c: BadgeCheckin): number | null {
   return Number.isNaN(d.getTime()) ? null : d.getHours();
 }
 
+// The universal wellbeing screeners everyone takes — used for the assessment
+// badges. Lower scores are better, so a later score below an earlier one is
+// improvement ("On the Upswing").
+const SCREENERS = ['gad7', 'phq9'];
+
+/** True once the user has completed the core screening battery (GAD-7 + PHQ-9). */
+function batteryComplete(assessments: BadgeAssessment[]): boolean {
+  const taken = new Set(assessments.map((a) => a.instrument));
+  return SCREENERS.every((id) => taken.has(id));
+}
+
+/** True when a screener's most recent score is below its earliest — the user is
+ *  trending better on at least one instrument. Needs ≥2 scored takes of it. */
+function screenersImproving(assessments: BadgeAssessment[]): boolean {
+  return SCREENERS.some((id) => {
+    const takes = assessments
+      .filter((a) => a.instrument === id && a.score != null)
+      .sort((a, b) => a.takenAt.localeCompare(b.takenAt));
+    return takes.length >= 2 && (takes[takes.length - 1].score as number) < (takes[0].score as number);
+  });
+}
+
 // ---- catalogue -------------------------------------------------------------
 
 export const BADGES: BadgeDef[] = [
@@ -147,6 +187,8 @@ export const BADGES: BadgeDef[] = [
   { id: 'freedom_streak', category: 'recovery', emoji: '🕊️', title: 'Freedom Streak', hint: 'Log behavior-free days — earned again every 30.', kind: 'repeat', evaluate: (c) => Math.floor(c.checkins.filter((x) => x.behavior === 'no').length / 30) },
   { id: 'positive_pattern', category: 'recovery', emoji: '☀️', title: 'Positive Pattern', hint: 'Log a positive mood 7 days in a row.', kind: 'repeat', evaluate: (c) => qualifyingWeekBlocks(c.checkins, (x) => x.mood >= 60) },
   { id: 'affirmation_master', category: 'recovery', emoji: '💬', title: 'Affirmation Master', hint: 'Write an affirmation 7 days in a row.', kind: 'repeat', evaluate: (c) => qualifyingWeekBlocks(c.checkins, (x) => x.affirmation.trim().length > 0) },
+  { id: 'self_aware', category: 'recovery', emoji: '🧭', title: 'Self-Aware', hint: 'Complete your first full check-in battery (anxiety + mood).', kind: 'once', evaluate: (c) => (batteryComplete(c.assessments) ? 1 : 0) },
+  { id: 'on_the_upswing', category: 'recovery', emoji: '📈', title: 'On the Upswing', hint: 'Retake a check-in and score better than your first.', kind: 'once', evaluate: (c) => (screenersImproving(c.assessments) ? 1 : 0) },
 
   // Learning
   { id: 'first_steps', category: 'learning', emoji: '📗', title: 'First Steps', hint: 'Complete your first lesson.', kind: 'once', evaluate: (c) => (c.lessonsCompleted >= 1 ? 1 : 0) },
@@ -156,9 +198,13 @@ export const BADGES: BadgeDef[] = [
   { id: 'storyteller', category: 'community', emoji: '📣', title: 'Storyteller', hint: 'Share posts — earned again every 5.', kind: 'repeat', evaluate: (c) => Math.floor(c.posts / 5) },
   { id: 'encourager', category: 'community', emoji: '🫶', title: 'Encourager', hint: 'Leave comments — earned again every 10.', kind: 'repeat', evaluate: (c) => Math.floor(c.comments / 10) },
   { id: 'supporter', category: 'community', emoji: '❤️', title: 'Supporter', hint: 'React to others — earned again every 10.', kind: 'repeat', evaluate: (c) => Math.floor(c.reactions / 10) },
+  { id: 'connector', category: 'community', emoji: '🤝', title: 'Connector', hint: 'Make your first member connection.', kind: 'once', evaluate: (c) => (c.connections >= 1 ? 1 : 0) },
+  { id: 'inner_circle', category: 'community', emoji: '👥', title: 'Inner Circle', hint: 'Build 5 member connections.', kind: 'once', evaluate: (c) => (c.connections >= 5 ? 1 : 0) },
 
   // Profile & meta
   { id: 'all_dressed_up', category: 'profile', emoji: '✨', title: 'All Dressed Up', hint: 'Add your name and a profile photo.', kind: 'once', evaluate: (c) => (c.profileComplete ? 1 : 0) },
+  { id: 'one_month_in', category: 'profile', emoji: '📆', title: 'One Month In', hint: 'Stay with SPARx for 30 days.', kind: 'once', evaluate: (c) => (c.tenureDays >= 30 ? 1 : 0) },
+  { id: 'anniversary', category: 'profile', emoji: '🎉', title: 'Anniversary', hint: 'Reach one year with SPARx.', kind: 'once', evaluate: (c) => (c.tenureDays >= 365 ? 1 : 0) },
   { id: 'level_100', category: 'profile', emoji: '🥉', title: '100 XP', hint: 'Earn 100 XP.', kind: 'once', evaluate: (c) => (c.xp >= 100 ? 1 : 0) },
   { id: 'level_500', category: 'profile', emoji: '🥈', title: '500 XP', hint: 'Earn 500 XP.', kind: 'once', evaluate: (c) => (c.xp >= 500 ? 1 : 0) },
   { id: 'level_1000', category: 'profile', emoji: '🥇', title: '1,000 XP', hint: 'Earn 1,000 XP.', kind: 'once', evaluate: (c) => (c.xp >= 1000 ? 1 : 0) },

@@ -47,11 +47,14 @@ export function AppHeader({ hasNotifications }: AppHeaderProps) {
           </Txt>
         </Pressable>
         <View style={styles.icons}>
-          {/* Always-reachable crisis/safety affordance (audit F-H3) — a discreet
-              lifebuoy that matches the other header icons rather than a loud pill. */}
+          {/* Always-reachable crisis/safety affordance (audit F-H3). Kept the same
+              compact size as the other icons, but filled in the orange CTA colour
+              (with a solid medkit glyph) so it reads clearly as "get help now"
+              instead of blending into the row. */}
           <IconBtn
-            name="medkit-outline"
+            name="medkit"
             label="Get help — crisis and support resources"
+            emphasis
             onPress={() => router.push('/crisis')}
           />
           <IconBtn
@@ -72,16 +75,19 @@ function IconBtn({
   name,
   label,
   dot,
+  emphasis,
   onPress,
 }: {
   name: keyof typeof Ionicons.glyphMap;
   label: string;
   dot?: boolean;
+  /** Fill the button in the CTA colour to make it stand out (crisis/help). */
+  emphasis?: boolean;
   onPress?: () => void;
 }) {
   return (
     <Pressable
-      style={styles.iconBtn}
+      style={[styles.iconBtn, emphasis && styles.iconBtnEmphasis]}
       hitSlop={8}
       onPress={onPress}
       accessibilityRole="button"
@@ -111,6 +117,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  iconBtnEmphasis: {
+    backgroundColor: Colors.orange,
+    // A subtle ring so it still reads on lighter backdrops.
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
   },
   dot: {
     position: 'absolute',
