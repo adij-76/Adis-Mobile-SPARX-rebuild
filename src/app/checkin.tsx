@@ -62,6 +62,7 @@ export default function CheckinScreen() {
   const finish = async () => {
     const entry = {
       date: todayLocal(),
+      at: new Date().toISOString(),
       mood,
       positive,
       negative,

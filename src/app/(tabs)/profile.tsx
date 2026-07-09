@@ -12,7 +12,7 @@ import { Screen } from '@/components/layout/screen';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ListRow } from '@/components/ui/list-row';
-import { StreakBadges } from '@/components/streak-badges';
+import { BadgesRow } from '@/components/badges-row';
 import { Txt } from '@/components/ui/text';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { user } from '@/data/content';
@@ -161,7 +161,7 @@ export default function ProfileScreen() {
           ))}
         </Card>
 
-        <StreakBadges />
+        <BadgesRow />
 
         <Pressable onPress={() => router.push('/settings/premium')}>
           <View style={[styles.premium, isPremium && styles.premiumActive]}>
