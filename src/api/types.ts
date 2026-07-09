@@ -333,6 +333,9 @@ export type AuthUser = {
   id: string;
   email: string;
   name: string | null;
+  /** When the display name was last CHANGED via the profile editor (ISO), for the
+   *  rename cooldown. null = never changed (onboarding's initial set doesn't count). */
+  nameUpdatedAt: string | null;
   avatarUrl: string | null;
   appUserId: string | null;
 
@@ -403,8 +406,10 @@ export type AuthApi = {
   sessionFromTokens(accessToken: string, refreshToken: string): Promise<AuthSession>;
   /** Persist a new avatar (uploads when a backend exists) and return its URL. */
   updateAvatar(dataUrl: string, userId: string): Promise<string>;
-  /** Persist the signed-in user's display name to their auth identity. */
-  updateName(name: string): Promise<void>;
+  /** Persist the signed-in user's display name to their auth identity.
+   *  `stampChange` records the change time (for the rename cooldown) — set it for
+   *  edits, omit it for the initial onboarding set. */
+  updateName(name: string, opts?: { stampChange?: boolean }): Promise<void>;
   /** Change the signed-in user's password. Re-verifies `current` first; throws
    *  on a wrong current password or a failed update. */
   changePassword(email: string, current: string, next: string): Promise<void>;

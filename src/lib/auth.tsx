@@ -36,7 +36,7 @@ type AuthValue = {
   signInWithProvider: (provider: OAuthProvider) => void;
   signOut: () => Promise<void>;
   updateAvatar: (dataUrl: string) => Promise<void>;
-  updateName: (name: string) => Promise<void>;
+  updateName: (name: string, opts?: { stampChange?: boolean }) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -218,11 +218,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const updateName = useCallback(
-    async (name: string) => {
+    async (name: string, opts?: { stampChange?: boolean }) => {
       if (!session) return;
       const clean = name.trim();
-      await api.auth.updateName(clean);
-      const next: AuthSession = { ...session, user: { ...session.user, name: clean } };
+      await api.auth.updateName(clean, opts);
+      const next: AuthSession = {
+        ...session,
+        user: {
+          ...session.user,
+          name: clean,
+          nameUpdatedAt: opts?.stampChange ? new Date().toISOString() : session.user.nameUpdatedAt,
+        },
+      };
       await persist(next);
       setSession(next);
     },

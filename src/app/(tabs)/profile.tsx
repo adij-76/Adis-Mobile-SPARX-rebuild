@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { api } from '@/api';
 import { useAsync } from '@/hooks/use-async';
@@ -25,11 +25,12 @@ import { useStore } from '@/lib/store';
 export default function ProfileScreen() {
   const router = useRouter();
   const { clearAll, checkins, completedLessonIds, xp, claimAvatarReward } = useStore();
-  const { user: authUser, signOut, updateAvatar } = useAuth();
+  const { user: authUser, signOut, updateAvatar, updateName } = useAuth();
   const [confirm, setConfirm] = useState<null | 'logout' | 'delete'>(null);
   const [uploading, setUploading] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [avatarNote, setAvatarNote] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState(false);
   // Admin allowlist is enforced server-side; this just decides whether to show
   // the hidden entry point (the /admin screen re-checks and denies non-admins).
   const { data: isAdmin } = useAsync(() => api.admin.isAdmin(), [authUser?.email]);
@@ -113,7 +114,14 @@ export default function ProfileScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.profileCard}>
           <Image source={{ uri: avatarUri }} style={styles.avatar} />
-          <Txt variant="title">{displayName}</Txt>
+          <Pressable
+            style={styles.nameRow}
+            onPress={() => setEditingName(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Edit your name">
+            <Txt variant="title">{displayName}</Txt>
+            <Ionicons name="pencil" size={15} color={Colors.textSub} />
+          </Pressable>
           {authUser?.userHandle ? (
             <Txt variant="bodySm" color={Colors.primary}>@{authUser.userHandle}</Txt>
           ) : null}
@@ -254,13 +262,142 @@ export default function ProfileScreen() {
           </View>
         </View>
       </Modal>
+
+      {editingName && (
+        <NameEditor
+          currentName={authUser?.name ?? ''}
+          nameUpdatedAt={authUser?.nameUpdatedAt ?? null}
+          onClose={() => setEditingName(false)}
+          onSave={async (full) => {
+            await updateName(full, { stampChange: true });
+            setEditingName(false);
+          }}
+        />
+      )}
     </Screen>
+  );
+}
+
+/** How often a member may change their display name. Kept modest so the
+ *  community can recognise each other and blocks can't be dodged by renaming. */
+const NAME_COOLDOWN_DAYS = 30;
+
+function NameEditor({
+  currentName,
+  nameUpdatedAt,
+  onClose,
+  onSave,
+}: {
+  currentName: string;
+  nameUpdatedAt: string | null;
+  onClose: () => void;
+  onSave: (fullName: string) => Promise<void>;
+}) {
+  const parts = currentName.trim().split(/\s+/).filter(Boolean);
+  const [first, setFirst] = useState(parts[0] ?? '');
+  const [last, setLast] = useState(parts.slice(1).join(' '));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Cooldown: a CHANGE is allowed only once every NAME_COOLDOWN_DAYS. The initial
+  // onboarding set doesn't stamp nameUpdatedAt, so the first correction is free.
+  const changedMs = nameUpdatedAt ? Date.parse(nameUpdatedAt) : NaN;
+  const nextAllowed = Number.isNaN(changedMs) ? 0 : changedMs + NAME_COOLDOWN_DAYS * 86400000;
+  const locked = nextAllowed > Date.now();
+  const nextDateLabel = locked
+    ? new Date(nextAllowed).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+    : '';
+
+  const full = [first.trim(), last.trim()].filter(Boolean).join(' ');
+  const changed = full && full !== currentName.trim();
+
+  const save = async () => {
+    if (!changed || locked || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await onSave(full);
+    } catch {
+      setError('Couldn’t save your name. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.backdrop} onPress={onClose} />
+      <View style={styles.sheet}>
+        <Txt variant="title">Your name</Txt>
+        {locked ? (
+          <Txt variant="bodySm" color={Colors.textSub}>
+            To keep the community recognisable, names can only change once every {NAME_COOLDOWN_DAYS} days.
+            You can change yours again on {nextDateLabel}.
+          </Txt>
+        ) : (
+          <Txt variant="bodySm" color={Colors.textSub}>
+            This is how you appear across the community. You can change it once every {NAME_COOLDOWN_DAYS} days.
+          </Txt>
+        )}
+        <View style={{ gap: Spacing.sm, marginTop: Spacing.sm }}>
+          <TextInput
+            value={first}
+            onChangeText={setFirst}
+            placeholder="First name"
+            placeholderTextColor={Colors.textSub}
+            editable={!locked}
+            autoCapitalize="words"
+            style={[styles.nameInput, locked && styles.nameInputDisabled]}
+          />
+          <TextInput
+            value={last}
+            onChangeText={setLast}
+            placeholder="Last name (optional)"
+            placeholderTextColor={Colors.textSub}
+            editable={!locked}
+            autoCapitalize="words"
+            style={[styles.nameInput, locked && styles.nameInputDisabled]}
+          />
+        </View>
+        {error ? (
+          <Txt variant="caption" color={Colors.danger}>
+            {error}
+          </Txt>
+        ) : null}
+        <View style={styles.sheetActions}>
+          <View style={{ flex: 1 }}>
+            <Button title="Cancel" variant="outline" onPress={onClose} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Button
+              title="Save"
+              variant="primary"
+              disabled={!changed || locked || busy}
+              loading={busy}
+              onPress={save}
+            />
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.screen },
   profileCard: { alignItems: 'center', paddingTop: Spacing.sm, paddingBottom: Spacing.sm, gap: Spacing.xs },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  nameInput: {
+    backgroundColor: Colors.screen,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    color: Colors.textMain,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: Colors.stroke,
+  },
+  nameInputDisabled: { opacity: 0.5 },
   avatar: { width: 84, height: 84, borderRadius: 42, marginBottom: Spacing.sm, backgroundColor: Colors.soft, borderWidth: 3, borderColor: Colors.stroke },
   editBtn: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginTop: Spacing.sm, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: Radius.pill, backgroundColor: Colors.primary },
   content: { padding: Spacing.lg, gap: Spacing.md, paddingBottom: Spacing.xxl },

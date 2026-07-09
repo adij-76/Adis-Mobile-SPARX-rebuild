@@ -1289,7 +1289,7 @@ export const supabaseGroups: GroupsApi = {
 type GoTrueUser = {
   id: string;
   email: string;
-  user_metadata?: { name?: string; full_name?: string; avatar_url?: string } | null;
+  user_metadata?: { name?: string; full_name?: string; avatar_url?: string; name_updated_at?: string } | null;
 };
 type GoTrueSession = {
   access_token: string;
@@ -1304,6 +1304,7 @@ function toAuthUser(u: GoTrueUser): AuthUser {
     id: u.id,
     email: u.email,
     name: u.user_metadata?.name ?? u.user_metadata?.full_name ?? null,
+    nameUpdatedAt: u.user_metadata?.name_updated_at ?? null,
     avatarUrl: u.user_metadata?.avatar_url ?? null,
     appUserId: null,
     // Rich fields are null/false until enriched by apply() → me()
@@ -1473,14 +1474,18 @@ export const supabaseAuth: AuthApi = {
     }).catch(() => {});
     return publicUrl;
   },
-  async updateName(name) {
+  async updateName(name, opts) {
     const clean = name.trim();
+    // GoTrue merges the provided user_metadata keys (preserving avatar_url), and
+    // its metadata has precedence for the display name (auth.tsx apply()), so
+    // this becomes the user's name everywhere at once. Stamp name_updated_at only
+    // for real edits so the rename cooldown starts from the last CHANGE.
+    const data: Record<string, string> = { name: clean, full_name: clean };
+    if (opts?.stampChange) data.name_updated_at = new Date().toISOString();
     const res = await fetch(`${BASE}/auth/v1/user`, {
       method: 'PUT',
       headers: { apikey: ANON, Authorization: `Bearer ${authToken ?? ANON}`, 'Content-Type': 'application/json' },
-      // GoTrue user_metadata has precedence for the app's display name (see
-      // auth.tsx apply()), so this becomes the user's name everywhere at once.
-      body: JSON.stringify({ data: { name: clean, full_name: clean } }),
+      body: JSON.stringify({ data }),
     });
     if (res.status === 401) onUnauthorized?.();
     if (!res.ok) throw new Error(`Couldn't save your name (${res.status}).`);
