@@ -505,6 +505,7 @@ export const posts: Post[] = [
   {
     id: 'p1',
     author: 'Maya R.',
+    authorId: '3', // maps to a mock directory member so DMs work offline
     avatar: 'https://i.pravatar.cc/80?img=5',
     time: '2h ago',
     community: 'Helping Hands',
@@ -519,6 +520,7 @@ export const posts: Post[] = [
   {
     id: 'p2',
     author: 'David M.',
+    authorId: '4', // maps to a mock directory member so DMs work offline
     avatar: 'https://i.pravatar.cc/80?img=33',
     time: '5h ago',
     community: 'Daily Mindfulness',

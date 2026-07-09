@@ -75,16 +75,11 @@ export function PostCard({ post, onPress, full }: PostCardProps) {
   // DM the post author: find-or-create the 1:1 conversation, then open it. Seed
   // posts (and any post whose author id the view didn't resolve) have no id, and
   // a blocked author yields no conversation → fall back to the messages list.
-  const startChat = async () => {
-    if (!post.authorId) {
-      router.push('/feed/messages');
-      return;
-    }
-    const convId = await api.messages.startDirect(post.authorId);
+  const startChat = () => {
+    if (!post.authorId) return; // no id → can't DM (seed/legacy author)
+    // The chat screen finds-or-creates the 1:1 thread from `peer`.
     router.push(
-      convId
-        ? `/feed/chat?id=${convId}&name=${encodeURIComponent(post.author)}&avatar=${encodeURIComponent(post.avatar)}&peer=${post.authorId}`
-        : '/feed/messages',
+      `/feed/chat?peer=${post.authorId}&name=${encodeURIComponent(post.author)}&avatar=${encodeURIComponent(post.avatar)}`,
     );
   };
 

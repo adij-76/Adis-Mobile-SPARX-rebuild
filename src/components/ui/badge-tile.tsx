@@ -15,11 +15,11 @@ export function BadgeTile({ badge, count }: { badge: BadgeDef; count: number }) 
       <Txt variant="caption" color={earned ? Colors.textMain : Colors.textSub} center numberOfLines={2}>
         {badge.title}
       </Txt>
-      {!earned ? (
-        <Txt variant="caption" color={Colors.textSub} center numberOfLines={2} style={styles.hint}>
-          {badge.hint}
-        </Txt>
-      ) : null}
+      {/* Show the description on earned badges too — otherwise an emoji + title
+          alone is hard to interpret ("what did I actually earn this for?"). */}
+      <Txt variant="caption" color={Colors.textSub} center numberOfLines={3} style={styles.hint}>
+        {badge.hint}
+      </Txt>
       {earned && badge.kind === 'repeat' && count > 1 ? (
         <View style={styles.count}>
           <Txt variant="caption" color={Colors.white}>
