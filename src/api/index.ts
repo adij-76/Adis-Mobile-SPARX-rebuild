@@ -116,6 +116,7 @@ export type {
   MeResult,
   MeetingsApi,
   MessagesApi,
+  NameChangeRequest,
   Module,
   OnboardingApi,
   OnboardingProfile,

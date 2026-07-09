@@ -33,6 +33,7 @@ ai-context.sql
 admin-dashboard.sql
 account.sql
 connections.sql
+name-requests.sql
 harden-writes.sql
 
 # Base-table hardening — MUST run LAST, after every view/table/function above

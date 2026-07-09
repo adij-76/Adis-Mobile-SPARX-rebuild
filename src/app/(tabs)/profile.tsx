@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { api } from '@/api';
@@ -268,57 +268,80 @@ export default function ProfileScreen() {
           currentName={authUser?.name ?? ''}
           nameUpdatedAt={authUser?.nameUpdatedAt ?? null}
           onClose={() => setEditingName(false)}
-          onSave={async (full) => {
+          onSaveInstant={async (full) => {
             await updateName(full, { stampChange: true });
             setEditingName(false);
           }}
+          onSubmitRequest={(full) => api.auth.requestNameChange(full)}
         />
       )}
     </Screen>
   );
 }
 
-/** How often a member may change their display name. Kept modest so the
- *  community can recognise each other and blocks can't be dodged by renaming. */
-const NAME_COOLDOWN_DAYS = 30;
-
+/**
+ * Name editor. The FIRST correction (before any change has been stamped) is
+ * self-service and instant — so signup typos are easy to fix. After that, a
+ * change becomes a correction REQUEST an admin reviews (keeps the community
+ * recognisable and lets a human catch impersonation / inappropriate names).
+ */
 function NameEditor({
   currentName,
   nameUpdatedAt,
   onClose,
-  onSave,
+  onSaveInstant,
+  onSubmitRequest,
 }: {
   currentName: string;
   nameUpdatedAt: string | null;
   onClose: () => void;
-  onSave: (fullName: string) => Promise<void>;
+  onSaveInstant: (fullName: string) => Promise<void>;
+  onSubmitRequest: (fullName: string) => Promise<void>;
 }) {
   const parts = currentName.trim().split(/\s+/).filter(Boolean);
   const [first, setFirst] = useState(parts[0] ?? '');
   const [last, setLast] = useState(parts.slice(1).join(' '));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
+  // A pending review request (if any) already in flight for this member.
+  const [pending, setPending] = useState<string | null | undefined>(undefined);
 
-  // Cooldown: a CHANGE is allowed only once every NAME_COOLDOWN_DAYS. The initial
-  // onboarding set doesn't stamp nameUpdatedAt, so the first correction is free.
-  const changedMs = nameUpdatedAt ? Date.parse(nameUpdatedAt) : NaN;
-  const nextAllowed = Number.isNaN(changedMs) ? 0 : changedMs + NAME_COOLDOWN_DAYS * 86400000;
-  const locked = nextAllowed > Date.now();
-  const nextDateLabel = locked
-    ? new Date(nextAllowed).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-    : '';
+  // The free first correction is available until a change has been stamped.
+  const freeChange = !nameUpdatedAt;
+
+  useEffect(() => {
+    if (freeChange) {
+      setPending(null);
+      return;
+    }
+    let alive = true;
+    api.auth
+      .pendingNameChange()
+      .then((p) => alive && setPending(p))
+      .catch(() => alive && setPending(null));
+    return () => {
+      alive = false;
+    };
+  }, [freeChange]);
 
   const full = [first.trim(), last.trim()].filter(Boolean).join(' ');
-  const changed = full && full !== currentName.trim();
+  const changed = !!full && full !== currentName.trim();
+  const locked = !!pending || submitted; // a request is already awaiting review
 
-  const save = async () => {
+  const submit = async () => {
     if (!changed || locked || busy) return;
     setBusy(true);
     setError(null);
     try {
-      await onSave(full);
+      if (freeChange) {
+        await onSaveInstant(full);
+      } else {
+        await onSubmitRequest(full);
+        setSubmitted(true);
+      }
     } catch {
-      setError('Couldn’t save your name. Please try again.');
+      setError('Something went wrong. Please try again.');
     } finally {
       setBusy(false);
     }
@@ -329,54 +352,69 @@ function NameEditor({
       <Pressable style={styles.backdrop} onPress={onClose} />
       <View style={styles.sheet}>
         <Txt variant="title">Your name</Txt>
-        {locked ? (
+
+        {submitted ? (
+          <Txt variant="bodySm" color={Colors.success}>
+            Thanks — your name change was submitted for review. We’ll update it once approved.
+          </Txt>
+        ) : pending ? (
           <Txt variant="bodySm" color={Colors.textSub}>
-            To keep the community recognisable, names can only change once every {NAME_COOLDOWN_DAYS} days.
-            You can change yours again on {nextDateLabel}.
+            You already have a name change (“{pending}”) awaiting review. We’ll update it once approved.
+          </Txt>
+        ) : freeChange ? (
+          <Txt variant="bodySm" color={Colors.textSub}>
+            This is how you appear across the community. You can set it once here — later changes go
+            through a quick review.
           </Txt>
         ) : (
           <Txt variant="bodySm" color={Colors.textSub}>
-            This is how you appear across the community. You can change it once every {NAME_COOLDOWN_DAYS} days.
+            To keep the community recognisable, name changes are reviewed. Submit your correction and
+            we’ll update it once approved.
           </Txt>
         )}
-        <View style={{ gap: Spacing.sm, marginTop: Spacing.sm }}>
-          <TextInput
-            value={first}
-            onChangeText={setFirst}
-            placeholder="First name"
-            placeholderTextColor={Colors.textSub}
-            editable={!locked}
-            autoCapitalize="words"
-            style={[styles.nameInput, locked && styles.nameInputDisabled]}
-          />
-          <TextInput
-            value={last}
-            onChangeText={setLast}
-            placeholder="Last name (optional)"
-            placeholderTextColor={Colors.textSub}
-            editable={!locked}
-            autoCapitalize="words"
-            style={[styles.nameInput, locked && styles.nameInputDisabled]}
-          />
-        </View>
+
+        {!submitted && !pending && (
+          <View style={{ gap: Spacing.sm, marginTop: Spacing.sm }}>
+            <TextInput
+              value={first}
+              onChangeText={setFirst}
+              placeholder="First name"
+              placeholderTextColor={Colors.textSub}
+              autoCapitalize="words"
+              style={styles.nameInput}
+            />
+            <TextInput
+              value={last}
+              onChangeText={setLast}
+              placeholder="Last name (optional)"
+              placeholderTextColor={Colors.textSub}
+              autoCapitalize="words"
+              style={styles.nameInput}
+            />
+          </View>
+        )}
+
         {error ? (
           <Txt variant="caption" color={Colors.danger}>
             {error}
           </Txt>
         ) : null}
+
         <View style={styles.sheetActions}>
           <View style={{ flex: 1 }}>
-            <Button title="Cancel" variant="outline" onPress={onClose} />
+            <Button title={submitted || pending ? 'Close' : 'Cancel'} variant="outline" onPress={onClose} />
           </View>
-          <View style={{ flex: 1 }}>
-            <Button
-              title="Save"
-              variant="primary"
-              disabled={!changed || locked || busy}
-              loading={busy}
-              onPress={save}
-            />
-          </View>
+          {!submitted && !pending && (
+            <View style={{ flex: 1 }}>
+              <Button
+                title={freeChange ? 'Save' : 'Submit for review'}
+                variant="primary"
+                disabled={!changed || busy || pending === undefined}
+                loading={busy}
+                onPress={submit}
+              />
+            </View>
+          )}
         </View>
       </View>
     </Modal>
@@ -397,7 +435,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.stroke,
   },
-  nameInputDisabled: { opacity: 0.5 },
   avatar: { width: 84, height: 84, borderRadius: 42, marginBottom: Spacing.sm, backgroundColor: Colors.soft, borderWidth: 3, borderColor: Colors.stroke },
   editBtn: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginTop: Spacing.sm, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: Radius.pill, backgroundColor: Colors.primary },
   content: { padding: Spacing.lg, gap: Spacing.md, paddingBottom: Spacing.xxl },
