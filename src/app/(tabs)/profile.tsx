@@ -186,7 +186,7 @@ export default function ProfileScreen() {
         <Card padded={false} style={styles.list}>
           <ListRow icon="people-outline" label="Connections" onPress={() => router.push('/connections')} />
           <ListRow icon="notifications-outline" label="Notifications" onPress={() => router.push('/settings/notifications')} />
-          <ListRow icon="color-palette-outline" label="Theme" value="Light" onPress={() => router.push('/settings/theme')} />
+          <ListRow icon="color-palette-outline" label="Theme" onPress={() => router.push('/settings/theme')} />
           <ListRow icon="language-outline" label="Language" value="English" onPress={() => router.push('/settings/languages')} />
           <ListRow icon="lock-closed-outline" label="Change password" onPress={() => router.push('/settings/change-password')} />
           <ListRow icon="ban-outline" label="Blocked accounts" onPress={() => router.push('/settings/blocked')} />
@@ -446,6 +446,6 @@ const styles = StyleSheet.create({
   group: { marginTop: Spacing.md, marginLeft: Spacing.xs, letterSpacing: 1 },
   list: { overflow: 'hidden' },
   backdrop: { flex: 1, backgroundColor: Colors.overlay },
-  sheet: { backgroundColor: Colors.white, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, padding: Spacing.xl, paddingBottom: Spacing.xxl, gap: Spacing.md },
+  sheet: { backgroundColor: Colors.surface, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, padding: Spacing.xl, paddingBottom: Spacing.xxl, gap: Spacing.md },
   sheetActions: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.sm },
 });

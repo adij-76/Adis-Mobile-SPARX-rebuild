@@ -38,12 +38,12 @@ export function Stepper({ steps, current }: StepperProps) {
                   styles.circle,
                   state === 'done' && { backgroundColor: Colors.success },
                   state === 'active' && {
-                    backgroundColor: Colors.white,
+                    backgroundColor: Colors.surface,
                     borderWidth: 2,
                     borderColor: Colors.success,
                   },
                   state === 'locked' && {
-                    backgroundColor: Colors.white,
+                    backgroundColor: Colors.surface,
                     borderWidth: 1,
                     borderColor: Colors.stroke,
                   },

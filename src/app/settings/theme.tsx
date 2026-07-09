@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Txt } from '@/components/ui/text';
 import { Colors, Spacing } from '@/constants/theme';
+import { getThemeMode, setThemeMode, type ThemeMode } from '@/lib/theme-mode';
 
 const OPTIONS = [
   { key: 'light', label: 'Light', icon: 'sunny-outline' },
@@ -15,7 +16,11 @@ const OPTIONS = [
 ] as const;
 
 export default function ThemeSetting() {
-  const [value, setValue] = useState<string>('light');
+  const [value, setValue] = useState<ThemeMode>(() => getThemeMode());
+  const choose = (m: ThemeMode) => {
+    setValue(m);
+    setThemeMode(m); // applies instantly by toggling data-theme on <html>
+  };
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScreenHeader title="Back" largeTitle="Theme" />
@@ -24,7 +29,7 @@ export default function ThemeSetting() {
           {OPTIONS.map((o, i) => (
             <Pressable
               key={o.key}
-              onPress={() => setValue(o.key)}
+              onPress={() => choose(o.key)}
               style={[styles.row, i < OPTIONS.length - 1 && styles.divider]}>
               <Ionicons name={o.icon} size={22} color={Colors.primary} />
               <Txt variant="bodyMedium" style={{ flex: 1 }}>

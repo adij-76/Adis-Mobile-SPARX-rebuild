@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
   cAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.soft },
   bubble: {
     flex: 1,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Colors.stroke,
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
   replyComposer: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginLeft: 48 },
   replyInput: {
     flex: 1,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.stroke,
     borderRadius: Radius.md,
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     borderTopWidth: 1,
     borderTopColor: Colors.stroke,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
   },
   input: {
     flex: 1,

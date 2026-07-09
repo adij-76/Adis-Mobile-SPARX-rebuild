@@ -379,7 +379,7 @@ const styles = StyleSheet.create({
     top: 30,
     right: 0,
     minWidth: 150,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Colors.stroke,
@@ -445,6 +445,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.md,
     padding: Spacing.lg,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
   },
 });

@@ -178,7 +178,7 @@ export default function People() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.white },
+  safe: { flex: 1, backgroundColor: Colors.surface },
   searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: 'center', gap: Spacing.md, paddingTop: Spacing.xxl },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.md },
   divider: { height: 1, backgroundColor: Colors.stroke },
-  footer: { padding: Spacing.lg, borderTopWidth: 1, borderTopColor: Colors.stroke, backgroundColor: Colors.white },
+  footer: { padding: Spacing.lg, borderTopWidth: 1, borderTopColor: Colors.stroke, backgroundColor: Colors.surface },
   startBtn: {
     height: 52,
     borderRadius: Radius.pill,

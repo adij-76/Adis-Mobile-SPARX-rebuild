@@ -13,7 +13,7 @@ export function Card({ padded = true, elevated = true, style, ...rest }: CardPro
     <View
       style={[
         {
-          backgroundColor: Colors.white,
+          backgroundColor: Colors.surface,
           borderRadius: Radius.lg,
           borderWidth: 1,
           borderColor: Colors.stroke,

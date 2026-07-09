@@ -258,7 +258,7 @@ export default function VideoDetail() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.white },
+  safe: { flex: 1, backgroundColor: Colors.surface },
   body: { padding: Spacing.lg, gap: Spacing.md },
   player: { borderRadius: Radius.md, overflow: 'hidden', backgroundColor: '#000' },
   poster: { width: '100%', height: 210 },
@@ -322,7 +322,7 @@ const styles = StyleSheet.create({
   celebrateCard: {
     width: '100%',
     maxWidth: 340,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
     padding: Spacing.xl,
     alignItems: 'center',

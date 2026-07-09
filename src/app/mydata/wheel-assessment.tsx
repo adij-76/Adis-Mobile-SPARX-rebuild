@@ -173,7 +173,7 @@ export default function WheelAssessment() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.white },
+  safe: { flex: 1, backgroundColor: Colors.surface },
   progressWrap: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.md },
   body: { padding: Spacing.lg, gap: Spacing.xl },
   catHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },

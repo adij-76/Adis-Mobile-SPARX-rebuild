@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: Colors.stroke,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
   },
   menu: {
     position: 'absolute',
@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.stroke,
     borderRadius: Radius.md,
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
   bubbleMe: { alignSelf: 'flex-end', backgroundColor: Colors.primary, borderBottomRightRadius: 4 },
   bubbleThem: {
     alignSelf: 'flex-start',
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.stroke,
     borderBottomLeftRadius: 4,
@@ -305,13 +305,13 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     borderTopWidth: 1,
     borderTopColor: Colors.stroke,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
   },
   blockedBar: {
     padding: Spacing.lg,
     borderTopWidth: 1,
     borderTopColor: Colors.stroke,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
   },
   input: {
     flex: 1,

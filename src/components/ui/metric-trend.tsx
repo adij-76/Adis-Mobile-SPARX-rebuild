@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
   barValue: { fontSize: 11, fontFamily: FontFamily.bold },
   barFill: { width: '72%', minWidth: 8, borderRadius: Radius.sm },
   avgLine: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: Colors.textSub, opacity: 0.55 },
-  avgTag: { position: 'absolute', right: 0, paddingHorizontal: 4, backgroundColor: Colors.white, borderRadius: 4 },
+  avgTag: { position: 'absolute', right: 0, paddingHorizontal: 4, backgroundColor: Colors.surface, borderRadius: 4 },
   avgTagTxt: { fontSize: 10, fontFamily: FontFamily.bold, color: Colors.textSub },
   plotLabels: { flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.xs, marginTop: 4 },
   barLabel: { fontSize: 11, fontFamily: FontFamily.semibold, flex: 1, textAlign: 'center' },

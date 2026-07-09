@@ -140,7 +140,7 @@ export default function Premium() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.white },
+  root: { flex: 1, backgroundColor: Colors.surface },
   body: { padding: Spacing.lg, gap: Spacing.xl },
   hero: { borderRadius: Radius.lg, padding: Spacing.xl, alignItems: 'center', gap: Spacing.sm },
   benefit: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },

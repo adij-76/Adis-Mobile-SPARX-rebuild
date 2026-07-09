@@ -90,7 +90,7 @@ export function WorkshopCard({ item, onPress }: WorkshopCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
     borderWidth: 1,
     borderColor: Colors.stroke,

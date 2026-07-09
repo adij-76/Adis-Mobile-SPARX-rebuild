@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
   tileRow: { flexDirection: 'row', gap: Spacing.md, marginBottom: Spacing.md },
   tile: {
     flex: 1,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
     borderWidth: 1,
     borderColor: Colors.stroke,
@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
   },
   tileSpacer: { flex: 1 },
   card: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
     borderWidth: 1,
     borderColor: Colors.stroke,

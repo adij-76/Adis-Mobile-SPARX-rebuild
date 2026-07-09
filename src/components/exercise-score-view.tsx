@@ -86,7 +86,7 @@ export function ExerciseScoreView({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.white },
+  safe: { flex: 1, backgroundColor: Colors.surface },
   body: {
     padding: Spacing.xl,
     gap: Spacing.md,

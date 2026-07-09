@@ -2,10 +2,50 @@
  * IGNTD design tokens — extracted from the Figma board
  * (file: IGNTD, "Workshop" section). These map the Figma design
  * variables to a typed theme consumed across the app.
+ *
+ * DARK MODE (web): the NEUTRAL tokens (surfaces, text, strokes, highlight)
+ * resolve to CSS variables on web — see THEME_LIGHT/THEME_DARK + the <style>
+ * block in +html.tsx. When `data-theme` flips on <html>, every one of them
+ * re-themes with zero component changes (RN Web passes `var(...)` straight
+ * through). The light hex is the fallback for native / SSR. Brand colours and
+ * white "ink" stay literal because they read the same in both themes.
  */
+import { Platform } from 'react-native';
+
+/** Light-mode values for the themeable neutral tokens (the source of truth). */
+export const THEME_LIGHT = {
+  screen: '#F6F7F9', // app background
+  surface: '#FFFFFF', // cards / sheets / inputs (was `white` used as a background)
+  soft: '#E2E4E9', // bg/soft-200
+  stroke: '#E2E4E9', // stroke/soft-200
+  strokeStrong: '#CDD0D5',
+  textMain: '#0A0D14', // text/main-900
+  textSub: '#525866', // text/sub-500
+  highlight: '#FFF1E7', // soft peach surface (selected / "you" / banners)
+  highlightBorder: '#FFD9B8',
+} as const;
+
+/** Dark-mode values for the same tokens. */
+export const THEME_DARK = {
+  screen: '#0E1116',
+  surface: '#171C24',
+  soft: '#232B36',
+  stroke: '#2A323E',
+  strokeStrong: '#3B434F',
+  textMain: '#ECEEF2',
+  textSub: '#9AA2AE',
+  highlight: '#2A2117',
+  highlightBorder: '#4A3722',
+} as const;
+
+type ThemeToken = keyof typeof THEME_LIGHT;
+// On web, read the theme-aware CSS variable (light hex as fallback); on native
+// there are no CSS vars, so use the light value directly.
+const t = (name: ThemeToken): string =>
+  Platform.OS === 'web' ? `var(--c-${name}, ${THEME_LIGHT[name]})` : THEME_LIGHT[name];
 
 export const Colors = {
-  // Brand / blues
+  // Brand / blues (literal — same in both themes)
   primary: '#166890', // Figma "Main" — primary teal
   primaryDark: '#0A3653', // "Main1" / Foundation/Blue/blue-500 — dark header
   primaryDarker: '#00314E', // "Dark blue" — completion screen bg
@@ -13,33 +53,32 @@ export const Colors = {
   lightBlue: '#699AC1', // "Light blue" — Prev/Next buttons
   tealLight: '#C2EFFF', // "teal/light"
 
-  // Accents
+  // Accents (literal)
   orange: '#FF9D4B', // "Orange main" — CTA buttons
   orangePale: '#FFB879', // "Pale" — banner / star
   success: '#38C793', // "state/success" — completed steps
   danger: '#DF1C41', // "red/base"
 
-  // Text
-  textMain: '#0A0D14', // text/main-900
-  textSub: '#525866', // text/sub-500
+  // White "ink" (literal — stays white on coloured surfaces in both themes)
+  white: '#FFFFFF',
   textOnDark: '#FFFFFF',
   textMutedOnDark: 'rgba(255,255,255,0.7)',
 
-  // Surfaces
-  white: '#FFFFFF', // bg/white-0
-  screen: '#F6F7F9', // light app background
-  soft: '#E2E4E9', // bg/soft-200
-  stroke: '#E2E4E9', // stroke/soft-200
-  strokeStrong: '#CDD0D5',
+  // Themeable neutrals (web: CSS vars → dark mode)
+  screen: t('screen'),
+  surface: t('surface'),
+  soft: t('soft'),
+  stroke: t('stroke'),
+  strokeStrong: t('strokeStrong'),
+  textMain: t('textMain'),
+  textSub: t('textSub'),
+  highlight: t('highlight'),
+  highlightBorder: t('highlightBorder'),
 
-  // Highlight (design uses a warm peach tint for selected / "you" / banners)
-  highlight: '#FFF1E7', // soft peach surface
-  highlightBorder: '#FFD9B8',
-
-  // Misc
+  // Misc (literal)
   star: '#C7D66D', // completion star (olive/lime)
   overlay: 'rgba(10,13,20,0.4)',
-} as const;
+};
 
 export type ThemeColorName = keyof typeof Colors;
 

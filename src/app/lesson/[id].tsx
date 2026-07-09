@@ -502,7 +502,7 @@ function Intro({
 const OUTLINE_W = 320;
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.white },
+  safe: { flex: 1, backgroundColor: Colors.surface },
   ackRoot: { flex: 1, backgroundColor: Colors.primaryDarker },
   ackSafe: { flex: 1, paddingHorizontal: Spacing.lg },
   ackCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -628,7 +628,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: '82%',
     maxWidth: 360,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
   },
   drawerHandle: { alignItems: 'flex-end', padding: Spacing.sm },
   drawerClose: { padding: Spacing.xs },

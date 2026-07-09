@@ -279,7 +279,7 @@ function PostCelebration({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.white },
+  safe: { flex: 1, backgroundColor: Colors.surface },
   body: { padding: Spacing.lg, gap: Spacing.lg },
   introBanner: {
     flexDirection: 'row',
@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
